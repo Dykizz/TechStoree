@@ -19,6 +19,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 
 // 3. Cấu hình JSON serializer theo định dạng camelCase
 builder.Services.AddControllers()

@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.DTOs.Suppliers;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.Models;
 
@@ -53,4 +54,19 @@ public static class MappingExtensions
             CreatedAt = user.CreatedAt
         };
     }
+
+    public static SupplierDto ToSupplierDto(this Supplier supplier)
+    {
+        return new SupplierDto
+        {
+            SupplierId = supplier.SupplierId,
+            SupplierName = supplier.SupplierName,
+            Phone = supplier.Phone,
+            Email = supplier.Email,
+            Address = supplier.Address,
+            CreatedAt = supplier.CreatedAt,
+            DeletedAt = supplier.DeletedAt
+        };
+    }
 }
+
