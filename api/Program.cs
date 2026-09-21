@@ -72,23 +72,5 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// 8. Root endpoint trả về ApiResponse chuẩn
-app.MapGet("/", () => Results.Ok(ApiResponse.SuccessResult(new
-{
-    name = "WebBanHang API",
-    version = "1.0",
-    runtime = ".NET 10.0",
-    swagger = "/swagger"
-}, "WebBanHang API (.NET 10) đang hoạt động ổn định!")));
-
-// 9. Endpoint kiểm thử Global Error Handling (có thể xóa khi deploy)
-app.MapGet("/api/test-error", () =>
-{
-    throw new BadRequestException("Thử nghiệm lỗi nghiệp vụ bắt bởi GlobalExceptionMiddleware!", new[]
-    {
-        "Trường email không đúng định dạng.",
-        "Mật khẩu phải có độ dài tối thiểu 6 ký tự."
-    });
-});
 
 app.Run();
