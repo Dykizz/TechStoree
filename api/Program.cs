@@ -18,6 +18,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // 2. Đăng ký các Services tầng nghiệp vụ (Dependency Injection)
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // 3. Cấu hình JSON serializer theo định dạng camelCase
 builder.Services.AddControllers()
