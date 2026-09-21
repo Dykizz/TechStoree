@@ -1,6 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
+using WebBanHang.Api.Exceptions;
+using WebBanHang.Api.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,7 +41,10 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// 5. Tự động khởi tạo CSDL và nạp dữ liệu mẫu khi khởi động
+// 5. Kích hoạt Global Exception Handling Middleware đầu tiên trong pipeline
+app.UseMiddleware<GlobalExceptionMiddleware>();
+
+// 6. Tự động kiểm tra và khởi tạo CSDL khi khởi động
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -52,7 +58,7 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// 6. Kích hoạt Swagger UI
+// 7. Kích hoạt Swagger UI
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -66,10 +72,23 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-app.MapGet("/", () => Results.Ok(new
+// 8. Root endpoint trả về ApiResponse chuẩn
+app.MapGet("/", () => Results.Ok(ApiResponse.SuccessResult(new
 {
-    message = "WebBanHang API (.NET 10) is running!",
+    name = "WebBanHang API",
+    version = "1.0",
+    runtime = ".NET 10.0",
     swagger = "/swagger"
-}));
+}, "WebBanHang API (.NET 10) đang hoạt động ổn định!")));
+
+// 9. Endpoint kiểm thử Global Error Handling (có thể xóa khi deploy)
+app.MapGet("/api/test-error", () =>
+{
+    throw new BadRequestException("Thử nghiệm lỗi nghiệp vụ bắt bởi GlobalExceptionMiddleware!", new[]
+    {
+        "Trường email không đúng định dạng.",
+        "Mật khẩu phải có độ dài tối thiểu 6 ký tự."
+    });
+});
 
 app.Run();
