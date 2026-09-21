@@ -1,0 +1,17 @@
+## .NET Core
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+## Environment
+.env
+
+## Docker
+.docker/
+
+## OS Files
+.DS_Store
+Thumbs.db
