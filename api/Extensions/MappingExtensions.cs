@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.DTOs.Categories;
 using WebBanHang.Api.DTOs.Suppliers;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.Models;
@@ -68,5 +69,16 @@ public static class MappingExtensions
             DeletedAt = supplier.DeletedAt
         };
     }
+
+    public static CategoryDto ToCategoryDto(this Category category)
+    {
+        return new CategoryDto
+        {
+            CategoryId = category.CategoryId,
+            CategoryName = category.CategoryName,
+            CreatedAt = category.CreatedAt
+        };
+    }
 }
+
 

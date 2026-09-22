@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<User> Users => Set<User>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
+    public DbSet<Category> Categories => Set<Category>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -53,13 +54,24 @@ public class AppDbContext : DbContext
             entity.HasQueryFilter(s => s.DeletedAt == null);
         });
 
-        // 4. Seed dữ liệu mặc định cho Role (ADMIN và USER)
+        // 4. Cấu hình bảng Categories (Không dùng Soft Delete - Áp dụng Cách 1)
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.ToTable("categories");
+            entity.HasKey(c => c.CategoryId);
+            entity.Property(c => c.CategoryId).HasColumnName("category_id");
+            entity.Property(c => c.CategoryName).HasColumnName("category_name").IsRequired().HasMaxLength(100);
+            entity.HasIndex(c => c.CategoryName).IsUnique();
+            entity.Property(c => c.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // 5. Seed dữ liệu mặc định cho Role (ADMIN và USER)
         modelBuilder.Entity<Role>().HasData(
             new Role { RoleId = "ADMIN", RoleName = "Quản trị viên" },
             new Role { RoleId = "USER", RoleName = "Người dùng" }
         );
 
-        // 5. Seed dữ liệu mẫu cho Suppliers
+        // 6. Seed dữ liệu mẫu cho Suppliers
         modelBuilder.Entity<Supplier>().HasData(
             new Supplier
             {
@@ -87,6 +99,34 @@ public class AppDbContext : DbContext
                 Email = "apple-sales@synnexfpt.com.vn",
                 Address = "Tòa nhà FPT Tân Thuận, Lô L.29B-31B-33B, Tân Thuận Đông, Q.7, TP.HCM",
                 CreatedAt = new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
+        // 7. Seed dữ liệu mẫu cho Categories (Laptop, Tai nghe, Phụ kiện, SmartHome)
+        modelBuilder.Entity<Category>().HasData(
+            new Category
+            {
+                CategoryId = 1,
+                CategoryName = "Laptop",
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Category
+            {
+                CategoryId = 2,
+                CategoryName = "Tai nghe & Âm thanh",
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Category
+            {
+                CategoryId = 3,
+                CategoryName = "Phụ kiện máy tính",
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            new Category
+            {
+                CategoryId = 4,
+                CategoryName = "Nhà thông minh (SmartHome)",
+                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
         );
     }
