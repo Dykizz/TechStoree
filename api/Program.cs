@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.Middlewares;
@@ -13,7 +14,10 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Cấu hình DbContext với PostgreSQL Npgsql
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    options.UseNpgsql(connectionString);
+    options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+});
 
 // 2. Đăng ký các Services tầng nghiệp vụ (Dependency Injection)
 builder.Services.AddScoped<ITokenService, TokenService>();
@@ -21,6 +25,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+
 
 
 // 3. Cấu hình JSON serializer theo định dạng camelCase

@@ -86,11 +86,12 @@ public class CategoryService(AppDbContext context) : ICategoryService
         var category = await context.Categories.FindAsync(id)
             ?? throw new KeyNotFoundException($"Không tìm thấy danh mục với mã ID: {id}.");
 
-        // var hasProducts = await context.Products.AnyAsync(p => p.CategoryId == id);
-        // if (hasProducts)
-        // {
-        //     throw new BadRequestException("Không thể xóa danh mục này vì đang có sản phẩm trực thuộc. Vui lòng chuyển hoặc xóa các sản phẩm liên quan trước!");
-        // }
+        // [Cách 1: Chặn xóa nếu còn sản phẩm]
+        var hasProducts = await context.Products.AnyAsync(p => p.CategoryId == id);
+        if (hasProducts)
+        {
+            throw new BadRequestException("Không thể xóa danh mục này vì đang có sản phẩm trực thuộc. Vui lòng chuyển hoặc xóa các sản phẩm liên quan trước!");
+        }
 
         context.Categories.Remove(category);
         await context.SaveChangesAsync();

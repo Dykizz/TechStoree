@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebBanHang.Api.Data;
@@ -11,9 +12,11 @@ using WebBanHang.Api.Data;
 namespace WebBanHang.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260922073412_AddProductAndVariantTablesWithDynamicAttributes")]
+    partial class AddProductAndVariantTablesWithDynamicAttributes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -105,12 +108,6 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("image_url");
 
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
                     b.Property<string>("ProductName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -136,7 +133,6 @@ namespace WebBanHang.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz, chip Intel Core Ultra thế hệ mới.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
-                            IsActive = true,
                             ProductName = "Laptop ASUS Zenbook 14 OLED UX3405",
                             VariantAttributes = "[\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\",\"M\\u00E0u s\\u1EAFc\"]"
                         },
@@ -147,7 +143,6 @@ namespace WebBanHang.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Laptop gaming hiệu năng cao card đồ họa RTX 4050, tản nhiệt buồng hơi kép.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
-                            IsActive = true,
                             ProductName = "Laptop Gaming Acer Nitro V 15",
                             VariantAttributes = "[\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\",\"M\\u00E0u s\\u1EAFc\"]"
                         },
@@ -158,7 +153,6 @@ namespace WebBanHang.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Tai nghe chống ồn chủ động đỉnh cao chống ồn tự động theo môi trường, pin 30h.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                            IsActive = true,
                             ProductName = "Tai nghe chụp tai Sony WH-1000XM5",
                             VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\"]"
                         },
@@ -169,7 +163,6 @@ namespace WebBanHang.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Bàn phím cơ 3 mode kết nối gõ êm ái, switch custom hot-swap mạch xuôi.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/f/l/fl-esports-gp75.png",
-                            IsActive = true,
                             ProductName = "Bàn phím cơ không dây FL-Esports GP75",
                             VariantAttributes = "[\"Lo\\u1EA1i Switch\"]"
                         },
@@ -180,7 +173,6 @@ namespace WebBanHang.Api.Migrations
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Màn hình trợ lý ảo tích hợp loa cảm ứng theo dõi giấc ngủ Radar Soli.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/g/o/google-nest-hub-2.png",
-                            IsActive = true,
                             ProductName = "Màn hình thông minh Google Nest Hub Gen 2",
                             VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\"]"
                         });
@@ -210,12 +202,6 @@ namespace WebBanHang.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("image_url");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(12,0)")
@@ -249,7 +235,6 @@ namespace WebBanHang.Api.Migrations
                             VariantId = 1,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"16GB RAM / 512GB SSD\",\"M\\u00E0u s\\u1EAFc\":\"Xanh\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
                             Price = 24990000m,
                             ProductId = 1,
                             StockQuantity = 15,
@@ -260,7 +245,6 @@ namespace WebBanHang.Api.Migrations
                             VariantId = 2,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"32GB RAM / 1TB SSD\",\"M\\u00E0u s\\u1EAFc\":\"Xanh\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
                             Price = 28990000m,
                             ProductId = 1,
                             StockQuantity = 10,
@@ -271,7 +255,6 @@ namespace WebBanHang.Api.Migrations
                             VariantId = 3,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"16GB RAM / 512GB SSD\",\"M\\u00E0u s\\u1EAFc\":\"\\u0110en\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
                             Price = 21490000m,
                             ProductId = 2,
                             StockQuantity = 20,
@@ -283,7 +266,6 @@ namespace WebBanHang.Api.Migrations
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u \\u0110en (Midnight Black)\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                            IsActive = true,
                             Price = 7490000m,
                             ProductId = 3,
                             StockQuantity = 25,
@@ -295,7 +277,6 @@ namespace WebBanHang.Api.Migrations
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u B\\u1EA1c (Silver Platinum)\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                            IsActive = true,
                             Price = 7490000m,
                             ProductId = 3,
                             StockQuantity = 15,
@@ -306,7 +287,6 @@ namespace WebBanHang.Api.Migrations
                             VariantId = 6,
                             Attributes = "{\"Lo\\u1EA1i Switch\":\"Taro Pink Switch\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
                             Price = 2190000m,
                             ProductId = 4,
                             StockQuantity = 18,
@@ -317,7 +297,6 @@ namespace WebBanHang.Api.Migrations
                             VariantId = 7,
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u Than Ch\\u00EC (Chalk)\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            IsActive = true,
                             Price = 1890000m,
                             ProductId = 5,
                             StockQuantity = 12,

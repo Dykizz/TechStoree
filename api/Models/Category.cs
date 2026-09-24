@@ -18,4 +18,8 @@ public class Category
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigation property: Danh sách sản phẩm trực thuộc
+    public ICollection<Product> Products { get; set; } = new List<Product>();
 }
+

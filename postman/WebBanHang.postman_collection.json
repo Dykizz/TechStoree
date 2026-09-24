@@ -1,0 +1,1978 @@
+{
+  "info": {
+    "_postman_id": "f3da8e80-8794-4dac-8800-3b0ab14dd729",
+    "name": "Web bán hàng",
+    "description": "Bộ API & Automated Tests hoàn chỉnh cho hệ thống Web Bán Hàng (.NET 10 Web API + PostgreSQL) - Bao gồm Auth, Users, Suppliers, Categories, Products (Quản lý và đồng bộ biến thể theo Phương án 1).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "createdAt": "2026-09-21T11:39:33.000Z",
+    "updatedAt": "2026-09-23T10:45:41.000Z",
+    "lastUpdatedBy": "37058152",
+    "uid": "37058152-f3da8e80-8794-4dac-8800-3b0ab14dd729"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "1. Đăng ký tài khoản (Register)",
+          "id": "57d41ac0-9805-4057-9311-aa240781b5f3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"testuser_{{$timestamp}}\",\n  \"password\": \"Password@123\",\n  \"email\": \"user_{{$timestamp}}@example.com\",\n  \"fullName\": \"Người Dùng Thử Nghiệm\",\n  \"phone\": \"0987654321\",\n  \"address\": \"TP. Hồ Chí Minh\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T16:54:07.000Z",
+          "updatedAt": "2026-09-21T16:56:32.000Z",
+          "uid": "37058152-57d41ac0-9805-4057-9311-aa240781b5f3"
+        },
+        {
+          "name": "2. Đăng nhập (Login - Email + Password)",
+          "id": "0b2b9ea0-ffa1-4d3a-b47f-3ca46b388878",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tai@example.com\",\n  \"password\": \"Password@123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T16:54:07.000Z",
+          "updatedAt": "2026-09-21T16:56:10.000Z",
+          "uid": "37058152-0b2b9ea0-ffa1-4d3a-b47f-3ca46b388878",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.token);",
+                  "    console.log(\"Đã tự động lưu accessToken vào Collection Variables!\");",
+                  "}",
+                  "if (json.data && json.data.refreshToken) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refreshToken);",
+                  "    console.log(\"Đã tự động lưu refreshToken vào Collection Variables!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Lấy thông tin cá nhân (Get Profile /me)",
+          "id": "1513e756-7b0f-48bb-84eb-6ff3492069df",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T16:54:07.000Z",
+          "updatedAt": "2026-09-21T16:57:51.000Z",
+          "uid": "37058152-1513e756-7b0f-48bb-84eb-6ff3492069df"
+        },
+        {
+          "name": "4. Cấp mới Token (Refresh Token - Body JSON)",
+          "id": "28456dc9-7494-4e0e-9c79-75fc6c53fd6b",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "refresh-token"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T16:54:07.000Z",
+          "updatedAt": "2026-09-21T16:56:17.000Z",
+          "uid": "37058152-28456dc9-7494-4e0e-9c79-75fc6c53fd6b",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.token);",
+                  "    console.log(\"Đã cập nhật accessToken mới!\");",
+                  "}",
+                  "if (json.data && json.data.refreshToken) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refreshToken);",
+                  "    console.log(\"Đã cập nhật refreshToken mới!\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Đăng xuất (Logout)",
+          "id": "628789d7-4ee9-4a12-9672-ae7c7e3f9dcb",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T16:54:07.000Z",
+          "updatedAt": "2026-09-21T16:57:59.000Z",
+          "uid": "37058152-628789d7-4ee9-4a12-9672-ae7c7e3f9dcb"
+        }
+      ],
+      "id": "2fe8e432-8c3e-4267-823a-db4a610caec2",
+      "description": "Các endpoint xác thực và quản lý phiên đăng nhập người dùng (tương ứng với AuthController)",
+      "createdAt": "2026-09-21T16:54:07.000Z",
+      "updatedAt": "2026-09-21T16:54:07.000Z",
+      "uid": "37058152-2fe8e432-8c3e-4267-823a-db4a610caec2"
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "1. Danh sách người dùng (Phân trang items + meta)",
+          "id": "ba8eb557-7f4b-4bab-af0a-e0da17dbda8c",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users?page=1&pageSize=10&role=USER&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "role",
+                  "value": "USER"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:11:35.000Z",
+          "updatedAt": "2026-09-21T17:22:53.000Z",
+          "uid": "37058152-ba8eb557-7f4b-4bab-af0a-e0da17dbda8c"
+        },
+        {
+          "name": "2. Chi tiết người dùng theo ID",
+          "id": "e2d69534-c4b1-491c-a6b4-4b89d28e882f",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/2",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "2"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:11:35.000Z",
+          "updatedAt": "2026-09-21T17:22:56.000Z",
+          "uid": "37058152-e2d69534-c4b1-491c-a6b4-4b89d28e882f"
+        },
+        {
+          "name": "3. Khóa / Mở khóa tài khoản (Toggle Lock)",
+          "id": "0c63dda4-b4e8-486e-aaa2-f6a3da980c3d",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/3/toggle-lock",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "3",
+                "toggle-lock"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:11:35.000Z",
+          "updatedAt": "2026-09-21T17:16:59.000Z",
+          "uid": "37058152-0c63dda4-b4e8-486e-aaa2-f6a3da980c3d"
+        },
+        {
+          "name": "4. Đổi vai trò tài khoản (Update Role)",
+          "id": "8f99cd1d-9621-4e13-aac6-f15d95ab4f79",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleId\": \"ADMIN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/3/role",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "3",
+                "role"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:11:35.000Z",
+          "updatedAt": "2026-09-21T17:17:06.000Z",
+          "uid": "37058152-8f99cd1d-9621-4e13-aac6-f15d95ab4f79"
+        },
+        {
+          "name": "5. Cập nhật hồ sơ cá nhân (Update Profile)",
+          "id": "ddef2316-3e15-4b51-81b6-8f4deb181266",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Nguyễn Văn Anh Cập Nhật\",\n  \"phone\": \"0988776655\",\n  \"dateOfBirth\": \"2001-08-20T00:00:00Z\",\n  \"techInterest\": \"Gaming\",\n  \"address\": \"456 Nguyễn Huệ, Q.1, TP.HCM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "profile"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:11:35.000Z",
+          "updatedAt": "2026-09-21T17:11:50.000Z",
+          "uid": "37058152-ddef2316-3e15-4b51-81b6-8f4deb181266"
+        }
+      ],
+      "id": "7ce77fe1-736f-42d8-8361-ae5f2c84e585",
+      "description": "Quản lý danh sách người dùng, phân quyền, khóa tài khoản và cập nhật hồ sơ (UsersController)",
+      "createdAt": "2026-09-21T17:11:35.000Z",
+      "updatedAt": "2026-09-21T17:11:35.000Z",
+      "uid": "37058152-7ce77fe1-736f-42d8-8361-ae5f2c84e585"
+    },
+    {
+      "name": "Suppliers",
+      "item": [
+        {
+          "name": "1. Danh sách nhà cung cấp (Phân trang items + meta)",
+          "id": "81923412-32ba-4b21-a18a-98213746a111",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/suppliers?page=1&pageSize=10&search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "suppliers"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:42:49.000Z",
+          "updatedAt": "2026-09-21T17:42:49.000Z",
+          "uid": "37058152-81923412-32ba-4b21-a18a-98213746a111"
+        },
+        {
+          "name": "2. Chi tiết nhà cung cấp theo ID",
+          "id": "81923412-32ba-4b21-a18a-98213746a222",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/suppliers/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "suppliers",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:42:49.000Z",
+          "updatedAt": "2026-09-21T17:42:49.000Z",
+          "uid": "37058152-81923412-32ba-4b21-a18a-98213746a222"
+        },
+        {
+          "name": "3. Thêm mới nhà cung cấp",
+          "id": "81923412-32ba-4b21-a18a-98213746a333",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierName\": \"Công ty TNHH Logitech Việt Nam\",\n  \"phone\": \"02838234567\",\n  \"email\": \"contact@logitech.vn\",\n  \"address\": \"Tòa nhà Bitexco, Q.1, TP.HCM\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/suppliers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "suppliers"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:42:49.000Z",
+          "updatedAt": "2026-09-21T17:42:49.000Z",
+          "uid": "37058152-81923412-32ba-4b21-a18a-98213746a333"
+        },
+        {
+          "name": "4. Cập nhật nhà cung cấp",
+          "id": "81923412-32ba-4b21-a18a-98213746a444",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierName\": \"Công ty TNHH ASUS Việt Nam (Cập nhật)\",\n  \"phone\": \"18006588\",\n  \"email\": \"support-updated@asus.com.vn\",\n  \"address\": \"Tầng 5, Tòa nhà Viettel, 285 Cách Mạng Tháng 8, Q.10, TP.HCM\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/suppliers/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "suppliers",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:42:49.000Z",
+          "updatedAt": "2026-09-21T17:42:49.000Z",
+          "uid": "37058152-81923412-32ba-4b21-a18a-98213746a444"
+        },
+        {
+          "name": "5. Xóa mềm nhà cung cấp (Soft Delete)",
+          "id": "81923412-32ba-4b21-a18a-98213746a555",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/suppliers/4",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "suppliers",
+                "4"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-21T17:42:49.000Z",
+          "updatedAt": "2026-09-21T17:42:49.000Z",
+          "uid": "37058152-81923412-32ba-4b21-a18a-98213746a555"
+        }
+      ],
+      "id": "9a8123ef-4e31-482a-bc91-628d022bfe51",
+      "description": "Quản lý đối tác & nhà cung cấp (Admin Desktop Màn hình 2 - Nguyễn Thành Đức)",
+      "createdAt": "2026-09-21T17:42:49.000Z",
+      "updatedAt": "2026-09-21T17:42:49.000Z",
+      "uid": "37058152-9a8123ef-4e31-482a-bc91-628d022bfe51"
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "1. Danh sách danh mục (GET /api/categories)",
+          "id": "0217e296-1531-4692-872c-6801c9bc6f2a",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories?search=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": ""
+                }
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-23T08:32:20.000Z",
+          "updatedAt": "2026-09-23T08:32:20.000Z",
+          "uid": "37058152-0217e296-1531-4692-872c-6801c9bc6f2a"
+        },
+        {
+          "name": "2. Chi tiết danh mục theo ID (GET /api/categories/:id)",
+          "id": "b4703f84-aebc-47ec-9dd4-7663f2e87424",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "1"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-23T08:32:20.000Z",
+          "updatedAt": "2026-09-23T08:32:20.000Z",
+          "uid": "37058152-b4703f84-aebc-47ec-9dd4-7663f2e87424"
+        },
+        {
+          "name": "3. Thêm mới danh mục (POST /api/categories)",
+          "id": "957ae1ce-7984-4b99-b2b9-e372699eaead",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryName\": \"Thiết bị âm thanh 1790152155380\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-23T08:32:20.000Z",
+          "updatedAt": "2026-09-23T08:32:20.000Z",
+          "uid": "37058152-957ae1ce-7984-4b99-b2b9-e372699eaead"
+        },
+        {
+          "name": "4. Cập nhật danh mục (PUT /api/categories/:id)",
+          "id": "adbe9c7f-ac26-49c0-ad5c-e571c2b9c5d9",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoryName\": \"Thiết bị âm thanh Hi-End Cập Nhật\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{createdCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{createdCategoryId}}"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-23T08:32:20.000Z",
+          "updatedAt": "2026-09-23T08:32:20.000Z",
+          "uid": "37058152-adbe9c7f-ac26-49c0-ad5c-e571c2b9c5d9"
+        },
+        {
+          "name": "5. Xóa danh mục (DELETE /api/categories/:id)",
+          "id": "eb6c5ebc-daef-4c09-9d91-4a0fcc995170",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categories/{{createdCategoryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categories",
+                "{{createdCategoryId}}"
+              ]
+            }
+          },
+          "response": [],
+          "createdAt": "2026-09-23T08:32:20.000Z",
+          "updatedAt": "2026-09-23T08:32:20.000Z",
+          "uid": "37058152-eb6c5ebc-daef-4c09-9d91-4a0fcc995170"
+        }
+      ],
+      "id": "dce7e66e-98c3-4384-ab46-b6c6e2a9dc9b",
+      "description": "Quản lý danh mục sản phẩm (CategoriesController - Nguyễn Đức Tài). Chặn xóa khi danh mục còn sản phẩm.",
+      "createdAt": "2026-09-23T08:32:20.000Z",
+      "updatedAt": "2026-09-23T08:32:20.000Z",
+      "uid": "37058152-dce7e66e-98c3-4384-ab46-b6c6e2a9dc9b"
+    },
+    {
+      "name": "Products",
+      "item": [
+        {
+          "name": "1. CRUD & Workflow chính",
+          "item": [
+            {
+              "name": "1. Danh sách sản phẩm (Phân trang PagedResult<ProductBaseDto>)",
+              "id": "445a90fe-505e-44a2-aeb8-86bb0e125293",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?page=1&pageSize=10&categoryId=&minPrice=&maxPrice=&isActive=true&sortBy=createdAt&isAscending=false&search=",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "10"
+                    },
+                    {
+                      "key": "categoryId",
+                      "value": ""
+                    },
+                    {
+                      "key": "minPrice",
+                      "value": ""
+                    },
+                    {
+                      "key": "maxPrice",
+                      "value": ""
+                    },
+                    {
+                      "key": "isActive",
+                      "value": "true"
+                    },
+                    {
+                      "key": "sortBy",
+                      "value": "createdAt"
+                    },
+                    {
+                      "key": "isAscending",
+                      "value": "false"
+                    },
+                    {
+                      "key": "search",
+                      "value": ""
+                    }
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-445a90fe-505e-44a2-aeb8-86bb0e125293",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response has success true and pagination data\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data).to.have.property(\"items\");",
+                      "    pm.expect(json.data).to.have.property(\"meta\");",
+                      "    pm.expect(json.data.items).to.be.an(\"array\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Chi tiết sản phẩm theo ID (GET /api/products/:id)",
+              "id": "e6534be4-e904-40d1-9448-53b75003c2e3",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "1"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-e6534be4-e904-40d1-9448-53b75003c2e3",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Response contains product details and variants\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data).to.have.property(\"productId\");",
+                      "    pm.expect(json.data).to.have.property(\"productName\");",
+                      "    pm.expect(json.data).to.have.property(\"variants\");",
+                      "    pm.expect(json.data.variants).to.be.an(\"array\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Thêm mới sản phẩm đính kèm biến thể (POST /api/products)",
+              "id": "b202caeb-d808-4838-8f9e-4c2809f5a751",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Điện thoại Samsung Galaxy S25 Ultra AI 1790152155381\",\n  \"categoryId\": 1,\n  \"description\": \"Siêu phẩm AI Phone 2026 với chip Snapdragon 8 Elite, camera 200MP zoom 100x.\",\n  \"imageUrl\": \"https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/2/s25-ultra.png\",\n  \"variantAttributes\": [\n    \"Màu sắc\",\n    \"Dung lượng\"\n  ],\n  \"isActive\": true,\n  \"variants\": [\n    {\n      \"price\": 31990000,\n      \"imageUrl\": null,\n      \"attributes\": {\n        \"Màu sắc\": \"Titan Xanh\",\n        \"Dung lượng\": \"256GB\"\n      },\n      \"isActive\": true\n    },\n    {\n      \"price\": 35990000,\n      \"imageUrl\": null,\n      \"attributes\": {\n        \"Màu sắc\": \"Titan Bạc\",\n        \"Dung lượng\": \"512GB\"\n      },\n      \"isActive\": true\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-b202caeb-d808-4838-8f9e-4c2809f5a751",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Auto-save createdProductId and createdVariantId to Collection Variables\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.productId).to.be.a(\"number\");",
+                      "    ",
+                      "    pm.collectionVariables.set(\"createdProductId\", json.data.productId);",
+                      "    console.log(\"Saved createdProductId:\", json.data.productId);",
+                      "    ",
+                      "    if (json.data.variants && json.data.variants.length > 0) {",
+                      "        pm.collectionVariables.set(\"createdVariantId\", json.data.variants[0].variantId);",
+                      "        console.log(\"Saved createdVariantId:\", json.data.variants[0].variantId);",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Cập nhật thông tin chung sản phẩm (PUT /api/products/:id)",
+              "id": "9d29dbd2-b0a5-414e-b057-fbace959df60",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Điện thoại Samsung Galaxy S25 Ultra (Bản Nâng Cấp)\",\n  \"categoryId\": 1,\n  \"description\": \"Mô tả sản phẩm đã được quản trị viên cập nhật thành công.\",\n  \"imageUrl\": \"https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/2/s25-ultra-updated.png\",\n  \"variantAttributes\": [\n    \"Màu sắc\",\n    \"Dung lượng\"\n  ],\n  \"isActive\": true\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-9d29dbd2-b0a5-414e-b057-fbace959df60",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Product info updated successfully\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.productName).to.include(\"Nâng Cấp\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "5. Đồng bộ danh sách biến thể (Batch Sync Variants - PUT /api/products/:id)",
+              "id": "a6f89b79-fbfd-40a9-9dee-f818efbd6d2b",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Điện thoại Samsung Galaxy S25 Ultra (Đồng bộ biến thể)\",\n  \"categoryId\": 1,\n  \"description\": \"Cập nhật biến thể cũ (sửa giá), thêm biến thể mới (không truyền variantId) và tự động loại bỏ biến thể không còn nằm trong danh sách.\",\n  \"imageUrl\": \"https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/2/s25-ultra-updated.png\",\n  \"variantAttributes\": [\n    \"Màu sắc\",\n    \"Dung lượng\"\n  ],\n  \"isActive\": true,\n  \"variants\": [\n    {\n      \"variantId\": \"{{createdVariantId}}\",\n      \"price\": 30990000,\n      \"imageUrl\": null,\n      \"attributes\": {\n        \"Màu sắc\": \"Titan Xanh\",\n        \"Dung lượng\": \"256GB\"\n      },\n      \"isActive\": true\n    },\n    {\n      \"price\": 39990000,\n      \"imageUrl\": null,\n      \"attributes\": {\n        \"Màu sắc\": \"Titan Vàng\",\n        \"Dung lượng\": \"1TB\"\n      },\n      \"isActive\": true\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T10:45:42.000Z",
+              "updatedAt": "2026-09-23T10:45:42.000Z",
+              "uid": "37058152-a6f89b79-fbfd-40a9-9dee-f818efbd6d2b",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Variants synced successfully\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.variants.length).to.be.at.least(1);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "6. Bật / Tắt trạng thái kinh doanh sản phẩm (PATCH /api/products/:id/status)",
+              "id": "0747f3f3-1041-4270-b6e2-a7a7ba8df069",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PATCH",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}/status",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}",
+                    "status"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-0747f3f3-1041-4270-b6e2-a7a7ba8df069",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Status toggled successfully\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data).to.have.property(\"isActive\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "7. Xóa sản phẩm (DELETE /api/products/:id)",
+              "id": "b14c96a6-9392-4e3c-a3a6-84817ca412ea",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "response": [],
+              "createdAt": "2026-09-23T08:32:20.000Z",
+              "updatedAt": "2026-09-23T08:32:20.000Z",
+              "uid": "37058152-b14c96a6-9392-4e3c-a3a6-84817ca412ea",
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Product deleted successfully\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "7 request cơ bản theo luồng vòng đời sản phẩm (Tạo -> Đọc -> Cập nhật thông tin -> Đồng bộ biến thể -> Đổi trạng thái -> Xóa)"
+        },
+        {
+          "name": "2. Kiểm thử Validation DTO (400 Bad Request)",
+          "item": [
+            {
+              "name": "[400] Tạo sản phẩm - Danh sách biến thể rỗng",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Sản phẩm lỗi không có biến thể\",\n  \"categoryId\": 1,\n  \"description\": \"Test validation\",\n  \"variantAttributes\": [\n    \"Màu sắc\"\n  ],\n  \"variants\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns validation error message for empty variants\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/biến thể|Variants|ít nhất 1/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo sản phẩm - Truyền variantId khi tạo mới",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Sản phẩm lỗi truyền variantId\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Màu sắc\"\n  ],\n  \"variants\": [\n    {\n      \"variantId\": 9999,\n      \"price\": 100000,\n      \"attributes\": {\n        \"Màu sắc\": \"Đen\"\n      }\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns error rejecting variantId on creation\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/VariantId|mã biến thể/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo sản phẩm - Trùng lặp bộ thuộc tính biến thể",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Sản phẩm trùng lặp thuộc tính biến thể\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Màu sắc\",\n    \"Dung lượng\"\n  ],\n  \"variants\": [\n    {\n      \"price\": 20000000,\n      \"attributes\": {\n        \"Màu sắc\": \"Đen\",\n        \"Dung lượng\": \"128GB\"\n      }\n    },\n    {\n      \"price\": 21000000,\n      \"attributes\": {\n        \"Màu sắc\": \"đen\",\n        \"Dung lượng\": \"128gb\"\n      }\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns duplicate variant attributes error\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/trùng lặp/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo sản phẩm - Biến thể thiếu thuộc tính bắt buộc",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Sản phẩm thiếu thuộc tính\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Màu sắc\",\n    \"Dung lượng\"\n  ],\n  \"variants\": [\n    {\n      \"price\": 20000000,\n      \"attributes\": {\n        \"Màu sắc\": \"Đen\"\n      }\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns missing required attributes error\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/thiếu|thuộc tính/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Cập nhật - Trùng lặp variantId trong payload",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Cập nhật trùng variantId\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Màu sắc\"\n  ],\n  \"variants\": [\n    {\n      \"variantId\": 1,\n      \"price\": 100000,\n      \"attributes\": {\n        \"Màu sắc\": \"Trắng\"\n      }\n    },\n    {\n      \"variantId\": 1,\n      \"price\": 200000,\n      \"attributes\": {\n        \"Màu sắc\": \"Đen\"\n      }\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns duplicate variantId error\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/trùng lặp/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Cập nhật - variantId không thuộc về sản phẩm này",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Cập nhật sai variantId\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Màu sắc\"\n  ],\n  \"variants\": [\n    {\n      \"variantId\": 999999,\n      \"price\": 100000,\n      \"attributes\": {\n        \"Màu sắc\": \"Trắng\"\n      }\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns invalid variantId error\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/không tồn tại hoặc không thuộc về/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Cập nhật - Đổi variantAttributes mà không gửi variants",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"productName\": \"Đổi thuộc tính nhưng không gửi variants\",\n  \"categoryId\": 1,\n  \"variantAttributes\": [\n    \"Kích thước\",\n    \"Trọng lượng\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/{{createdProductId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "{{createdProductId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Returns error requiring new variants when changing attributes\", function () {",
+                      "    var text = pm.response.text();",
+                      "    pm.expect(text).to.match(/kèm danh sách biến thể|VariantAttributes/i);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Các kịch bản kiểm thử tính toàn vẹn dữ liệu đầu vào (DTO IValidatableObject & DataAnnotations)"
+        },
+        {
+          "name": "3. Kiểm thử Phân quyền & Bảo mật (401 & 403)",
+          "item": [
+            {
+              "name": "[401] Tạo sản phẩm - Không truyền Token (No Auth)",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[401] Xóa sản phẩm - Không truyền Token (No Auth)",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "1"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 401 Unauthorized\", function () {",
+                      "    pm.response.to.have.status(401);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Kiểm tra bảo vệ endpoint yêu cầu quyền ADMIN khi không có token hoặc token không đủ quyền"
+        },
+        {
+          "name": "4. Kiểm tra ID không tồn tại (404 Not Found)",
+          "item": [
+            {
+              "name": "[404] Chi tiết sản phẩm không tồn tại (ID 999999)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/999999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "999999"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[404] Cập nhật sản phẩm không tồn tại (ID 999999)",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productName\": \"Không tồn tại\", \"categoryId\": 1}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/999999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "999999"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[404] Xóa sản phẩm không tồn tại (ID 999999)",
+              "request": {
+                "auth": {
+                  "type": "bearer"
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products/999999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products",
+                    "999999"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Kiểm tra xử lý khi truy vấn hoặc thao tác trên sản phẩm không tồn tại"
+        },
+        {
+          "name": "5. Tìm kiếm, Lọc & Sắp xếp (Search, Filter, Sort)",
+          "item": [
+            {
+              "name": "Tìm kiếm sản phẩm theo từ khóa (Search)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?search=Galaxy&page=1&pageSize=10",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "Galaxy"
+                    },
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Returns searched items\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.items).to.be.an(\"array\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lọc theo khoảng giá & danh mục",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?categoryId=1&minPrice=10000000&maxPrice=50000000",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "categoryId",
+                      "value": "1"
+                    },
+                    {
+                      "key": "minPrice",
+                      "value": "10000000"
+                    },
+                    {
+                      "key": "maxPrice",
+                      "value": "50000000"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Returns filtered items\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.items).to.be.an(\"array\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sắp xếp theo giá tăng dần (Sort price ASC)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?sortBy=price&isAscending=true",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "sortBy",
+                      "value": "price"
+                    },
+                    {
+                      "key": "isAscending",
+                      "value": "true"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sắp xếp theo giá giảm dần (Sort price DESC)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/products?sortBy=price&isAscending=false",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "products"
+                  ],
+                  "query": [
+                    {
+                      "key": "sortBy",
+                      "value": "price"
+                    },
+                    {
+                      "key": "isAscending",
+                      "value": "false"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ],
+          "description": "Kiểm thử các tham số phân trang, tìm kiếm theo từ khóa, lọc khoảng giá và sắp xếp kết quả"
+        }
+      ],
+      "id": "4763bb53-d2a6-473e-8b8d-7401f53e02d7",
+      "description": "Quản lý dòng sản phẩm & biến thể đồng bộ trọn gói (ProductsController - Nguyễn Đức Tài). Hỗ trợ phân trang, lọc nâng cao, cập nhật thông tin chung và đồng bộ biến thể (Batch Sync Variants) qua PUT.",
+      "createdAt": "2026-09-23T08:32:20.000Z",
+      "updatedAt": "2026-09-23T08:32:20.000Z",
+      "uid": "37058152-4763bb53-d2a6-473e-8b8d-7401f53e02d7"
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "createdCategoryId",
+      "value": ""
+    },
+    {
+      "key": "createdProductId",
+      "value": ""
+    },
+    {
+      "key": "createdVariantId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}

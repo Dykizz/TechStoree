@@ -33,6 +33,12 @@ public abstract class BaseApiController : ControllerBase
         User.Identity?.IsAuthenticated ?? false;
 
     /// <summary>
+    /// Kiểm tra người dùng hiện tại có vai trò ADMIN hay không
+    /// </summary>
+    protected bool IsAdmin =>
+        User.IsInRole("ADMIN") || string.Equals(CurrentUserRole, "ADMIN", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Trả về kết quả thành công HTTP 200 OK kèm dữ liệu được bọc trong ApiResponse
     /// </summary>
     protected IActionResult Success<T>(T data, string message = "Thao tác thành công") =>
