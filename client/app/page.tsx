@@ -1,0 +1,189 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useState, type FormEvent } from "react";
+import styles from "./page.module.css";
+
+type SessionUser = {
+  userId: number;
+  username: string;
+  fullName: string;
+  email: string;
+  role: string;
+};
+
+type AuthResult = { user?: SessionUser; message?: string };
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export default function Home() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function checkSession() {
+      try {
+        const response = await fetch("/api/auth/session", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          const result = (await response.json()) as AuthResult;
+          setUser(result.user ?? null);
+        }
+      } catch {
+        // Keep the form available even if the backend is offline.
+      } finally {
+        if (!controller.signal.aborted) setCheckingSession(false);
+      }
+    }
+    void checkSession();
+    return () => controller.abort();
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    const normalizedEmail = email.trim().toLowerCase();
+    const nextEmailError = emailPattern.test(normalizedEmail)
+      ? ""
+      : "Vui lòng nhập email hợp lệ.";
+    const nextPasswordError = password ? "" : "Vui lòng nhập mật khẩu.";
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+    setError("");
+    setNotice("");
+    if (nextEmailError || nextPasswordError) return;
+
+    setPending(true);
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: normalizedEmail, password, remember }),
+      });
+      const result = (await response.json()) as AuthResult;
+      if (!response.ok || !result.user) {
+        setError(result.message ?? "Không thể đăng nhập. Vui lòng thử lại.");
+        return;
+      }
+      setPassword("");
+      setUser(result.user);
+    } catch {
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleLogout() {
+    if (pending) return;
+    setPending(true);
+    setError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      const result = (await response.json()) as AuthResult;
+      if (!response.ok) {
+        setNotice(result.message ?? "Đã rời phiên trên trình duyệt này.");
+      }
+    } catch {
+      setNotice("Đã rời phiên trên trình duyệt này; chưa xác nhận được với máy chủ.");
+    } finally {
+      setUser(null);
+      setPending(false);
+    }
+  }
+
+  return (
+    <main className={styles.page}>
+      <section className={styles.story} aria-label="Giới thiệu TechStoree">
+        <div className={styles.storyInner}>
+          <div className={styles.brand} aria-label="TechStoree">
+            <span className={styles.brandMark} aria-hidden="true">T</span>
+            <span>TECHSTOREE</span>
+          </div>
+          <div className={styles.storyContent}>
+            <h1>Nguyên bản và tinh tế.<span>Thiết kế tối giản cho cuộc sống hiện đại.</span></h1>
+            <p>Khám phá các thiết bị công nghệ được chọn lọc kỹ lưỡng, trong một trải nghiệm mua sắm giản đơn.</p>
+          </div>
+          <div className={styles.productImage}>
+            <Image src="/images/editorial-laptop.png" alt="Máy tính xách tay màu bạc trên nền đá tối" fill sizes="(max-width: 900px) 100vw, 50vw" />
+          </div>
+          <div className={styles.storyFooter}>
+            <span>© 2026 TECHSTOREE</span><span>TECHSTOREE CUSTOMER WEB</span>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.authPanel} aria-label="Đăng nhập TechStoree">
+        <div className={styles.mobileBrand} aria-hidden="true">
+          <span className={styles.brandMark}>T</span><span>TECHSTOREE</span>
+        </div>
+        <div className={styles.authContent}>
+          {checkingSession ? (
+            <div className={styles.sessionLoading} role="status">Đang kiểm tra phiên đăng nhập…</div>
+          ) : user ? (
+            <div className={styles.signedIn}>
+              <p className={styles.signedInKicker}>ĐĂNG NHẬP THÀNH CÔNG</p>
+              <h2>Xin chào, {user.fullName || user.username}.</h2>
+              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Trang hồ sơ và các trải nghiệm cá nhân sẽ được hoàn thiện ở bước tiếp theo.</p>
+              <button className={styles.primaryButton} type="button" onClick={() => void handleLogout()} disabled={pending}>
+                {pending ? "Đang đăng xuất…" : "Đăng xuất"}
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className={styles.heading}>
+                <p>ĐĂNG NHẬP HỆ THỐNG</p>
+                <h2>Chào mừng trở lại.</h2>
+              </div>
+              {error && <div className={styles.formAlert} role="alert"><span className={styles.alertIcon} aria-hidden="true">!</span><span>{error}</span></div>}
+              {notice && <div className={styles.notice} role="status">{notice}</div>}
+              <form className={styles.form} onSubmit={handleSubmit} noValidate>
+                <div className={styles.field}>
+                  <div className={styles.labelRow}><label htmlFor="email">ĐỊA CHỈ EMAIL</label></div>
+                  <input id="email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="tenban@example.com" value={email}
+                    onChange={(event) => { setEmail(event.target.value); setEmailError(""); }}
+                    aria-invalid={Boolean(emailError)} aria-describedby={emailError ? "email-error" : undefined} required />
+                  {emailError && <p className={styles.fieldError} id="email-error">{emailError}</p>}
+                </div>
+                <div className={styles.field}>
+                  <div className={styles.labelRow}><label htmlFor="password">MẬT KHẨU</label></div>
+                  <div className={styles.passwordWrap}>
+                    <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Nhập mật khẩu" value={password}
+                      onChange={(event) => { setPassword(event.target.value); setPasswordError(""); }}
+                      aria-invalid={Boolean(passwordError)} aria-describedby={passwordError ? "password-error" : undefined} required />
+                    <button className={styles.showPassword} type="button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} aria-pressed={showPassword}>
+                      {showPassword ? "ẨN" : "HIỆN"}
+                    </button>
+                  </div>
+                  {passwordError && <p className={styles.fieldError} id="password-error">{passwordError}</p>}
+                </div>
+                <div className={styles.formOptions}>
+                  <label className={styles.remember}><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span>Duy trì đăng nhập</span></label>
+                  <button type="button" className={styles.textButton} onClick={() => { setError(""); setNotice("Tính năng đặt lại mật khẩu chưa được backend hỗ trợ."); }}>Quên mật khẩu?</button>
+                </div>
+                <button className={styles.primaryButton} type="submit" disabled={pending}>
+                  <span>{pending ? "Đang đăng nhập…" : "Đăng nhập"}</span>
+                </button>
+              </form>
+              <div className={styles.signUp}>
+                <span>Chưa có tài khoản?</span>
+                <button type="button" className={styles.textButton} onClick={() => { setError(""); setNotice("Trang đăng ký sẽ được hoàn thiện ở bước tiếp theo."); }}>Tạo tài khoản mới</button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
