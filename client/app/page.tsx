@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import styles from "./page.module.css";
 
@@ -114,6 +115,26 @@ export default function Home() {
           <div className={styles.storyContent}>
             <h1>Nguyên bản và tinh tế.<span>Thiết kế tối giản cho cuộc sống hiện đại.</span></h1>
             <p>Khám phá các thiết bị công nghệ được chọn lọc kỹ lưỡng, trong một trải nghiệm mua sắm giản đơn.</p>
+            <div style={{ marginTop: "24px" }}>
+              <Link
+                href="/products"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  color: "#ffffff",
+                  textDecoration: "none",
+                  borderBottom: "1px solid rgba(255, 255, 255, 0.4)",
+                  paddingBottom: "6px",
+                  fontSize: "0.88rem",
+                  letterSpacing: "0.08em",
+                  fontWeight: 600,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                KHÁM PHÁ CÁC SẢN PHẨM &rarr;
+              </Link>
+            </div>
           </div>
           <div className={styles.productImage}>
             <Image src="/images/editorial-laptop.png" alt="Máy tính xách tay màu bạc trên nền đá tối" fill sizes="(max-width: 900px) 100vw, 50vw" />
@@ -135,10 +156,19 @@ export default function Home() {
             <div className={styles.signedIn}>
               <p className={styles.signedInKicker}>ĐĂNG NHẬP THÀNH CÔNG</p>
               <h2>Xin chào, {user.fullName || user.username}.</h2>
-              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Trang hồ sơ và các trải nghiệm cá nhân sẽ được hoàn thiện ở bước tiếp theo.</p>
-              <button className={styles.primaryButton} type="button" onClick={() => void handleLogout()} disabled={pending}>
-                {pending ? "Đang đăng xuất…" : "Đăng xuất"}
-              </button>
+              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Bạn có thể xem ngay danh sách sản phẩm hoặc quản lý giỏ hàng của mình.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
+                <Link
+                  href="/products"
+                  className={styles.primaryButton}
+                  style={{ textDecoration: "none", textAlign: "center" }}
+                >
+                  Khám phá sản phẩm ngay
+                </Link>
+                <button className={styles.textButton} type="button" onClick={() => void handleLogout()} disabled={pending}>
+                  {pending ? "Đang đăng xuất…" : "Đăng xuất tài khoản"}
+                </button>
+              </div>
             </div>
           ) : (
             <>
