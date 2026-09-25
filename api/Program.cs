@@ -30,7 +30,12 @@ builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 
 
 
-// 3. Cấu hình JSON serializer theo định dạng camelCase
+// 3. Cấu hình JSON serializer theo định dạng camelCase & Chuẩn hóa URL route chữ thường
+builder.Services.Configure<RouteOptions>(options =>
+{
+    options.LowercaseUrls = true;
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -72,9 +77,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// 6. Cấu hình Swagger / OpenAPI
+// 6. Cấu hình Swagger / OpenAPI kèm XML Documentation
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+
+    // Loại bỏ khối Example/Schema rác ở các mã lỗi 4xx, 5xx
+    options.OperationFilter<WebBanHang.Api.Common.RemoveErrorSchemasFilter>();
+});
 
 var app = builder.Build();
 

@@ -5,14 +5,26 @@ namespace WebBanHang.Api.DTOs.PurchaseOrders;
 
 public abstract class PurchaseOrderBaseRequestDto : IValidatableObject
 {
+    /// <summary>
+    /// Mã ID của nhà cung cấp đối tác giao hàng
+    /// </summary>
+    /// <example>1</example>
     [Required(ErrorMessage = "Nhà cung cấp không được để trống.")]
     [Range(1, int.MaxValue, ErrorMessage = "Mã nhà cung cấp không hợp lệ.")]
     public int SupplierId { get; set; }
 
+    /// <summary>
+    /// Trạng thái phiếu nhập: DRAFT (Bản nháp - chưa tăng kho) hoặc COMPLETED (Đã nhập kho - cộng dồn tồn kho)
+    /// </summary>
+    /// <example>COMPLETED</example>
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.DRAFT;
 
     private string? _note;
 
+    /// <summary>
+    /// Ghi chú nhập hàng (số lô, số hóa đơn chứng từ, v.v.)
+    /// </summary>
+    /// <example>Nhập lô hàng laptop ASUS Zenbook 14 đợt 1 tháng 9/2026</example>
     [MaxLength(1000, ErrorMessage = "Ghi chú phiếu nhập không được vượt quá 1000 ký tự.")]
     public string? Note
     {
@@ -20,6 +32,9 @@ public abstract class PurchaseOrderBaseRequestDto : IValidatableObject
         set => _note = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    /// <summary>
+    /// Danh sách các mặt hàng (phiên bản biến thể) nhập kho
+    /// </summary>
     [Required(ErrorMessage = "Danh sách mặt hàng nhập kho không được để trống.")]
     [MinLength(1, ErrorMessage = "Phiếu nhập bắt buộc phải có ít nhất 1 mặt hàng.")]
     public List<PurchaseOrderItemCreateRequestDto> Items { get; set; } = new();
