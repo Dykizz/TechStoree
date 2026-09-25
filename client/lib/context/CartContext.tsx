@@ -2,17 +2,21 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { CartContextType, CartItem } from "../types/cart";
+import { Voucher } from "../types/order";
+import { validateVoucher } from "../order-client";
 
 const CART_STORAGE_KEY = "techstoree_cart";
+const VOUCHER_STORAGE_KEY = "techstoree_voucher";
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
 
-  // Load cart from localStorage on client mount
+  // Load cart and voucher from localStorage on client mount
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -21,6 +25,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           const parsed = JSON.parse(stored) as CartItem[];
           if (Array.isArray(parsed)) {
             setItems(parsed);
+          }
+        }
+        const storedVoucher = localStorage.getItem(VOUCHER_STORAGE_KEY);
+        if (storedVoucher) {
+          const parsedV = JSON.parse(storedVoucher) as Voucher;
+          if (parsedV && parsedV.code) {
+            setAppliedVoucher(parsedV);
           }
         }
       } catch {
@@ -41,6 +52,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       // Ignore quota errors
     }
   }, [items, isHydrated]);
+
+  // Save or remove voucher from localStorage
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      if (appliedVoucher) {
+        localStorage.setItem(
+          VOUCHER_STORAGE_KEY,
+          JSON.stringify(appliedVoucher)
+        );
+      } else {
+        localStorage.removeItem(VOUCHER_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore
+    }
+  }, [appliedVoucher, isHydrated]);
 
   const openCart = () => setIsCartOpen(true);
   const closeCart = () => setIsCartOpen(false);
@@ -100,10 +128,43 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const clearCart = () => {
     setItems([]);
+    setAppliedVoucher(null);
   };
 
   const totalItems = items.reduce((sum, it) => sum + it.quantity, 0);
   const totalPrice = items.reduce((sum, it) => sum + it.quantity * it.price, 0);
+
+  // Calculate discount
+  let discountAmount = 0;
+  if (appliedVoucher && totalPrice >= appliedVoucher.minOrderValue) {
+    if (appliedVoucher.discountType === "PERCENT") {
+      const calculated = Math.round(
+        totalPrice * (appliedVoucher.discountValue / 100)
+      );
+      discountAmount =
+        appliedVoucher.maxDiscountAmount &&
+        calculated > appliedVoucher.maxDiscountAmount
+          ? appliedVoucher.maxDiscountAmount
+          : calculated;
+    } else {
+      discountAmount = Math.min(appliedVoucher.discountValue, totalPrice);
+    }
+  }
+
+  const finalPrice = Math.max(0, totalPrice - discountAmount);
+
+  const applyVoucher = (code: string) => {
+    const res = validateVoucher(code, totalPrice);
+    if (res.valid && res.voucher) {
+      setAppliedVoucher(res.voucher);
+      return { success: true, message: res.message };
+    }
+    return { success: false, message: res.message };
+  };
+
+  const removeVoucher = () => {
+    setAppliedVoucher(null);
+  };
 
   return (
     <CartContext.Provider
@@ -111,6 +172,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         items,
         totalItems,
         totalPrice,
+        appliedVoucher,
+        discountAmount,
+        finalPrice,
         isCartOpen,
         openCart,
         closeCart,
@@ -119,6 +183,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         updateQuantity,
         removeItem,
         clearCart,
+        applyVoucher,
+        removeVoucher,
       }}
     >
       {children}

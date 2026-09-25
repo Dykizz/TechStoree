@@ -1,3 +1,5 @@
+import { Voucher } from "./order";
+
 export interface CartItem {
   cartItemId: string; // `${productId}-${variantId}`
   productId: number;
@@ -15,6 +17,9 @@ export interface CartContextType {
   items: CartItem[];
   totalItems: number;
   totalPrice: number;
+  appliedVoucher: Voucher | null;
+  discountAmount: number;
+  finalPrice: number;
   isCartOpen: boolean;
   openCart: () => void;
   closeCart: () => void;
@@ -23,4 +28,6 @@ export interface CartContextType {
   updateQuantity: (cartItemId: string, quantity: number) => void;
   removeItem: (cartItemId: string) => void;
   clearCart: () => void;
+  applyVoucher: (code: string) => { success: boolean; message: string };
+  removeVoucher: () => void;
 }

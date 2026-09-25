@@ -2,49 +2,51 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
+import { SAMPLE_VOUCHERS } from "../../lib/order-client";
 import { formatPrice } from "../../lib/products-client";
 import styles from "./cart.module.css";
 
 export default function CartPage() {
-  const { items, totalItems, totalPrice, updateQuantity, removeItem, clearCart } =
-    useCart();
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  const router = useRouter();
+  const {
+    items,
+    totalItems,
+    totalPrice,
+    appliedVoucher,
+    discountAmount,
+    finalPrice,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    applyVoucher,
+    removeVoucher,
+  } = useCart();
 
-  const handleCheckout = () => {
-    setOrderSuccess(true);
-    clearCart();
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherMsg, setVoucherMsg] = useState<{
+    text: string;
+    isError: boolean;
+  } | null>(null);
+
+  const handleApplyVoucher = (codeToApply?: string) => {
+    const code = (codeToApply || voucherCode).trim();
+    if (!code) {
+      setVoucherMsg({ text: "Vui lòng nhập mã voucher.", isError: true });
+      return;
+    }
+    const res = applyVoucher(code);
+    setVoucherMsg({ text: res.message, isError: !res.success });
+    if (res.success) {
+      setVoucherCode("");
+    }
   };
 
-  if (orderSuccess) {
-    return (
-      <main className={styles.main}>
-        <div className={styles.container}>
-          <div className={styles.emptyState}>
-            <svg
-              className={styles.emptyIcon}
-              style={{ color: "#0b8a36" }}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <h1 className={styles.emptyTitle}>Đặt hàng thành công!</h1>
-            <p className={styles.emptyText}>
-              Cảm ơn bạn đã lựa chọn TechStoree. Đơn hàng của bạn đã được tiếp nhận và nhân viên chăm sóc khách hàng sẽ liên hệ với bạn trong thời gian sớm nhất.
-            </p>
-            <Link href="/products" className={styles.shopBtn}>
-              Tiếp tục mua sắm
-            </Link>
-          </div>
-        </div>
-      </main>
-    );
-  }
+  const handleProceedToCheckout = () => {
+    router.push("/checkout");
+  };
 
   if (items.length === 0) {
     return (
@@ -201,30 +203,113 @@ export default function CartPage() {
           <aside className={styles.summarySection} aria-label="Tóm tắt đơn hàng">
             <h2 className={styles.summaryTitle}>Tóm Tắt Đơn Hàng</h2>
 
+            <div className={styles.voucherBox}>
+              <label htmlFor="voucherInput" className={styles.voucherLabel}>
+                MÃ GIẢM GIÁ / VOUCHER
+              </label>
+
+              {appliedVoucher ? (
+                <div className={styles.appliedVoucherBadge}>
+                  <div>
+                    <strong>{appliedVoucher.code}</strong>: -{formatPrice(discountAmount)}
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.removeVoucherBtn}
+                    onClick={removeVoucher}
+                  >
+                    Hủy mã ✕
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className={styles.voucherInputGroup}>
+                    <input
+                      id="voucherInput"
+                      type="text"
+                      className={styles.voucherInput}
+                      placeholder="Nhập mã voucher (VD: TECH100)"
+                      value={voucherCode}
+                      onChange={(e) => {
+                        setVoucherCode(e.target.value);
+                        setVoucherMsg(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleApplyVoucher();
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className={styles.voucherApplyBtn}
+                      onClick={() => handleApplyVoucher()}
+                    >
+                      Áp dụng
+                    </button>
+                  </div>
+
+                  {voucherMsg && (
+                    <p
+                      className={`${styles.voucherMessage} ${
+                        voucherMsg.isError
+                          ? styles.voucherMessageError
+                          : styles.voucherMessageSuccess
+                      }`}
+                    >
+                      {voucherMsg.text}
+                    </p>
+                  )}
+
+                  <div className={styles.suggestedVouchers}>
+                    <span className={styles.suggestedTitle}>Mã ưu đãi gợi ý:</span>
+                    {SAMPLE_VOUCHERS.map((v) => (
+                      <div
+                        key={v.code}
+                        className={styles.voucherPill}
+                        onClick={() => handleApplyVoucher(v.code)}
+                        title="Bấm để áp dụng nhanh"
+                      >
+                        <strong>{v.code}</strong>
+                        <span>{v.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className={styles.summaryRows}>
               <div className={styles.summaryRow}>
                 <span>Tổng tiền hàng ({totalItems} sản phẩm)</span>
                 <span>{formatPrice(totalPrice)}</span>
               </div>
+              {discountAmount > 0 && (
+                <div className={`${styles.summaryRow} ${styles.discountRow}`}>
+                  <span>Giảm giá ({appliedVoucher?.code})</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
               <div className={styles.summaryRow}>
                 <span>Vận chuyển tiêu chuẩn</span>
                 <span className={styles.freeShipping}>Miễn phí</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>Bảo hiểm vận chuyển</span>
+                <span>Bảo hiểm đơn hàng</span>
                 <span className={styles.freeShipping}>Đã bao gồm</span>
               </div>
             </div>
 
             <div className={styles.totalRow}>
               <span className={styles.totalLabel}>Tổng thanh toán</span>
-              <span className={styles.totalPrice}>{formatPrice(totalPrice)}</span>
+              <span className={styles.totalPrice}>{formatPrice(finalPrice)}</span>
             </div>
 
             <button
               type="button"
               className={styles.checkoutBtn}
-              onClick={handleCheckout}
+              onClick={handleProceedToCheckout}
             >
               Tiến hành đặt hàng
             </button>

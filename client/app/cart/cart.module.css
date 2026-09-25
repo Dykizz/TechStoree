@@ -248,6 +248,121 @@
   font-weight: 600;
 }
 
+.voucherBox {
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+.voucherLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.voucherInputGroup {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.voucherInput {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d5d5d5;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  text-transform: uppercase;
+}
+
+.voucherApplyBtn {
+  background-color: #111111;
+  color: #ffffff;
+  border: none;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.voucherApplyBtn:hover {
+  background-color: #333333;
+}
+
+.appliedVoucherBadge {
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 10px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.removeVoucherBtn {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.voucherMessage {
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.voucherMessageError {
+  color: #dc2626;
+}
+
+.voucherMessageSuccess {
+  color: #16a34a;
+}
+
+.suggestedVouchers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.suggestedTitle {
+  font-size: 0.78rem;
+  color: #777777;
+}
+
+.voucherPill {
+  background-color: #f7f7f7;
+  border: 1px dashed #cccccc;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #333333;
+  display: flex;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.voucherPill:hover {
+  border-color: #111111;
+  background-color: #f0f0f0;
+}
+
+.discountRow {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .totalRow {
   display: flex;
   justify-content: space-between;

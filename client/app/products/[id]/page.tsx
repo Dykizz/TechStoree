@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import VariantSelector from "../../../components/products/VariantSelector";
 import { useCart } from "../../../lib/context/CartContext";
+import { addProductReview, getProductReviews } from "../../../lib/order-client";
 import { fetchProductById, formatPrice } from "../../../lib/products-client";
+import { ProductReview } from "../../../lib/types/order";
 import { ProductDetailDto, ProductVariantDto } from "../../../lib/types/product";
 import styles from "./product-detail.module.css";
 
@@ -25,6 +27,13 @@ export default function ProductDetailPage({
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  // Reviews state
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewName, setReviewName] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
   useEffect(() => {
     async function loadProduct() {
       setLoading(true);
@@ -37,7 +46,41 @@ export default function ProductDetailPage({
       setLoading(false);
     }
     void loadProduct();
+
+    // Load reviews
+    const timer = setTimeout(() => {
+      setReviews(getProductReviews(productId));
+    }, 0);
+
+    // Prefill username if logged in
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && d.user) {
+          setReviewName(d.user.fullName || d.user.username);
+        }
+      })
+      .catch(() => {});
+
+    return () => clearTimeout(timer);
   }, [productId]);
+
+  const handleReviewSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewName.trim() || !reviewComment.trim()) return;
+
+    const newRev = addProductReview({
+      productId,
+      userName: reviewName.trim(),
+      rating: reviewRating,
+      comment: reviewComment.trim(),
+    });
+
+    setReviews((prev) => [newRev, ...prev]);
+    setReviewComment("");
+    setReviewSuccess("Cảm ơn bạn! Đánh giá của bạn đã được ghi nhận.");
+    setTimeout(() => setReviewSuccess(""), 4000);
+  };
 
   if (loading) {
     return (
@@ -297,6 +340,93 @@ export default function ProductDetailPage({
                 <p className={styles.descContent}>{product.description}</p>
               </div>
             )}
+
+            <section className={styles.reviewsSection} aria-label="Đánh giá từ khách hàng">
+              <div className={styles.reviewsHeader}>
+                <h2 className={styles.reviewsTitle}>Đánh giá & Nhận xét</h2>
+                <div className={styles.reviewsScore}>
+                  <span className={styles.starRating}>★ ★ ★ ★ ★</span>
+                  <span>({reviews.length} lượt đánh giá)</span>
+                </div>
+              </div>
+
+              <div className={styles.reviewFormCard}>
+                <h3 className={styles.reviewFormTitle}>Gửi đánh giá của bạn</h3>
+                <form onSubmit={handleReviewSubmit}>
+                  <div className={styles.starPicker} role="radiogroup" aria-label="Chọn số sao">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        className={`${styles.starBtn} ${
+                          star <= reviewRating ? styles.starActive : ""
+                        }`}
+                        onClick={() => setReviewRating(star)}
+                        aria-label={`${star} sao`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className={styles.reviewInputRow}>
+                    <input
+                      type="text"
+                      className={styles.reviewInput}
+                      placeholder="Họ và tên của bạn *"
+                      value={reviewName}
+                      onChange={(e) => setReviewName(e.target.value)}
+                      required
+                    />
+                    <textarea
+                      rows={3}
+                      className={styles.reviewTextarea}
+                      placeholder="Chia sẻ cảm nhận chi tiết của bạn về chất lượng sản phẩm... *"
+                      value={reviewComment}
+                      onChange={(e) => setReviewComment(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <button type="submit" className={styles.submitReviewBtn}>
+                    Gửi đánh giá
+                  </button>
+
+                  {reviewSuccess && (
+                    <span style={{ color: "#16a34a", fontSize: "0.85rem", marginLeft: "12px" }}>
+                      {reviewSuccess}
+                    </span>
+                  )}
+                </form>
+              </div>
+
+              <div className={styles.reviewsList}>
+                {reviews.map((rev) => (
+                  <div key={rev.reviewId} className={styles.reviewCard}>
+                    <div className={styles.reviewTop}>
+                      <div className={styles.reviewAuthor}>
+                        <span>{rev.userName}</span>
+                        {rev.isVerifiedPurchase && (
+                          <span className={styles.verifiedBadge}>✓ Đã mua hàng</span>
+                        )}
+                      </div>
+                      <span className={styles.reviewDate}>
+                        {new Date(rev.createdAt).toLocaleDateString("vi-VN")}
+                      </span>
+                    </div>
+
+                    <div className={styles.reviewStars}>
+                      {"★".repeat(rev.rating)}
+                      <span style={{ color: "#d1d5db" }}>
+                        {"★".repeat(5 - rev.rating)}
+                      </span>
+                    </div>
+
+                    <p className={styles.reviewComment}>{rev.comment}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </div>

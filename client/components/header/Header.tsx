@@ -74,6 +74,12 @@ export default function Header() {
             >
               Giỏ hàng
             </Link>
+            <Link
+              href="/orders"
+              className={`${styles.navLink} ${pathname === "/orders" ? styles.navLinkActive : ""}`}
+            >
+              Đơn hàng
+            </Link>
           </nav>
         </div>
 
