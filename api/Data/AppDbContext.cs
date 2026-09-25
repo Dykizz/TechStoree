@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -188,7 +190,49 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // 7. Seed dữ liệu mặc định cho Role (ADMIN và USER)
+        // 7. Cấu hình bảng Carts
+        modelBuilder.Entity<Cart>(entity =>
+        {
+            entity.ToTable("carts");
+            entity.HasKey(c => c.CartId);
+            entity.Property(c => c.CartId).HasColumnName("cart_id");
+            entity.Property(c => c.UserId).HasColumnName("user_id");
+            entity.Property(c => c.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(c => c.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(c => c.UserId).IsUnique();
+
+            entity.HasOne(c => c.User)
+                  .WithOne(u => u.Cart)
+                  .HasForeignKey<Cart>(c => c.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 8. Cấu hình bảng CartItems
+        modelBuilder.Entity<CartItem>(entity =>
+        {
+            entity.ToTable("cart_items");
+            entity.HasKey(ci => ci.CartItemId);
+            entity.Property(ci => ci.CartItemId).HasColumnName("cart_item_id");
+            entity.Property(ci => ci.CartId).HasColumnName("cart_id");
+            entity.Property(ci => ci.VariantId).HasColumnName("variant_id");
+            entity.Property(ci => ci.Quantity).HasColumnName("quantity");
+            entity.Property(ci => ci.AddedAt).HasColumnName("added_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasIndex(ci => new { ci.CartId, ci.VariantId }).IsUnique();
+
+            entity.HasOne(ci => ci.Cart)
+                  .WithMany(c => c.Items)
+                  .HasForeignKey(ci => ci.CartId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ci => ci.Variant)
+                  .WithMany()
+                  .HasForeignKey(ci => ci.VariantId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 9. Seed dữ liệu mặc định cho Role (ADMIN và USER)
         modelBuilder.Entity<Role>().HasData(
             new Role { RoleId = "ADMIN", RoleName = "Quản trị viên" },
             new Role { RoleId = "USER", RoleName = "Người dùng" }

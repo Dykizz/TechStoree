@@ -67,4 +67,6 @@ public class User
 
     [ForeignKey("RoleId")]
     public Role? Role { get; set; }
+
+    public Cart? Cart { get; set; }
 }

@@ -1,5 +1,6 @@
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.DTOs.Carts;
 using WebBanHang.Api.DTOs.Categories;
 using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.PurchaseOrders;
@@ -240,6 +241,38 @@ public static class MappingExtensions
             Note = po.Note,
             CreatedAt = po.CreatedAt,
             Items = po.Items?.Select(i => i.ToPurchaseOrderItemDto()).ToList() ?? new List<PurchaseOrderItemDto>()
+        };
+    }
+
+    public static CartItemDto ToCartItemDto(this CartItem item)
+    {
+        return new CartItemDto
+        {
+            CartItemId = item.CartItemId,
+            VariantId = item.VariantId,
+            ProductId = item.Variant?.ProductId ?? 0,
+            ProductName = item.Variant?.Product?.ProductName ?? string.Empty,
+            VariantName = item.Variant?.VariantName ?? string.Empty,
+            ImageUrl = !string.IsNullOrWhiteSpace(item.Variant?.ImageUrl)
+                ? item.Variant.ImageUrl
+                : item.Variant?.Product?.ImageUrl,
+            Price = item.Variant?.Price ?? 0,
+            Quantity = item.Quantity,
+            StockQuantity = item.Variant?.StockQuantity ?? 0
+        };
+    }
+
+    public static CartDto ToCartDto(this Cart cart)
+    {
+        return new CartDto
+        {
+            CartId = cart.CartId,
+            UserId = cart.UserId,
+            UpdatedAt = cart.UpdatedAt,
+            Items = cart.Items?
+                .OrderByDescending(i => i.AddedAt)
+                .Select(i => i.ToCartItemDto())
+                .ToList() ?? new List<CartItemDto>()
         };
     }
 }

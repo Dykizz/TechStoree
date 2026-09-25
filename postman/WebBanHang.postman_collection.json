@@ -3245,6 +3245,229 @@
           }
         ]
       }
+    },
+    {
+      "name": "Cart",
+      "item": [
+        {
+          "name": "1. Lấy thông tin giỏ hàng (GET /api/cart)",
+          "id": "85301dc4-edcc-4a6d-b454-db13af6b7c5f",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart"
+              ]
+            },
+            "description": "Lấy giỏ hàng của người dùng hiện tại (tự động khởi tạo nếu chưa có)",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "2. Thêm biến thể vào giỏ hàng (POST /api/cart/items)",
+          "id": "6cb37867-ce9d-48ec-ab34-5c05f54087e8",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": 4,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "Thêm biến thể sản phẩm (VD: Tai nghe Sony WH-1000XM5 Màu Đen) vào giỏ hàng. Nếu đã có thì tự động cộng dồn.",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "3. Cập nhật số lượng mặt hàng trong giỏ (PUT /api/cart/items/:id)",
+          "id": "efd58842-fe48-4aa6-a7aa-9a4e40425834",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantity\": 2\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items",
+                "1"
+              ]
+            },
+            "description": "Cập nhật số lượng của một mặt hàng trong giỏ (CartItemId)",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "4. Xóa mặt hàng khỏi giỏ (DELETE /api/cart/items/:id)",
+          "id": "a4a6ff38-2a24-4810-984f-bc87b24e47b2",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items",
+                "1"
+              ]
+            },
+            "description": "Xóa một mặt hàng khỏi giỏ hàng",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "5. Làm trống giỏ hàng (DELETE /api/cart/clear)",
+          "id": "a9d0665b-f7ab-4e37-8346-3c91d39adc14",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/clear",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "clear"
+              ]
+            },
+            "description": "Xóa toàn bộ mặt hàng trong giỏ hàng của người dùng",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "6. [Test Lỗi] Thêm vượt quá tồn kho (400 Bad Request)",
+          "id": "b49d982c-4f2c-48e6-843a-fbc9c8475eaf",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": 4,\n  \"quantity\": 99999\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "Kiểm tra ràng buộc tồn kho khi số lượng yêu cầu vượt quá tồn kho khả dụng",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        },
+        {
+          "name": "7. [Test Lỗi] Biến thể không tồn tại (404 Not Found)",
+          "id": "d2f5e9b1-f236-4cf5-b989-bbb6d8660229",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": 999999,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "Kiểm tra xử lý khi biến thể sản phẩm không tồn tại",
+            "auth": {
+              "type": "bearer"
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
