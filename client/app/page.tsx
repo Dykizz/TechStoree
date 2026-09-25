@@ -1,8 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
+import AuthStory from "./components/auth-story";
+import PasswordVisibilityIcon from "./components/password-visibility-icon";
 import styles from "./page.module.css";
 
 type SessionUser = {
@@ -106,48 +107,11 @@ export default function Home() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.story} aria-label="Giới thiệu TechStoree">
-        <div className={styles.storyInner}>
-          <div className={styles.brand} aria-label="TechStoree">
-            <span className={styles.brandMark} aria-hidden="true">T</span>
-            <span>TECHSTOREE</span>
-          </div>
-          <div className={styles.storyContent}>
-            <h1>Nguyên bản và tinh tế.<span>Thiết kế tối giản cho cuộc sống hiện đại.</span></h1>
-            <p>Khám phá các thiết bị công nghệ được chọn lọc kỹ lưỡng, trong một trải nghiệm mua sắm giản đơn.</p>
-            <div style={{ marginTop: "24px" }}>
-              <Link
-                href="/products"
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  color: "#ffffff",
-                  textDecoration: "none",
-                  borderBottom: "1px solid rgba(255, 255, 255, 0.4)",
-                  paddingBottom: "6px",
-                  fontSize: "0.88rem",
-                  letterSpacing: "0.08em",
-                  fontWeight: 600,
-                  transition: "all 0.2s ease",
-                }}
-              >
-                KHÁM PHÁ CÁC SẢN PHẨM &rarr;
-              </Link>
-            </div>
-          </div>
-          <div className={styles.productImage}>
-            <Image src="/images/editorial-laptop.png" alt="Máy tính xách tay màu bạc trên nền đá tối" fill sizes="(max-width: 900px) 100vw, 50vw" />
-          </div>
-          <div className={styles.storyFooter}>
-            <span>© 2026 TECHSTOREE</span><span>TECHSTOREE CUSTOMER WEB</span>
-          </div>
-        </div>
-      </section>
+      <AuthStory />
 
       <section className={styles.authPanel} aria-label="Đăng nhập TechStoree">
         <div className={styles.mobileBrand} aria-hidden="true">
-          <span className={styles.brandMark}>T</span><span>TECHSTOREE</span>
+          <span className={styles.brandMark} /><span>TECHSTOREE</span>
         </div>
         <div className={styles.authContent}>
           {checkingSession ? (
@@ -192,8 +156,8 @@ export default function Home() {
                     <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Nhập mật khẩu" value={password}
                       onChange={(event) => { setPassword(event.target.value); setPasswordError(""); }}
                       aria-invalid={Boolean(passwordError)} aria-describedby={passwordError ? "password-error" : undefined} required />
-                    <button className={styles.showPassword} type="button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} aria-pressed={showPassword}>
-                      {showPassword ? "ẨN" : "HIỆN"}
+                    <button className={styles.showPassword} type="button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} aria-pressed={showPassword} aria-controls="password">
+                      <PasswordVisibilityIcon visible={showPassword} />
                     </button>
                   </div>
                   {passwordError && <p className={styles.fieldError} id="password-error">{passwordError}</p>}
@@ -208,7 +172,7 @@ export default function Home() {
               </form>
               <div className={styles.signUp}>
                 <span>Chưa có tài khoản?</span>
-                <button type="button" className={styles.textButton} onClick={() => { setError(""); setNotice("Trang đăng ký sẽ được hoàn thiện ở bước tiếp theo."); }}>Tạo tài khoản mới</button>
+                <Link href="/register" className={styles.textButton}>Tạo tài khoản mới</Link>
               </div>
             </>
           )}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "@fontsource-variable/noto-serif-display/wght.css";
+import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
 import Header from "../components/header/Header";
 import CartDrawer from "../components/cart/CartDrawer";
