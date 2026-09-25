@@ -40,9 +40,28 @@ thư viện. Không commit `node_modules/`, `.next/` hoặc file `.env.local`.
 - Huy: xác thực, hồ sơ và khảo sát khách hàng.
 - Sơn: danh mục, sản phẩm, giỏ hàng và đặt hàng.
 
-Hiện đã có màn hình đăng nhập responsive và luồng đăng nhập/đăng xuất. Màn đăng
-ký, hồ sơ, khảo sát chưa được triển khai. Backend cũng chưa có API đặt lại mật
-khẩu; nút tương ứng chỉ hiển thị thông báo, không gửi yêu cầu giả. Ảnh laptop
-trên màn đăng nhập là tài nguyên được tạo riêng cho dự án, không lấy từ Figma.
-Font tiêu đề Noto Serif Display có bộ ký tự tiếng Việt và được đóng gói trong
-ứng dụng để hiển thị nhất quán trên các máy.
+Hiện đã có màn hình đăng nhập responsive, luồng đăng nhập/đăng xuất và màn đăng
+ký dùng `POST /api/Auth/register`. Đăng ký thành công chưa tự đăng nhập; người
+dùng chuyển sang màn đăng nhập. Hồ sơ và khảo sát chưa được triển khai.
+Backend cũng chưa có API đặt lại mật
+khẩu; nút tương ứng chỉ hiển thị thông báo, không gửi yêu cầu giả.
+Font Inter Variable hỗ trợ tiếng Việt và được đóng gói trong ứng dụng để hiển
+thị nhất quán trên các máy. Typography lấy cảm hứng từ cách trình bày tối giản
+của Apple Store, không sử dụng font SF Pro của Apple.
+
+## Showcase ở trang xác thực
+
+Phần giới thiệu bên trái của trang đăng nhập và đăng ký dùng chung một carousel
+4 slide, tự chuyển sau 5 giây. Nền, nội dung và ảnh chuyển cùng nhịp; người dùng
+có thể chọn slide hoặc dùng nút trước/sau. Carousel tạm dừng khi rê chuột, đặt
+focus vào vùng này hoặc chuyển sang thẻ khác, và không tự chạy nếu hệ điều hành
+bật chế độ giảm chuyển động. Ảnh sản phẩm được đặt làm lớp nền phía dưới phần
+chữ, hiển thị trọn ảnh và không nhúng giá hoặc nút mua. Trên màn hình nhỏ,
+showcase được thu gọn phía trên biểu mẫu.
+
+Bốn ảnh `public/images/showcase-*.png` lấy từ ảnh người dùng cung cấp; ba ảnh
+iPhone 18 Pro, AirPods Pro 3 và Galaxy Z Fold8 đã được AI làm sạch chữ/nút
+quảng cáo, vì vậy có thể khác ảnh sản phẩm chính thức ở chi tiết nhỏ. Riêng
+chữ “PRO” phía sau iPhone 18 Pro được giữ theo yêu cầu. Những hình này chỉ dùng
+cho bản mẫu nội bộ; tên mẫu không có nghĩa TechStoree đang bán sản phẩm đó.
+Trước khi phát hành công khai, nhóm cần xác nhận quyền sử dụng ảnh và nhãn hiệu.
