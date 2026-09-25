@@ -69,6 +69,7 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
             .Include(po => po.CreatedByUser)
             .Include(po => po.Items)
                 .ThenInclude(i => i.Variant)
+                    .ThenInclude(v => v!.Product)
             .FirstOrDefaultAsync(po => po.PurchaseOrderId == id)
             ?? throw new NotFoundException($"Không tìm thấy phiếu nhập hàng với mã ID: {id}.");
 

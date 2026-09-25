@@ -198,6 +198,8 @@ public static class MappingExtensions
         {
             PoItemId = item.PoItemId,
             VariantId = item.VariantId,
+            ProductId = item.Variant?.ProductId ?? 0,
+            ProductName = item.Variant?.Product?.ProductName ?? string.Empty,
             VariantName = item.Variant?.VariantName ?? string.Empty,
             ImportPrice = item.ImportPrice,
             Quantity = item.Quantity
