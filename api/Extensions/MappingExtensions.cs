@@ -2,6 +2,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.DTOs.Categories;
 using WebBanHang.Api.DTOs.Products;
+using WebBanHang.Api.DTOs.PurchaseOrders;
 using WebBanHang.Api.DTOs.Suppliers;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.DTOs.Variants;
@@ -189,6 +190,55 @@ public static class MappingExtensions
         }
 
         return product;
+    }
+
+    public static PurchaseOrderItemDto ToPurchaseOrderItemDto(this PurchaseOrderItem item)
+    {
+        return new PurchaseOrderItemDto
+        {
+            PoItemId = item.PoItemId,
+            VariantId = item.VariantId,
+            VariantName = item.Variant?.VariantName ?? string.Empty,
+            ImportPrice = item.ImportPrice,
+            Quantity = item.Quantity
+        };
+    }
+
+    public static PurchaseOrderBaseDto ToPurchaseOrderBaseDto(this PurchaseOrder po)
+    {
+        return new PurchaseOrderBaseDto
+        {
+            PurchaseOrderId = po.PurchaseOrderId,
+            PoCode = po.PoCode,
+            SupplierId = po.SupplierId,
+            SupplierName = po.Supplier?.SupplierName ?? string.Empty,
+            CreatedByUserId = po.CreatedByUserId,
+            CreatedByName = po.CreatedByUser?.FullName ?? po.CreatedByUser?.Username ?? string.Empty,
+            TotalCost = po.TotalCost,
+            TotalItems = po.Items?.Count ?? 0,
+            Status = po.Status,
+            Note = po.Note,
+            CreatedAt = po.CreatedAt
+        };
+    }
+
+    public static PurchaseOrderDetailDto ToPurchaseOrderDetailDto(this PurchaseOrder po)
+    {
+        return new PurchaseOrderDetailDto
+        {
+            PurchaseOrderId = po.PurchaseOrderId,
+            PoCode = po.PoCode,
+            SupplierId = po.SupplierId,
+            SupplierName = po.Supplier?.SupplierName ?? string.Empty,
+            CreatedByUserId = po.CreatedByUserId,
+            CreatedByName = po.CreatedByUser?.FullName ?? po.CreatedByUser?.Username ?? string.Empty,
+            TotalCost = po.TotalCost,
+            TotalItems = po.Items?.Count ?? 0,
+            Status = po.Status,
+            Note = po.Note,
+            CreatedAt = po.CreatedAt,
+            Items = po.Items?.Select(i => i.ToPurchaseOrderItemDto()).ToList() ?? new List<PurchaseOrderItemDto>()
+        };
     }
 }
 

@@ -1937,6 +1937,1314 @@
       "createdAt": "2026-09-23T08:32:20.000Z",
       "updatedAt": "2026-09-23T08:32:20.000Z",
       "uid": "37058152-4763bb53-d2a6-473e-8b8d-7401f53e02d7"
+    },
+    {
+      "name": "PurchaseOrders",
+      "description": "Quản lý Đơn nhập hàng từ Nhà cung cấp (PurchaseOrdersController - Nguyễn Đức Tài). Hỗ trợ quy trình 2 trạng thái DRAFT & COMPLETED, tự động tính tổng tiền, cộng dồn tồn kho và khóa cứng chứng từ khi hoàn thành.",
+      "item": [
+        {
+          "name": "1. CRUD & Workflow chính (DRAFT -> COMPLETED)",
+          "description": "Quy trình lập phiếu nhập nháp DRAFT, chỉnh sửa thông tin/mặt hàng, hoàn thành nhập kho COMPLETED và xóa phiếu nháp.",
+          "item": [
+            {
+              "name": "1. Danh sách phiếu nhập (Phân trang PagedResult<PurchaseOrderBaseDto>)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?page=1&pageSize=10",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "pageSize",
+                      "value": "10"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Cấu trúc trả về chuẩn PagedResult<PurchaseOrderBaseDto>\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data).to.have.property(\"items\");",
+                      "    pm.expect(json.data).to.have.property(\"page\");",
+                      "    pm.expect(json.data).to.have.property(\"pageSize\");",
+                      "    pm.expect(json.data).to.have.property(\"totalCount\");",
+                      "    pm.expect(json.data).to.have.property(\"totalPages\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. Tạo phiếu nhập nháp (POST /api/purchase-orders - Status DRAFT)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"note\": \"Nhập thử nghiệm lô hàng ASUS Zenbook đợt 1 (Bản nháp)\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 20000000,\n      \"quantity\": 5\n    },\n    {\n      \"variantId\": 2,\n      \"importPrice\": 24000000,\n      \"quantity\": 3\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Phiếu nhập được tạo ở trạng thái DRAFT và lưu ID vào biến\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.status).to.eql(\"DRAFT\");",
+                      "    pm.expect(json.data.purchaseOrderId).to.be.a(\"number\");",
+                      "    pm.expect(json.data.totalCost).to.eql(172000000);",
+                      "    ",
+                      "    pm.collectionVariables.set(\"createdPurchaseOrderId\", json.data.purchaseOrderId);",
+                      "    console.log(\"Saved createdPurchaseOrderId:\", json.data.purchaseOrderId);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. Chi tiết phiếu nhập theo ID (GET /api/purchase-orders/:id)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{createdPurchaseOrderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{createdPurchaseOrderId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Chi tiết phiếu nhập nạp đầy đủ danh sách Items và VariantName\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.purchaseOrderId).to.eql(Number(pm.collectionVariables.get(\"createdPurchaseOrderId\")));",
+                      "    pm.expect(json.data.items).to.be.an(\"array\").with.lengthOf(2);",
+                      "    pm.expect(json.data.items[0]).to.have.property(\"variantName\");",
+                      "    pm.expect(json.data.items[0]).to.have.property(\"totalPrice\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. Cập nhật phiếu nhập nháp (PUT /api/purchase-orders/:id - Vẫn giữ DRAFT)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"note\": \"Đã cập nhật lại số lượng và giá thương lượng với ASUS\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 19500000,\n      \"quantity\": 10\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{createdPurchaseOrderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{createdPurchaseOrderId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Cập nhật thành công thông tin và tính lại tổng tiền\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.status).to.eql(\"DRAFT\");",
+                      "    pm.expect(json.data.totalCost).to.eql(195000000);",
+                      "    pm.expect(json.data.items).to.have.lengthOf(1);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "5. Xác nhận nhập kho (PUT /api/purchase-orders/:id - Chuyển sang COMPLETED)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"COMPLETED\",\n  \"note\": \"Hàng đã về kho, kiểm đếm đủ 10 máy, chốt nhập kho chính thức\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 19500000,\n      \"quantity\": 10\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{createdPurchaseOrderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{createdPurchaseOrderId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Trạng thái chuyển sang COMPLETED và đã cộng tồn kho\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.status).to.eql(\"COMPLETED\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "6. Tạo phiếu nhập hoàn thành ngay (POST /api/purchase-orders - Status COMPLETED)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 2,\n  \"status\": \"COMPLETED\",\n  \"note\": \"Nhập trực tiếp từ kho Sony giao ngay, cộng kho lập tức\",\n  \"items\": [\n    {\n      \"variantId\": 4,\n      \"importPrice\": 6200000,\n      \"quantity\": 5\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Phiếu nhập được tạo trực tiếp ở trạng thái COMPLETED\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "    pm.expect(json.data.status).to.eql(\"COMPLETED\");",
+                      "    ",
+                      "    pm.collectionVariables.set(\"completedPurchaseOrderId\", json.data.purchaseOrderId);",
+                      "    console.log(\"Saved completedPurchaseOrderId:\", json.data.purchaseOrderId);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "7. Tạo thêm 1 phiếu nháp để kiểm thử chức năng Xóa (POST DRAFT)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 3,\n  \"status\": \"DRAFT\",\n  \"note\": \"Phiếu nháp tạo thử nghiệm chuẩn bị xóa\",\n  \"items\": [\n    {\n      \"variantId\": 3,\n      \"importPrice\": 18000000,\n      \"quantity\": 2\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 201 Created\", function () {",
+                      "    pm.response.to.have.status(201);",
+                      "});",
+                      "pm.test(\"Lưu ID phiếu nháp để test xóa\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.collectionVariables.set(\"draftToDeletePoId\", json.data.purchaseOrderId);",
+                      "    console.log(\"Saved draftToDeletePoId:\", json.data.purchaseOrderId);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "8. Xóa phiếu nhập nháp DRAFT (DELETE /api/purchase-orders/:id)",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{draftToDeletePoId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{draftToDeletePoId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Xóa thành công phiếu nháp\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.true;",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "2. Kiểm thử Ràng buộc & Validation (400 Bad Request)",
+          "description": "Kiểm thử các quy tắc nghiệp vụ: chặn sửa/xóa phiếu đã hoàn thành, chặn trùng biến thể, chặn mảng items rỗng...",
+          "item": [
+            {
+              "name": "[400] Sửa phiếu đã COMPLETED (Bị chặn sửa)",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"note\": \"Cố tình sửa phiếu đã nhập kho\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 19500000,\n      \"quantity\": 10\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{createdPurchaseOrderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{createdPurchaseOrderId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Báo lỗi chặn sửa phiếu đã COMPLETED\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.false;",
+                      "    pm.expect(json.message).to.include(\"không được phép chỉnh sửa\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Xóa phiếu đã COMPLETED (Bị chặn xóa)",
+              "request": {
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/{{createdPurchaseOrderId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "{{createdPurchaseOrderId}}"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Báo lỗi chặn xóa phiếu đã COMPLETED\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.false;",
+                      "    pm.expect(json.message).to.include(\"Phiếu đã hoàn thành không thể xóa\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo phiếu nhập - Danh sách mặt hàng rỗng",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"items\": []\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo phiếu nhập - Trùng lặp VariantId trong cùng một phiếu",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 10000000,\n      \"quantity\": 2\n    },\n    {\n      \"variantId\": 1,\n      \"importPrice\": 10000000,\n      \"quantity\": 3\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});",
+                      "pm.test(\"Báo lỗi trùng lặp biến thể\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.message).to.include(\"trùng lặp\");",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[400] Tạo phiếu nhập - Đơn giá hoặc Số lượng không hợp lệ",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": -500000,\n      \"quantity\": 0\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 400 Bad Request\", function () {",
+                      "    pm.response.to.have.status(400);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "3. Kiểm tra ID không tồn tại (404 Not Found)",
+          "description": "Kiểm thử mã nhà cung cấp, mã phiếu hoặc mã biến thể không tồn tại",
+          "item": [
+            {
+              "name": "[404] Chi tiết phiếu nhập không tồn tại (ID 999999)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders/999999",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders",
+                    "999999"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});",
+                      "pm.test(\"Thông báo không tìm thấy phiếu nhập\", function () {",
+                      "    var json = pm.response.json();",
+                      "    pm.expect(json.success).to.be.false;",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[404] Tạo phiếu - Nhà cung cấp không tồn tại (SupplierId 999999)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 999999,\n  \"status\": \"DRAFT\",\n  \"items\": [\n    {\n      \"variantId\": 1,\n      \"importPrice\": 10000000,\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "[404] Tạo phiếu - Biến thể không tồn tại (VariantId 999999)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"supplierId\": 1,\n  \"status\": \"DRAFT\",\n  \"items\": [\n    {\n      \"variantId\": 999999,\n      \"importPrice\": 10000000,\n      \"quantity\": 1\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 404 Not Found\", function () {",
+                      "    pm.response.to.have.status(404);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "4. Tìm kiếm, Lọc & Sắp xếp (Search, Filter, Sort)",
+          "description": "Kiểm tra tìm kiếm phiếu theo mã PO, tên NCC hoặc ghi chú; sắp xếp theo tổng tiền hoặc ngày lập",
+          "item": [
+            {
+              "name": "Tìm kiếm theo từ khóa (Search: PO-)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?search=PO-",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "search",
+                      "value": "PO-"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Sắp xếp theo Tổng chi phí giảm dần (SortBy totalcost DESC)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?sortBy=totalcost&isAscending=false",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "sortBy",
+                      "value": "totalcost"
+                    },
+                    {
+                      "key": "isAscending",
+                      "value": "false"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lọc theo khoảng ngày (FromDate & ToDate)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?fromDate=2026-01-01&toDate=2026-12-31",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "fromDate",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "toDate",
+                      "value": "2026-12-31"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Tất cả phiếu trả về nằm trong khoảng ngày lọc\", function () {",
+                      "    const res = pm.response.json();",
+                      "    if (res.data && res.data.items && res.data.items.length > 0) {",
+                      "        const from = new Date('2026-01-01T00:00:00Z');",
+                      "        const to = new Date('2026-12-31T23:59:59Z');",
+                      "        res.data.items.forEach(item => {",
+                      "            const d = new Date(item.createdAt);",
+                      "            pm.expect(d >= from && d <= to).to.be.true;",
+                      "        });",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lọc theo trạng thái (Status: COMPLETED)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?status=COMPLETED",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "COMPLETED"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Tất cả phiếu trả về đều có trạng thái COMPLETED\", function () {",
+                      "    const res = pm.response.json();",
+                      "    if (res.data && res.data.items && res.data.items.length > 0) {",
+                      "        res.data.items.forEach(item => {",
+                      "            pm.expect(item.status).to.eql(\"COMPLETED\");",
+                      "        });",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lọc theo trạng thái (Status: DRAFT)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?status=DRAFT",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "DRAFT"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Tất cả phiếu trả về đều có trạng thái DRAFT\", function () {",
+                      "    const res = pm.response.json();",
+                      "    if (res.data && res.data.items && res.data.items.length > 0) {",
+                      "        res.data.items.forEach(item => {",
+                      "            pm.expect(item.status).to.eql(\"DRAFT\");",
+                      "        });",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Lọc theo Nhà cung cấp (SupplierId: 1)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?supplierId=1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "supplierId",
+                      "value": "1"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Tất cả phiếu trả về đều thuộc SupplierId 1\", function () {",
+                      "    const res = pm.response.json();",
+                      "    if (res.data && res.data.items && res.data.items.length > 0) {",
+                      "        res.data.items.forEach(item => {",
+                      "            pm.expect(item.supplierId).to.eql(1);",
+                      "        });",
+                      "    }",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Bộ lọc kết hợp (FromDate, ToDate, Status, SupplierId)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/purchase-orders?fromDate=2026-01-01&toDate=2026-12-31&status=COMPLETED&supplierId=1",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "purchase-orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "fromDate",
+                      "value": "2026-01-01"
+                    },
+                    {
+                      "key": "toDate",
+                      "value": "2026-12-31"
+                    },
+                    {
+                      "key": "status",
+                      "value": "COMPLETED"
+                    },
+                    {
+                      "key": "supplierId",
+                      "value": "1"
+                    }
+                  ]
+                },
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Status code is 200 OK\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "});",
+                      "pm.test(\"Dữ liệu trả về đúng định dạng danh sách có phân trang\", function () {",
+                      "    const res = pm.response.json();",
+                      "    pm.expect(res.success).to.be.true;",
+                      "    pm.expect(res.data).to.have.property('items');",
+                      "    pm.expect(res.data).to.have.property('totalCount');",
+                      "});"
+                    ],
+                    "type": "text/javascript"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{accessToken}}",
+            "type": "string"
+          }
+        ]
+      }
     }
   ],
   "variable": [
@@ -1962,6 +3270,18 @@
     },
     {
       "key": "createdVariantId",
+      "value": ""
+    },
+    {
+      "key": "createdPurchaseOrderId",
+      "value": ""
+    },
+    {
+      "key": "completedPurchaseOrderId",
+      "value": ""
+    },
+    {
+      "key": "draftToDeletePoId",
       "value": ""
     }
   ],

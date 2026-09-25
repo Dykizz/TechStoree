@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -136,6 +138,54 @@ public class AppDbContext : DbContext
                   .WithMany(p => p.Variants)
                   .HasForeignKey(v => v.ProductId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 6.1. Cấu hình bảng PurchaseOrders
+        modelBuilder.Entity<PurchaseOrder>(entity =>
+        {
+            entity.ToTable("purchase_orders");
+            entity.HasKey(po => po.PurchaseOrderId);
+            entity.Property(po => po.PurchaseOrderId).HasColumnName("purchase_order_id");
+            entity.Property(po => po.PoCode).HasColumnName("po_code").IsRequired().HasMaxLength(30);
+            entity.HasIndex(po => po.PoCode).IsUnique();
+            entity.Property(po => po.SupplierId).HasColumnName("supplier_id");
+            entity.Property(po => po.CreatedByUserId).HasColumnName("created_by_user_id");
+            entity.Property(po => po.TotalCost).HasColumnName("total_cost").HasColumnType("decimal(12,0)");
+            entity.Property(po => po.Status).HasColumnName("status").HasConversion<string>().HasMaxLength(30).HasDefaultValue(PurchaseOrderStatus.DRAFT);
+            entity.Property(po => po.Note).HasColumnName("note");
+            entity.Property(po => po.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(po => po.Supplier)
+                  .WithMany()
+                  .HasForeignKey(po => po.SupplierId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(po => po.CreatedByUser)
+                  .WithMany()
+                  .HasForeignKey(po => po.CreatedByUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(po => po.Items)
+                  .WithOne(poi => poi.PurchaseOrder)
+                  .HasForeignKey(poi => poi.PurchaseOrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 6.2. Cấu hình bảng PurchaseOrderItems
+        modelBuilder.Entity<PurchaseOrderItem>(entity =>
+        {
+            entity.ToTable("purchase_order_items");
+            entity.HasKey(poi => poi.PoItemId);
+            entity.Property(poi => poi.PoItemId).HasColumnName("po_item_id");
+            entity.Property(poi => poi.PurchaseOrderId).HasColumnName("purchase_order_id");
+            entity.Property(poi => poi.VariantId).HasColumnName("variant_id");
+            entity.Property(poi => poi.ImportPrice).HasColumnName("import_price").HasColumnType("decimal(12,0)");
+            entity.Property(poi => poi.Quantity).HasColumnName("quantity");
+
+            entity.HasOne(poi => poi.Variant)
+                  .WithMany()
+                  .HasForeignKey(poi => poi.VariantId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         // 7. Seed dữ liệu mặc định cho Role (ADMIN và USER)
