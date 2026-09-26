@@ -56,4 +56,8 @@ public class UserVoucher
     /// </summary>
     [Column("order_id")]
     public int? OrderId { get; set; }
+
+    [ForeignKey("OrderId")]
+    public Order? Order { get; set; }
 }
+

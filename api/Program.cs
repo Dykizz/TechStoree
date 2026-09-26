@@ -30,6 +30,7 @@ builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 
 
@@ -90,6 +91,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         options.IncludeXmlComments(xmlPath);
     }
+
 
     // Loại bỏ khối Example/Schema rác ở các mã lỗi 4xx, 5xx
     options.OperationFilter<WebBanHang.Api.Common.RemoveErrorSchemasFilter>();

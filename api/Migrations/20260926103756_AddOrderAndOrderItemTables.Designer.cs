@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebBanHang.Api.Data;
@@ -11,9 +12,11 @@ using WebBanHang.Api.Data;
 namespace WebBanHang.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926103756_AddOrderAndOrderItemTables")]
+    partial class AddOrderAndOrderItemTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -527,10 +530,7 @@ namespace WebBanHang.Api.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("product_variants", null, t =>
-                        {
-                            t.HasCheckConstraint("chk_product_variants_stock_quantity", "stock_quantity >= 0");
-                        });
+                    b.ToTable("product_variants", (string)null);
 
                     b.HasData(
                         new

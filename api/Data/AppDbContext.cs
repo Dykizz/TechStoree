@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<Promotion> Promotions => Set<Promotion>();
     public DbSet<Voucher> Vouchers => Set<Voucher>();
     public DbSet<UserVoucher> UserVouchers => Set<UserVoucher>();
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderItem> OrderItems => Set<OrderItem>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -113,8 +115,9 @@ public class AppDbContext : DbContext
         // 6. Cấu hình bảng ProductVariants
         modelBuilder.Entity<ProductVariant>(entity =>
         {
-            entity.ToTable("product_variants");
+            entity.ToTable("product_variants", t => t.HasCheckConstraint("chk_product_variants_stock_quantity", "stock_quantity >= 0"));
             entity.HasKey(v => v.VariantId);
+
             entity.Property(v => v.VariantId).HasColumnName("variant_id");
             entity.Property(v => v.ProductId).HasColumnName("product_id");
             entity.Property(v => v.VariantName).HasColumnName("variant_name").IsRequired().HasMaxLength(150);
@@ -314,7 +317,114 @@ public class AppDbContext : DbContext
                   .WithMany(v => v.UserVouchers)
                   .HasForeignKey(uv => uv.VoucherId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(uv => uv.Order)
+                  .WithMany()
+                  .HasForeignKey(uv => uv.OrderId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // 12. Cấu hình bảng Orders (Đơn đặt hàng & Snapshot Voucher)
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.ToTable("orders");
+            entity.HasKey(o => o.OrderId);
+            entity.Property(o => o.OrderId).HasColumnName("order_id");
+            entity.Property(o => o.OrderCode).HasColumnName("order_code").IsRequired().HasMaxLength(50);
+            entity.HasIndex(o => o.OrderCode).IsUnique();
+
+            entity.Property(o => o.UserId).HasColumnName("user_id");
+            entity.HasIndex(o => o.UserId);
+
+            entity.Property(o => o.ReceiverName).HasColumnName("receiver_name").IsRequired().HasMaxLength(100);
+            entity.Property(o => o.ReceiverPhone).HasColumnName("receiver_phone").IsRequired().HasMaxLength(20);
+            entity.Property(o => o.ShippingAddress).HasColumnName("shipping_address").IsRequired().HasMaxLength(500);
+            entity.Property(o => o.Notes).HasColumnName("notes").HasMaxLength(500);
+
+            entity.Property(o => o.OrderStatus)
+                  .HasColumnName("order_status")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(30)
+                  .HasDefaultValue(OrderStatus.PENDING);
+            entity.HasIndex(o => o.OrderStatus);
+
+            entity.Property(o => o.PaymentMethod)
+                  .HasColumnName("payment_method")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(30)
+                  .HasDefaultValue(PaymentMethod.COD);
+
+            entity.Property(o => o.PaymentStatus)
+                  .HasColumnName("payment_status")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(30)
+                  .HasDefaultValue(PaymentStatus.PENDING);
+
+            entity.Property(o => o.SubtotalAmount).HasColumnName("subtotal_amount").HasPrecision(18, 2);
+            entity.Property(o => o.VoucherId).HasColumnName("voucher_id");
+            entity.Property(o => o.VoucherCode).HasColumnName("voucher_code").HasMaxLength(50);
+            entity.Property(o => o.VoucherTitle).HasColumnName("voucher_title").HasMaxLength(200);
+            entity.Property(o => o.VoucherDiscountAmount).HasColumnName("voucher_discount_amount").HasPrecision(18, 2).HasDefaultValue(0);
+            entity.Property(o => o.TotalAmount).HasColumnName("total_amount").HasPrecision(18, 2);
+
+            entity.Property(o => o.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(o => o.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(o => o.PaidAt).HasColumnName("paid_at");
+            entity.Property(o => o.CancelledAt).HasColumnName("cancelled_at");
+            entity.Property(o => o.CancellationReason).HasColumnName("cancellation_reason").HasMaxLength(500);
+
+            entity.HasOne(o => o.User)
+                  .WithMany()
+                  .HasForeignKey(o => o.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(o => o.Voucher)
+                  .WithMany()
+                  .HasForeignKey(o => o.VoucherId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // 13. Cấu hình bảng OrderItems (Chi tiết đơn hàng & Snapshot Promotion)
+        modelBuilder.Entity<OrderItem>(entity =>
+        {
+            entity.ToTable("order_items");
+            entity.HasKey(oi => oi.OrderItemId);
+            entity.Property(oi => oi.OrderItemId).HasColumnName("order_item_id");
+            entity.Property(oi => oi.OrderId).HasColumnName("order_id");
+            entity.Property(oi => oi.VariantId).HasColumnName("variant_id");
+
+            entity.Property(oi => oi.ProductName).HasColumnName("product_name").IsRequired().HasMaxLength(200);
+            entity.Property(oi => oi.VariantName).HasColumnName("variant_name").IsRequired().HasMaxLength(150);
+            entity.Property(oi => oi.ImageUrl).HasColumnName("image_url").HasMaxLength(500);
+
+            entity.Property(oi => oi.OriginalPrice).HasColumnName("original_price").HasPrecision(18, 2);
+            entity.Property(oi => oi.UnitPrice).HasColumnName("unit_price").HasPrecision(18, 2);
+            entity.Property(oi => oi.PromotionId).HasColumnName("promotion_id");
+            entity.Property(oi => oi.PromotionName).HasColumnName("promotion_name").HasMaxLength(200);
+            entity.Property(oi => oi.PromotionDiscount).HasColumnName("promotion_discount").HasPrecision(18, 2).HasDefaultValue(0);
+
+            entity.Property(oi => oi.Quantity).HasColumnName("quantity");
+            entity.Property(oi => oi.TotalPrice).HasColumnName("total_price").HasPrecision(18, 2);
+
+            entity.HasOne(oi => oi.Order)
+                  .WithMany(o => o.Items)
+                  .HasForeignKey(oi => oi.OrderId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(oi => oi.Variant)
+                  .WithMany()
+                  .HasForeignKey(oi => oi.VariantId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(oi => oi.Promotion)
+                  .WithMany()
+                  .HasForeignKey(oi => oi.PromotionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
 
         // 10. Seed dữ liệu mặc định cho Role (ADMIN và USER)
         modelBuilder.Entity<Role>().HasData(

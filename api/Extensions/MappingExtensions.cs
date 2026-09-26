@@ -2,6 +2,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.DTOs.Carts;
 using WebBanHang.Api.DTOs.Categories;
+using WebBanHang.Api.DTOs.Orders;
 using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.Promotions;
 using WebBanHang.Api.DTOs.PurchaseOrders;
@@ -497,4 +498,73 @@ public static class MappingExtensions
             IsUsable = isUsable
         };
     }
+
+    // ==========================================
+    // ORDER MAPPINGS (SNAPSHOT AUDITING)
+    // ==========================================
+
+    public static OrderItemDto ToOrderItemDto(this OrderItem item)
+    {
+        return new OrderItemDto
+        {
+            OrderItemId = item.OrderItemId,
+            OrderId = item.OrderId,
+            VariantId = item.VariantId,
+            ProductName = item.ProductName,
+            VariantName = item.VariantName,
+            ImageUrl = item.ImageUrl,
+            OriginalPrice = item.OriginalPrice,
+            UnitPrice = item.UnitPrice,
+            PromotionId = item.PromotionId,
+            PromotionName = item.PromotionName,
+            PromotionDiscount = item.PromotionDiscount,
+            Quantity = item.Quantity,
+            TotalPrice = item.TotalPrice
+        };
+    }
+
+    public static T PopulateOrderBase<T>(this Order order, T dto) where T : OrderBaseDto
+    {
+        var items = order.Items?.ToList() ?? new List<OrderItem>();
+        var totalPromotionDiscount = items.Sum(i => i.PromotionDiscount * i.Quantity);
+
+        dto.OrderId = order.OrderId;
+        dto.OrderCode = order.OrderCode;
+        dto.UserId = order.UserId;
+        dto.ReceiverName = order.ReceiverName;
+        dto.ReceiverPhone = order.ReceiverPhone;
+        dto.ShippingAddress = order.ShippingAddress;
+        dto.Notes = order.Notes;
+        dto.OrderStatus = order.OrderStatus;
+        dto.PaymentMethod = order.PaymentMethod;
+        dto.PaymentStatus = order.PaymentStatus;
+        dto.SubtotalAmount = order.SubtotalAmount;
+        dto.VoucherId = order.VoucherId;
+        dto.VoucherCode = order.VoucherCode;
+        dto.VoucherTitle = order.VoucherTitle;
+        dto.VoucherDiscountAmount = order.VoucherDiscountAmount;
+        dto.TotalAmount = order.TotalAmount;
+
+        dto.TotalItems = items.Count;
+        dto.TotalQuantity = items.Sum(i => i.Quantity);
+        dto.TotalSavings = totalPromotionDiscount + order.VoucherDiscountAmount;
+        dto.CreatedAt = order.CreatedAt;
+        dto.UpdatedAt = order.UpdatedAt;
+        dto.PaidAt = order.PaidAt;
+        dto.CancelledAt = order.CancelledAt;
+        dto.CancellationReason = order.CancellationReason;
+        return dto;
+    }
+
+    public static OrderBaseDto ToOrderBaseDto(this Order order) =>
+        order.PopulateOrderBase(new OrderBaseDto());
+
+    public static OrderDetailDto ToOrderDetailDto(this Order order)
+    {
+        var detail = order.PopulateOrderBase(new OrderDetailDto());
+        detail.User = order.User != null ? order.User.ToDto() : null;
+        detail.Items = order.Items?.Select(i => i.ToOrderItemDto()).ToList() ?? new List<OrderItemDto>();
+        return detail;
+    }
 }
+
