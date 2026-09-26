@@ -27,4 +27,10 @@ public class ProductQueryFilter : PaginationParams
     /// </summary>
     /// <example>true</example>
     public bool? IsActive { get; set; }
+
+    /// <summary>
+    /// Lọc chỉ lấy các sản phẩm đang có chương trình giảm giá khuyến mãi (true)
+    /// </summary>
+    /// <example>true</example>
+    public bool? OnSale { get; set; }
 }

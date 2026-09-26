@@ -17,6 +17,7 @@ public class ProductService(AppDbContext context) : IProductService
         var query = context.Products
             .Include(p => p.Category)
             .Include(p => p.Variants)
+                .ThenInclude(v => v.Promotions)
             .AsNoTracking();
 
         if (!isAdmin)
@@ -26,6 +27,14 @@ public class ProductService(AppDbContext context) : IProductService
         else if (filter.IsActive.HasValue)
         {
             query = query.Where(p => p.IsActive == filter.IsActive.Value);
+        }
+
+        if (filter.OnSale == true)
+        {
+            var now = DateTime.UtcNow;
+            query = query.Where(p => p.Variants.Any(v => 
+                (isAdmin || v.IsActive) && 
+                v.Promotions.Any(promo => promo.IsActive && promo.StartDate <= now && promo.EndDate >= now)));
         }
 
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -78,6 +87,7 @@ public class ProductService(AppDbContext context) : IProductService
         var product = await context.Products
             .Include(p => p.Category)
             .Include(p => p.Variants)
+                .ThenInclude(v => v.Promotions)
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.ProductId == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy sản phẩm với mã ID: {id}.");

@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<PurchaseOrderItem> PurchaseOrderItems => Set<PurchaseOrderItem>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Promotion> Promotions => Set<Promotion>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -232,7 +233,37 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // 9. Seed dữ liệu mặc định cho Role (ADMIN và USER)
+        // 9. Cấu hình bảng Promotions và quan hệ Nhiều-Nhiều với ProductVariants
+        modelBuilder.Entity<Promotion>(entity =>
+        {
+            entity.ToTable("promotions");
+            entity.HasKey(p => p.PromotionId);
+            entity.Property(p => p.PromotionId).HasColumnName("promotion_id");
+            entity.Property(p => p.Name).HasColumnName("name").IsRequired().HasMaxLength(200);
+            entity.Property(p => p.Description).HasColumnName("description");
+            entity.Property(p => p.DiscountType).HasColumnName("discount_type").IsRequired().HasMaxLength(20);
+            entity.Property(p => p.DiscountValue).HasColumnName("discount_value").HasPrecision(18, 2);
+            entity.Property(p => p.StartDate).HasColumnName("start_date");
+            entity.Property(p => p.EndDate).HasColumnName("end_date");
+            entity.Property(p => p.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(p => p.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasMany(p => p.Variants)
+                  .WithMany(v => v.Promotions)
+                  .UsingEntity<Dictionary<string, object>>(
+                      "promotion_variants",
+                      j => j.HasOne<ProductVariant>().WithMany().HasForeignKey("variant_id"),
+                      j => j.HasOne<Promotion>().WithMany().HasForeignKey("promotion_id"),
+                      j =>
+                      {
+                          j.ToTable("promotion_variants");
+                          j.HasKey("promotion_id", "variant_id");
+                          j.Property<int>("promotion_id").HasColumnName("promotion_id");
+                          j.Property<int>("variant_id").HasColumnName("variant_id");
+                      });
+        });
+
+        // 10. Seed dữ liệu mặc định cho Role (ADMIN và USER)
         modelBuilder.Entity<Role>().HasData(
             new Role { RoleId = "ADMIN", RoleName = "Quản trị viên" },
             new Role { RoleId = "USER", RoleName = "Người dùng" }
