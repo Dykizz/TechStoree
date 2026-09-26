@@ -4677,6 +4677,1000 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "1. Thêm sản phẩm vào giỏ hàng (POST /api/cart/items)",
+          "id": "1eb79e94-4495-445e-aac6-e2bdda993f69",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"variantId\": 1,\n  \"quantity\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/cart/items",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cart",
+                "items"
+              ]
+            },
+            "description": "Chuẩn bị giỏ hàng: Thêm 1 sản phẩm vào giỏ để có mặt hàng checkout."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Cart item added successfully\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Tạm tính chi phí đơn hàng (POST /api/orders/preview)",
+          "id": "7dfc8540-b4e0-4c70-935e-7e981f1c1af8",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItemIds\": null,\n  \"voucherCode\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "preview"
+              ]
+            },
+            "description": "Tính thử chi phí đơn hàng trước khi bấm Đặt hàng (kiểm tra tồn kho, khuyến mãi Promotion và voucher)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Preview calculated correctly\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.subtotalAmount).to.be.above(0);",
+                  "    pm.expect(json.data.totalAmount).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Khách hàng đặt hàng chính thức (POST /api/orders/checkout)",
+          "id": "2bb87738-aa1a-4c21-9962-86cc295fe791",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartItemIds\": null,\n  \"voucherCode\": \"\",\n  \"receiverName\": \"Nguyễn Văn Test\",\n  \"receiverPhone\": \"0987654321\",\n  \"shippingAddress\": \"123 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh\",\n  \"notes\": \"Giao hàng giờ hành chính, gọi trước khi giao\",\n  \"paymentMethod\": \"COD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "checkout"
+              ]
+            },
+            "description": "Khách hàng thực hiện checkout: Trừ tồn kho nguyên tử (chống race condition), snapshot Promotion/Voucher, dọn giỏ hàng."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Order created successfully and saved ID/Code\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderId).to.be.a(\"number\");",
+                  "    pm.expect(json.data.orderCode).to.be.a(\"string\");",
+                  "    pm.expect(json.data.orderStatus).to.eql(\"PENDING\");",
+                  "    pm.expect(json.data.paymentMethod).to.eql(\"COD\");",
+                  "    pm.expect(json.data.paymentStatus).to.eql(\"PENDING\");",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.items.length).to.be.above(0);",
+                  "    pm.collectionVariables.set(\"createdOrderId\", json.data.orderId);",
+                  "    pm.collectionVariables.set(\"createdOrderCode\", json.data.orderCode);",
+                  "    console.log(\"Saved createdOrderId: \" + json.data.orderId + \", Code: \" + json.data.orderCode);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Lấy lịch sử đơn hàng của tôi (GET /api/orders/my-orders)",
+          "id": "000965fd-6128-4580-a598-7ad7b7158582",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/my-orders?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "my-orders"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lấy danh sách lịch sử đơn hàng của tài khoản khách hàng đang đăng nhập."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"My orders list retrieved successfully\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.meta.totalItems).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Xem chi tiết đơn hàng theo ID (GET /api/orders/:id)",
+          "id": "b756c2c2-7102-4b67-8269-66d101fbf107",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{createdOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{createdOrderId}}"
+              ]
+            },
+            "description": "Xem thông tin chi tiết một đơn hàng theo ID (kèm snapshot giá, promotion, và thông tin giao nhận)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Order detail by ID returned correctly\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderId).to.eql(Number(pm.collectionVariables.get(\"createdOrderId\")));",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.items[0]).to.have.property(\"originalPrice\");",
+                  "    pm.expect(json.data.items[0]).to.have.property(\"unitPrice\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Xem chi tiết đơn hàng theo OrderCode (GET /api/orders/code/:orderCode)",
+          "id": "a22a6ba7-f91c-4789-bbdc-c064f5ddde8b",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/code/{{createdOrderCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "code",
+                "{{createdOrderCode}}"
+              ]
+            },
+            "description": "Tra cứu chi tiết đơn hàng bằng chuỗi OrderCode duy nhất (VD: ORD-20260926-XXXXXX)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Order detail by Code returned correctly\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderCode).to.eql(pm.collectionVariables.get(\"createdOrderCode\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. [ADMIN] Quản lý danh sách toàn bộ đơn hàng (GET /api/orders/admin/all)",
+          "id": "27288346-7c7f-4359-8585-c5bd967a989c",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/admin/all?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "admin",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Dành cho Quản trị viên: Lọc, tra cứu và phân trang danh sách toàn bộ đơn hàng trên sàn."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Admin orders list retrieved successfully\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. [ADMIN] Cập nhật trạng thái sang CONFIRMED (PATCH /api/orders/:id/status)",
+          "id": "d8fab3b6-4a97-4cd4-9d56-6337cac1a1eb",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"CONFIRMED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{createdOrderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{createdOrderId}}",
+                "status"
+              ]
+            },
+            "description": "Quản trị viên chuyển trạng thái đơn hàng sang Đã xác nhận (CONFIRMED)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status updated to CONFIRMED\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderStatus).to.eql(\"CONFIRMED\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. [ADMIN] Cập nhật trạng thái sang SHIPPING (PATCH /api/orders/:id/status)",
+          "id": "246bfc61-0715-4842-81bb-bb7e07502630",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"SHIPPING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{createdOrderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{createdOrderId}}",
+                "status"
+              ]
+            },
+            "description": "Quản trị viên chuyển trạng thái đơn hàng sang Đang vận chuyển (SHIPPING)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status updated to SHIPPING\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderStatus).to.eql(\"SHIPPING\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. [ADMIN] Cập nhật trạng thái sang DELIVERED (PATCH /api/orders/:id/status)",
+          "id": "9e39b7d5-c312-46ca-8c73-72df7a764798",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"DELIVERED\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{createdOrderId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{createdOrderId}}",
+                "status"
+              ]
+            },
+            "description": "Giao hàng thành công (DELIVERED): Tự động đánh dấu PaymentStatus = PAID cho đơn thanh toán COD."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Status updated to DELIVERED and PaymentStatus is PAID\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderStatus).to.eql(\"DELIVERED\");",
+                  "    pm.expect(json.data.paymentStatus).to.eql(\"PAID\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Đặt đơn hàng mới để test hủy đơn (POST /api/orders/checkout)",
+          "id": "e7624796-8132-4001-843b-44074592d5bc",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverName\": \"Khách Test Hủy Đơn\",\n  \"receiverPhone\": \"0911223344\",\n  \"shippingAddress\": \"456 Đường CMT8, Quận 3, TP.HCM\",\n  \"paymentMethod\": \"COD\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "checkout"
+              ]
+            },
+            "description": "Đặt thêm 1 đơn hàng mới (tự động thêm vào giỏ trước khi đặt) để phục vụ test hủy đơn."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.sendRequest({",
+                  "    url: pm.collectionVariables.get(\"baseUrl\") + \"/api/cart/items\",",
+                  "    method: \"POST\",",
+                  "    header: {",
+                  "        \"Content-Type\": \"application/json\",",
+                  "        \"Authorization\": \"Bearer \" + pm.collectionVariables.get(\"accessToken\")",
+                  "    },",
+                  "    body: {",
+                  "        mode: \"raw\",",
+                  "        raw: JSON.stringify({ variantId: 1, quantity: 1 })",
+                  "    }",
+                  "}, function (err, res) {",
+                  "    console.log(\"Auto added item to cart for cancel test\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Order to cancel created and saved ID\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.collectionVariables.set(\"orderToCancelId\", json.data.orderId);",
+                  "    console.log(\"Saved orderToCancelId: \" + json.data.orderId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Khách hàng hủy đơn hàng (POST /api/orders/:id/cancel)",
+          "id": "be9a6e92-733d-48c5-8eba-b7b0e8132951",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Tôi muốn đổi sang địa chỉ giao hàng khác\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderToCancelId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderToCancelId}}",
+                "cancel"
+              ]
+            },
+            "description": "Khách hàng hủy đơn ở trạng thái PENDING: Tự động hoàn lại tồn kho nguyên tử và trả voucher về ví nếu có."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Order cancelled successfully and stock refunded\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderStatus).to.eql(\"CANCELLED\");",
+                  "    pm.expect(json.data.cancellationReason).to.eql(\"Tôi muốn đổi sang địa chỉ giao hàng khác\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. [Test Lỗi] Hủy lại đơn đã hủy trước đó (POST /api/orders/:id/cancel - 400 Bad Request)",
+          "id": "084345ac-50b0-45b7-96dc-2150d65e17d8",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Thử hủy lại lần nữa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/{{orderToCancelId}}/cancel",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "{{orderToCancelId}}",
+                "cancel"
+              ]
+            },
+            "description": "Kiểm tra chặn lỗi: Đơn hàng đã ở trạng thái CANCELLED không được phép hủy lại lần nữa."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Error response returned correctly\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. [Test Lỗi] Đặt hàng thiếu thông tin bắt buộc (POST /api/orders/checkout - 400 Bad Request)",
+          "id": "43ae5c44-63ca-49e7-8ef5-3c798385f71f",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverName\": \"\",\n  \"receiverPhone\": \"\",\n  \"shippingAddress\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/checkout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "checkout"
+              ]
+            },
+            "description": "Kiểm tra Validation: Đặt hàng thiếu tên, số điện thoại hoặc địa chỉ sẽ bị từ chối."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Validation error returned\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15. [Test Lỗi] Xem đơn hàng không tồn tại (GET /api/orders/:id - 404 Not Found)",
+          "id": "a969ebf2-cd48-4121-bc6f-49177f50e4ae",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "orders",
+                "999999"
+              ]
+            },
+            "description": "Kiểm tra mã lỗi 404 khi tra cứu ID đơn hàng không tồn tại trong CSDL."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test(\"Not found message returned\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -4778,6 +5772,21 @@
     },
     {
       "key": "upcomingEndDate",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdOrderId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdOrderCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "orderToCancelId",
       "value": "",
       "type": "string"
     }

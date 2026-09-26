@@ -8,6 +8,7 @@ using WebBanHang.Api.Data;
 using WebBanHang.Api.Middlewares;
 using WebBanHang.Api.Services;
 using WebBanHang.Api.Services.Interfaces;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,7 +82,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// 6. Cấu hình Swagger / OpenAPI kèm XML Documentation
+// 6. Cấu hình Swagger / OpenAPI kèm XML Documentation & JWT Bearer Authentication
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -92,6 +93,20 @@ builder.Services.AddSwaggerGen(options =>
         options.IncludeXmlComments(xmlPath);
     }
 
+
+    // Cấu hình định nghĩa bảo mật JWT Bearer cho Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Nhập Access Token vào đây (Swagger sẽ tự thêm tiền tố 'Bearer '):"
+    });
+
+    // Tự động gắn icon ổ khóa 🔒 và yêu cầu Bearer token cho các endpoint có [Authorize]
+    options.OperationFilter<WebBanHang.Api.Common.AuthorizeCheckOperationFilter>();
 
     // Loại bỏ khối Example/Schema rác ở các mã lỗi 4xx, 5xx
     options.OperationFilter<WebBanHang.Api.Common.RemoveErrorSchemasFilter>();
