@@ -22,6 +22,8 @@ public class AppDbContext : DbContext
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
     public DbSet<Promotion> Promotions => Set<Promotion>();
+    public DbSet<Voucher> Vouchers => Set<Voucher>();
+    public DbSet<UserVoucher> UserVouchers => Set<UserVoucher>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -261,6 +263,57 @@ public class AppDbContext : DbContext
                           j.Property<int>("promotion_id").HasColumnName("promotion_id");
                           j.Property<int>("variant_id").HasColumnName("variant_id");
                       });
+        });
+
+        // 10. Cấu hình bảng Vouchers
+        modelBuilder.Entity<Voucher>(entity =>
+        {
+            entity.ToTable("vouchers");
+            entity.HasKey(v => v.VoucherId);
+            entity.Property(v => v.VoucherId).HasColumnName("voucher_id");
+            entity.Property(v => v.Code).HasColumnName("code").IsRequired().HasMaxLength(50);
+            entity.HasIndex(v => v.Code).IsUnique();
+            entity.Property(v => v.Title).HasColumnName("title").IsRequired().HasMaxLength(200);
+            entity.Property(v => v.Description).HasColumnName("description").HasMaxLength(1000);
+            entity.Property(v => v.DiscountType).HasColumnName("discount_type").HasConversion<string>().IsRequired().HasMaxLength(20);
+            entity.Property(v => v.DiscountValue).HasColumnName("discount_value").HasPrecision(18, 2);
+            entity.Property(v => v.MinOrderValue).HasColumnName("min_order_value").HasPrecision(18, 2).HasDefaultValue(0);
+            entity.Property(v => v.MaxDiscountAmount).HasColumnName("max_discount_amount").HasPrecision(18, 2);
+            entity.Property(v => v.UsageLimit).HasColumnName("usage_limit");
+            entity.Property(v => v.UsedCount).HasColumnName("used_count").HasDefaultValue(0);
+            entity.Property(v => v.LimitPerUser).HasColumnName("limit_per_user").HasDefaultValue(1);
+            entity.Property(v => v.StartDate).HasColumnName("start_date");
+            entity.Property(v => v.EndDate).HasColumnName("end_date");
+            entity.Property(v => v.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(v => v.IsPublic).HasColumnName("is_public").HasDefaultValue(true);
+            entity.Property(v => v.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+        });
+
+        // 11. Cấu hình bảng UserVouchers (Ví voucher của khách hàng)
+        modelBuilder.Entity<UserVoucher>(entity =>
+        {
+            entity.ToTable("user_vouchers");
+            entity.HasKey(uv => uv.UserVoucherId);
+            entity.Property(uv => uv.UserVoucherId).HasColumnName("user_voucher_id");
+            entity.Property(uv => uv.UserId).HasColumnName("user_id");
+            entity.Property(uv => uv.VoucherId).HasColumnName("voucher_id");
+            entity.Property(uv => uv.AssignedType).HasColumnName("assigned_type").HasConversion<string>().IsRequired().HasMaxLength(50).HasDefaultValue(VoucherAssignedType.CLAIMED);
+            entity.Property(uv => uv.AssignedAt).HasColumnName("assigned_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(uv => uv.IsUsed).HasColumnName("is_used").HasDefaultValue(false);
+            entity.Property(uv => uv.UsedAt).HasColumnName("used_at");
+            entity.Property(uv => uv.OrderId).HasColumnName("order_id");
+
+            entity.HasIndex(uv => new { uv.UserId, uv.VoucherId });
+
+            entity.HasOne(uv => uv.User)
+                  .WithMany()
+                  .HasForeignKey(uv => uv.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(uv => uv.Voucher)
+                  .WithMany(v => v.UserVouchers)
+                  .HasForeignKey(uv => uv.VoucherId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // 10. Seed dữ liệu mặc định cho Role (ADMIN và USER)

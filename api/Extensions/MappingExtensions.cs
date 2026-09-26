@@ -8,6 +8,7 @@ using WebBanHang.Api.DTOs.PurchaseOrders;
 using WebBanHang.Api.DTOs.Suppliers;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.DTOs.Variants;
+using WebBanHang.Api.DTOs.Vouchers;
 using WebBanHang.Api.Models;
 
 namespace WebBanHang.Api.Extensions;
@@ -397,5 +398,103 @@ public static class MappingExtensions
         var detail = p.PopulatePromotionBase(new PromotionDetailDto(), currentTime);
         detail.Variants = p.Variants?.Select(v => v.ToPromotionVariantItemDto(p)).ToList() ?? new List<PromotionVariantItemDto>();
         return detail;
+    }
+
+    // ==========================================
+    // VOUCHER MAPPINGS
+    // ==========================================
+
+    public static VoucherCampaignStatus GetVoucherStatus(this Voucher v, DateTime? currentTime = null)
+    {
+        var now = currentTime ?? DateTime.UtcNow;
+        if (now < v.StartDate) return VoucherCampaignStatus.UPCOMING;
+        if (now > v.EndDate) return VoucherCampaignStatus.EXPIRED;
+        return VoucherCampaignStatus.ACTIVE;
+    }
+
+    public static T PopulateVoucherBase<T>(this Voucher v, T dto, DateTime? currentTime = null)
+        where T : VoucherBaseDto
+    {
+        var now = currentTime ?? DateTime.UtcNow;
+        dto.VoucherId = v.VoucherId;
+        dto.Code = v.Code;
+        dto.Title = v.Title;
+        dto.Description = v.Description;
+        dto.DiscountType = v.DiscountType;
+        dto.DiscountValue = v.DiscountValue;
+        dto.MinOrderValue = v.MinOrderValue;
+        dto.MaxDiscountAmount = v.MaxDiscountAmount;
+        dto.UsageLimit = v.UsageLimit;
+        dto.UsedCount = v.UsedCount;
+        dto.LimitPerUser = v.LimitPerUser;
+        dto.StartDate = v.StartDate;
+        dto.EndDate = v.EndDate;
+        dto.IsActive = v.IsActive;
+        dto.IsPublic = v.IsPublic;
+        dto.CreatedAt = v.CreatedAt;
+        dto.Status = v.GetVoucherStatus(now);
+        return dto;
+    }
+
+    public static VoucherBaseDto ToVoucherBaseDto(this Voucher v, DateTime? currentTime = null) =>
+        v.PopulateVoucherBase(new VoucherBaseDto(), currentTime);
+
+    public static VoucherDetailDto ToVoucherDetailDto(this Voucher v, DateTime? currentTime = null)
+    {
+        var detail = v.PopulateVoucherBase(new VoucherDetailDto(), currentTime);
+        detail.TotalClaimedCount = v.UserVouchers?.Count ?? 0;
+        return detail;
+    }
+
+    public static bool IsCurrentlyValid(this Voucher v, DateTime? currentTime = null)
+    {
+        var now = currentTime ?? DateTime.UtcNow;
+        return v.IsActive && v.StartDate <= now && v.EndDate >= now;
+    }
+
+    public static bool HasReachedUsageLimit(this Voucher v) =>
+        v.UsageLimit.HasValue && v.UsedCount >= v.UsageLimit.Value;
+
+    public static decimal CalculateDiscount(this Voucher voucher, decimal subtotalAmount)
+    {
+        if (voucher.DiscountType == DiscountType.PERCENTAGE)
+        {
+            var rawDiscount = Math.Round(subtotalAmount * (voucher.DiscountValue / 100m), 0);
+            if (voucher.MaxDiscountAmount.HasValue && voucher.MaxDiscountAmount.Value > 0)
+            {
+                rawDiscount = Math.Min(rawDiscount, voucher.MaxDiscountAmount.Value);
+            }
+            return Math.Min(subtotalAmount, rawDiscount);
+        }
+
+        return Math.Min(subtotalAmount, voucher.DiscountValue);
+    }
+
+    public static UserVoucherItemDto ToUserVoucherItemDto(this UserVoucher uv, DateTime? currentTime = null)
+    {
+        var now = currentTime ?? DateTime.UtcNow;
+        var voucher = uv.Voucher;
+        var isUsable = !uv.IsUsed && voucher != null && voucher.IsCurrentlyValid(now);
+
+        return new UserVoucherItemDto
+        {
+            UserVoucherId = uv.UserVoucherId,
+            VoucherId = uv.VoucherId,
+            Code = voucher?.Code ?? string.Empty,
+            Title = voucher?.Title ?? string.Empty,
+            Description = voucher?.Description,
+            DiscountType = voucher?.DiscountType ?? DiscountType.PERCENTAGE,
+            DiscountValue = voucher?.DiscountValue ?? 0,
+            MinOrderValue = voucher?.MinOrderValue ?? 0,
+            MaxDiscountAmount = voucher?.MaxDiscountAmount,
+            StartDate = voucher?.StartDate ?? DateTime.MinValue,
+            EndDate = voucher?.EndDate ?? DateTime.MinValue,
+            AssignedType = uv.AssignedType,
+            AssignedAt = uv.AssignedAt,
+            IsUsed = uv.IsUsed,
+            UsedAt = uv.UsedAt,
+            OrderId = uv.OrderId,
+            IsUsable = isUsable
+        };
     }
 }

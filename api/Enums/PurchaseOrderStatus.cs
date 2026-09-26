@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace WebBanHang.Api.Models;
+namespace WebBanHang.Api.Enums;
 
 /// <summary>
 /// Trạng thái của phiếu nhập hàng: DRAFT (Bản nháp), COMPLETED (Đã nhập kho)
