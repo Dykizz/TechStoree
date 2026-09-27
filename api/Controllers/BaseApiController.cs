@@ -21,7 +21,7 @@ public abstract class BaseApiController : ControllerBase
         User.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
 
     /// <summary>
-    /// Vai trò của người dùng: ADMIN, CRM_MANAGER, CUSTOMER (ClaimTypes.Role)
+    /// Vai trò của người dùng: ADMIN, USER (ClaimTypes.Role)
     /// </summary>
     protected string CurrentUserRole =>
         User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;

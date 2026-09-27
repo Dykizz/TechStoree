@@ -6,7 +6,9 @@ namespace WebBanHang.Api.DTOs.Products;
 
 public class ProductUpdateRequestDto : ProductBaseRequestDto, IValidatableObject
 {
-    // Danh sách biến thể cập nhật (tùy chọn: nếu gửi kèm thì cập nhật đồng bộ toàn bộ biến thể)
+    /// <summary>
+    /// Danh sách biến thể cập nhật đồng bộ (tùy chọn: nếu gửi kèm thì hệ thống sẽ cập nhật biến thể cũ có VariantId, thêm biến thể mới không có VariantId, và xóa các biến thể không còn trong danh sách)
+    /// </summary>
     [MinLength(1, ErrorMessage = "Mỗi sản phẩm bắt buộc phải có ít nhất 1 biến thể khi cập nhật danh sách biến thể.")]
     public List<ProductVariantUpsertRequestDto>? Variants { get; set; }
 

@@ -41,4 +41,7 @@ public class ProductVariant
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Navigation property nhiều - nhiều trực tiếp tới Promotion
+    public ICollection<Promotion> Promotions { get; set; } = new List<Promotion>();
 }

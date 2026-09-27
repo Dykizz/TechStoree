@@ -6,6 +6,9 @@ namespace WebBanHang.Api.DTOs.Products;
 
 public class ProductCreateRequestDto : ProductBaseRequestDto, IValidatableObject
 {
+    /// <summary>
+    /// Danh sách các biến thể của sản phẩm (bắt buộc ít nhất 1 biến thể, không truyền VariantId khi tạo mới)
+    /// </summary>
     [Required(ErrorMessage = "Danh sách biến thể không được để trống.")]
     [MinLength(1, ErrorMessage = "Mỗi sản phẩm bắt buộc phải có ít nhất 1 biến thể.")]
     public List<ProductVariantUpsertRequestDto> Variants { get; set; } = new();

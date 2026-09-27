@@ -8,6 +8,7 @@ using WebBanHang.Api.Data;
 using WebBanHang.Api.Middlewares;
 using WebBanHang.Api.Services;
 using WebBanHang.Api.Services.Interfaces;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,10 +27,20 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<IPromotionService, PromotionService>();
+builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 
 
-// 3. Cấu hình JSON serializer theo định dạng camelCase
+// 3. Cấu hình JSON serializer theo định dạng camelCase & Chuẩn hóa URL route chữ thường
+builder.Services.Configure<RouteOptions>(options =>
+{
+    options.LowercaseUrls = true;
+});
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -71,9 +82,35 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// 6. Cấu hình Swagger / OpenAPI
+// 6. Cấu hình Swagger / OpenAPI kèm XML Documentation & JWT Bearer Authentication
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    var xmlFilename = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFilename);
+    if (File.Exists(xmlPath))
+    {
+        options.IncludeXmlComments(xmlPath);
+    }
+
+
+    // Cấu hình định nghĩa bảo mật JWT Bearer cho Swagger
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Nhập Access Token vào đây (Swagger sẽ tự thêm tiền tố 'Bearer '):"
+    });
+
+    // Tự động gắn icon ổ khóa 🔒 và yêu cầu Bearer token cho các endpoint có [Authorize]
+    options.OperationFilter<WebBanHang.Api.Common.AuthorizeCheckOperationFilter>();
+
+    // Loại bỏ khối Example/Schema rác ở các mã lỗi 4xx, 5xx
+    options.OperationFilter<WebBanHang.Api.Common.RemoveErrorSchemasFilter>();
+});
 
 var app = builder.Build();
 
