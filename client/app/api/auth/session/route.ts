@@ -48,6 +48,12 @@ export async function GET(request: NextRequest) {
         setSessionCookies(result, renewed.body.data, request.cookies.get(REMEMBER_COOKIE)?.value === "1");
         return result;
       }
+      if (renewed.response.status >= 500) {
+        return NextResponse.json(
+          { message: "Không thể kiểm tra phiên lúc này. Vui lòng thử lại." },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
+        );
+      }
     }
   } catch {
     return NextResponse.json({ message: "Không thể kết nối đến API." }, { status: 503 });

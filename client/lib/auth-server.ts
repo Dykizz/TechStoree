@@ -27,13 +27,24 @@ export type LoginData = {
   user: SessionUser;
 };
 
-export function apiUrl(path: string) {
+export type ProfileData = SessionUser & {
+  phone: string | null;
+  dateOfBirth: string | null;
+  techInterest: string | null;
+  address: string | null;
+};
+
+export function apiEndpoint(path: string) {
   const base = (process.env.API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
-  return `${base}/api/Auth/${path}`;
+  return `${base}/api/${path}`;
 }
 
-export async function backendRequest<T>(path: string, init: RequestInit) {
-  const response = await fetch(apiUrl(path), {
+export function apiUrl(path: string) {
+  return apiEndpoint(`Auth/${path}`);
+}
+
+export async function backendApiRequest<T>(path: string, init: RequestInit) {
+  const response = await fetch(apiEndpoint(path), {
     ...init,
     cache: "no-store",
     signal: AbortSignal.timeout(8000),
@@ -45,6 +56,10 @@ export async function backendRequest<T>(path: string, init: RequestInit) {
     // The API may be unavailable or return a non-JSON error page.
   }
   return { response, body };
+}
+
+export function backendRequest<T>(path: string, init: RequestInit) {
+  return backendApiRequest<T>(`Auth/${path}`, init);
 }
 
 export function publicUser(user: SessionUser): SessionUser {

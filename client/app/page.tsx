@@ -120,7 +120,8 @@ export default function Home() {
             <div className={styles.signedIn}>
               <p className={styles.signedInKicker}>ĐĂNG NHẬP THÀNH CÔNG</p>
               <h2>Xin chào, {user.fullName || user.username}.</h2>
-              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Trang hồ sơ và các trải nghiệm cá nhân sẽ được hoàn thiện ở bước tiếp theo.</p>
+              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Hồ sơ cá nhân của bạn đã sẵn sàng.</p>
+              <Link className={styles.primaryButton} href="/profile">Xem hồ sơ của tôi</Link>
               <button className={styles.primaryButton} type="button" onClick={() => void handleLogout()} disabled={pending}>
                 {pending ? "Đang đăng xuất…" : "Đăng xuất"}
               </button>
