@@ -1,3 +1,23 @@
+export interface ProductPromotionSummaryDto {
+  hasPromotion: boolean;
+  promotionId?: number | null;
+  promotionName: string;
+  discountType?: string | null;
+  discountValue?: number | null;
+  promotionalMinPrice: number;
+  promotionalMaxPrice: number;
+}
+
+export interface VariantPromotionDto {
+  hasPromotion: boolean;
+  promotionId?: number | null;
+  promotionName: string;
+  discountType?: string | null;
+  discountValue?: number | null;
+  promotionalPrice: number;
+  discountAmount?: number | null;
+}
+
 export interface ProductBaseDto {
   productId: number;
   productName: string;
@@ -8,6 +28,8 @@ export interface ProductBaseDto {
   maxPrice: number;
   totalStock: number;
   isActive: boolean;
+  promotion?: ProductPromotionSummaryDto | null;
+  hasPromotion?: boolean;
   createdAt: string;
 }
 
@@ -21,6 +43,8 @@ export interface ProductVariantDto {
   imageUrl: string | null;
   attributes: Record<string, string>;
   isActive: boolean;
+  promotion?: VariantPromotionDto | null;
+  hasPromotion?: boolean;
   createdAt: string;
 }
 
@@ -59,4 +83,5 @@ export interface ProductQueryFilter {
   maxPrice?: number;
   sortBy?: string;
   isAscending?: boolean;
+  onSale?: boolean;
 }

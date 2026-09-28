@@ -110,6 +110,34 @@
   height: 4px;
 }
 
+.salePill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #ffd0d0;
+  background-color: #fff5f5;
+  color: #bd202d;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.salePill:hover {
+  background-color: #ffe6e6;
+  border-color: #ffb3b3;
+}
+
+.salePillActive {
+  background: linear-gradient(135deg, #e52d27 0%, #b31217 100%);
+  color: #ffffff;
+  border-color: #b31217;
+  box-shadow: 0 2px 8px rgba(189, 32, 45, 0.3);
+}
+
 .categoryPill {
   padding: 8px 16px;
   border-radius: 999px;

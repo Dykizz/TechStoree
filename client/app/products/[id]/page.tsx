@@ -108,7 +108,24 @@ export default function ProductDetailPage({
     );
   }
 
-  const currentPrice = selectedVariant ? selectedVariant.price : product.minPrice;
+  const variantPromo = selectedVariant?.promotion && selectedVariant.promotion.hasPromotion
+    ? selectedVariant.promotion
+    : null;
+  const productPromo = product.promotion && product.promotion.hasPromotion
+    ? product.promotion
+    : null;
+
+  const hasPromotion = Boolean(variantPromo || (!selectedVariant && productPromo));
+  const activePromoName = variantPromo?.promotionName || productPromo?.promotionName;
+
+  const originalPrice = selectedVariant ? selectedVariant.price : product.minPrice;
+  const promotionalPrice = variantPromo
+    ? variantPromo.promotionalPrice
+    : productPromo
+    ? productPromo.promotionalMinPrice
+    : null;
+
+  const currentPrice = promotionalPrice ?? originalPrice;
   const currentStock = selectedVariant ? selectedVariant.stockQuantity : product.totalStock;
   const isOutOfStock = currentStock <= 0;
   const activeImage = (selectedVariant && selectedVariant.imageUrl) || product.imageUrl;
@@ -123,7 +140,7 @@ export default function ProductDetailPage({
         variantId: selectedVariant.variantId,
         variantName: selectedVariant.variantName,
         attributes: selectedVariant.attributes,
-        price: selectedVariant.price,
+        price: currentPrice,
         imageUrl: activeImage,
         stockQuantity: selectedVariant.stockQuantity,
       },
@@ -177,7 +194,40 @@ export default function ProductDetailPage({
             <h1 className={styles.title}>{product.productName}</h1>
 
             <div className={styles.priceBlock}>
-              <span className={styles.price}>{formatPrice(currentPrice)}</span>
+              <div className={styles.priceGroup}>
+                <span className={`${styles.price} ${hasPromotion ? styles.pricePromo : ""}`}>
+                  {formatPrice(currentPrice)}
+                </span>
+                {hasPromotion && promotionalPrice !== null && originalPrice > promotionalPrice && (
+                  <span className={styles.originalPrice}>{formatPrice(originalPrice)}</span>
+                )}
+                {variantPromo && (
+                  <span className={styles.promoBadge}>
+                    {variantPromo.discountType === "PERCENTAGE" && variantPromo.discountValue
+                      ? `-${variantPromo.discountValue}%`
+                      : variantPromo.discountAmount
+                      ? `Tiết kiệm ${formatPrice(variantPromo.discountAmount)}`
+                      : "ƯU ĐÃI"}
+                  </span>
+                )}
+                {!selectedVariant && productPromo && productPromo.discountValue && (
+                  <span className={styles.promoBadge}>
+                    {productPromo.discountType === "PERCENTAGE"
+                      ? `-${productPromo.discountValue}%`
+                      : "ƯU ĐÃI"}
+                  </span>
+                )}
+              </div>
+
+              {hasPromotion && activePromoName && (
+                <div className={styles.promoBanner}>
+                  <span className={styles.promoIcon}>⚡</span>
+                  <span className={styles.promoText}>
+                    <strong>{activePromoName}</strong> &bull; Đã áp dụng giảm giá trực tiếp vào sản phẩm
+                  </span>
+                </div>
+              )}
+
               <div className={styles.stockStatus}>
                 <span
                   className={`${styles.dot} ${

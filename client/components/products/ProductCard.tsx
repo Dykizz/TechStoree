@@ -10,12 +10,32 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const isOutOfStock = product.totalStock <= 0;
+  const promo = product.promotion && product.promotion.hasPromotion ? product.promotion : null;
 
-  const displayPrice = () => {
+  const displayOriginalPrice = () => {
     if (product.minPrice === product.maxPrice) {
       return formatPrice(product.minPrice);
     }
     return `${formatPrice(product.minPrice)} – ${formatPrice(product.maxPrice)}`;
+  };
+
+  const displayPromotionalPrice = () => {
+    if (!promo) return null;
+    if (promo.promotionalMinPrice === promo.promotionalMaxPrice) {
+      return formatPrice(promo.promotionalMinPrice);
+    }
+    return `${formatPrice(promo.promotionalMinPrice)} – ${formatPrice(promo.promotionalMaxPrice)}`;
+  };
+
+  const discountBadgeText = () => {
+    if (!promo) return null;
+    if (promo.discountType === "PERCENTAGE" && promo.discountValue) {
+      return `-${promo.discountValue}%`;
+    }
+    if (promo.discountValue) {
+      return `-${formatPrice(promo.discountValue)}`;
+    }
+    return "GIẢM GIÁ";
   };
 
   return (
@@ -38,6 +58,7 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         <span className={styles.badge}>{product.categoryName}</span>
+        {promo && <span className={styles.saleBadge}>{discountBadgeText()}</span>}
         {isOutOfStock && <span className={styles.outOfStockBadge}>Tạm hết</span>}
       </div>
 
@@ -49,8 +70,15 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <div className={styles.footer}>
           <div className={styles.priceWrapper}>
-            <span className={styles.priceLabel}>Giá từ</span>
-            <span className={styles.price}>{displayPrice()}</span>
+            <span className={styles.priceLabel}>{promo ? "Giá ưu đãi" : "Giá từ"}</span>
+            {promo ? (
+              <div className={styles.priceRow}>
+                <span className={styles.promoPrice}>{displayPromotionalPrice()}</span>
+                <span className={styles.originalPrice}>{displayOriginalPrice()}</span>
+              </div>
+            ) : (
+              <span className={styles.price}>{displayOriginalPrice()}</span>
+            )}
           </div>
 
           <span className={styles.viewDetails}>

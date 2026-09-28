@@ -10,6 +10,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<ProductBaseDto[]>([]);
   const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [onSaleOnly, setOnSaleOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [page, setPage] = useState(1);
@@ -41,6 +42,7 @@ export default function ProductsPage() {
         categoryId: selectedCategory || undefined,
         sortBy: sortField,
         isAscending: isAsc,
+        onSale: onSaleOnly || undefined,
       });
 
       if (active) {
@@ -55,10 +57,11 @@ export default function ProductsPage() {
     return () => {
       active = false;
     };
-  }, [selectedCategory, search, sortBy, page]);
+  }, [selectedCategory, search, sortBy, page, onSaleOnly]);
 
   const handleResetFilters = () => {
     setSelectedCategory(null);
+    setOnSaleOnly(false);
     setSearch("");
     setSortBy("newest");
     setPage(1);
@@ -123,11 +126,23 @@ export default function ProductsPage() {
           <div className={styles.categoryPills} role="tablist">
             <button
               type="button"
+              className={`${styles.salePill} ${onSaleOnly ? styles.salePillActive : ""}`}
+              onClick={() => {
+                setOnSaleOnly((prev) => !prev);
+                setPage(1);
+              }}
+              title="Chỉ hiển thị các sản phẩm đang có chương trình giảm giá"
+            >
+              🔥 Đang khuyến mãi
+            </button>
+            <button
+              type="button"
               className={`${styles.categoryPill} ${
-                selectedCategory === null ? styles.categoryPillActive : ""
+                selectedCategory === null && !onSaleOnly ? styles.categoryPillActive : ""
               }`}
               onClick={() => {
                 setSelectedCategory(null);
+                setOnSaleOnly(false);
                 setPage(1);
               }}
             >

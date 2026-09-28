@@ -24,6 +24,16 @@ export const MOCK_PRODUCTS: ProductDetailDto[] = [
     maxPrice: 52990000,
     totalStock: 35,
     isActive: true,
+    hasPromotion: true,
+    promotion: {
+      hasPromotion: true,
+      promotionId: 1,
+      promotionName: "Flash Sale Công Nghệ",
+      discountType: "PERCENTAGE",
+      discountValue: 15,
+      promotionalMinPrice: 33141500,
+      promotionalMaxPrice: 45041500,
+    },
     createdAt: "2026-02-10T10:00:00Z",
     description:
       "Tuyệt tác công nghệ chế tác từ nhôm nguyên khối siêu mỏng. Màn hình Liquid Retina XDR 16 inch chuẩn màu chuyên nghiệp, vi xử lý M-Pro thế hệ mới tối ưu cho đồ họa chuyên sâu và thời lượng pin vượt trội lên tới 22 giờ.",
@@ -35,6 +45,16 @@ export const MOCK_PRODUCTS: ProductDetailDto[] = [
         productName: "TechStoree StudioBook Pro 16",
         variantName: "Xám Không Gian / 512GB",
         price: 38990000,
+        hasPromotion: true,
+        promotion: {
+          hasPromotion: true,
+          promotionId: 1,
+          promotionName: "Flash Sale Công Nghệ",
+          discountType: "PERCENTAGE",
+          discountValue: 15,
+          promotionalPrice: 33141500,
+          discountAmount: 5848500,
+        },
         stockQuantity: 15,
         imageUrl: "/images/editorial-laptop.png",
         attributes: { "Màu sắc": "Xám Không Gian", "Dung lượng SSD": "512GB" },
@@ -319,6 +339,8 @@ export async function fetchProducts(
   if (filter.sortBy) params.set("sortBy", filter.sortBy);
   if (filter.isAscending !== undefined)
     params.set("isAscending", filter.isAscending.toString());
+  if (filter.onSale !== undefined)
+    params.set("onSale", filter.onSale.toString());
 
   try {
     const res = await fetch(`/api/products?${params.toString()}`, {
@@ -334,6 +356,10 @@ export async function fetchProducts(
 
   // Fallback client-side filtering on mock data
   let filtered = [...MOCK_PRODUCTS];
+
+  if (filter.onSale) {
+    filtered = filtered.filter((p) => p.hasPromotion || p.promotion?.hasPromotion);
+  }
 
   if (filter.search) {
     const q = filter.search.toLowerCase();
@@ -384,6 +410,8 @@ export async function fetchProducts(
       maxPrice: p.maxPrice,
       totalStock: p.totalStock,
       isActive: p.isActive,
+      promotion: p.promotion,
+      hasPromotion: p.hasPromotion,
       createdAt: p.createdAt,
     })),
     meta: {
