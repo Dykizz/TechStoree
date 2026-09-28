@@ -42,7 +42,16 @@ thư viện. Không commit `node_modules/`, `.next/` hoặc file `.env.local`.
 
 Hiện đã có màn hình đăng nhập responsive, luồng đăng nhập/đăng xuất và màn đăng
 ký dùng `POST /api/Auth/register`. Đăng ký thành công chưa tự đăng nhập; người
-dùng chuyển sang màn đăng nhập. Hồ sơ và khảo sát chưa được triển khai.
+dùng chuyển sang màn đăng nhập. Trang `/profile` kiểm tra phiên trước khi hiển
+thị dữ liệu cá nhân, lấy hồ sơ từ `GET /api/Auth/me` và lưu thay đổi qua
+`PUT /api/Users/profile`. Tên đăng nhập và email chỉ xem, chưa có API sửa.
+Route Handler hồ sơ cũng kiểm tra token ở backend, kể cả khi được gọi trực tiếp.
+Nếu API ngừng hoạt động, trang hiện lỗi và nút thử lại thay vì coi phiên đã hết
+hạn. Khảo sát vẫn đang được dựng bằng dữ liệu mẫu, chưa kết nối backend.
+Khi chạy `npm run dev`, có thể mở `/profile?preview=1` để xem giao diện với dữ
+liệu mẫu mà không cần đăng nhập hay backend. Chỉnh sửa trong bản xem trước chỉ
+thay đổi trên màn hình, không gọi API; chế độ này không khả dụng ở bản build
+production. `/profile` bình thường vẫn yêu cầu phiên đăng nhập.
 Backend cũng chưa có API đặt lại mật
 khẩu; nút tương ứng chỉ hiển thị thông báo, không gửi yêu cầu giả.
 Font Inter Variable hỗ trợ tiếng Việt và được đóng gói trong ứng dụng để hiển

@@ -120,12 +120,24 @@ export default function Home() {
             <div className={styles.signedIn}>
               <p className={styles.signedInKicker}>ĐĂNG NHẬP THÀNH CÔNG</p>
               <h2>Xin chào, {user.fullName || user.username}.</h2>
-              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Bạn có thể xem ngay danh sách sản phẩm hoặc quản lý giỏ hàng của mình.</p>
+              <p>Bạn đã đăng nhập với <strong>{user.email}</strong>. Hồ sơ cá nhân và danh mục sản phẩm của bạn đã sẵn sàng.</p>
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
+                <Link
+                  href="/profile"
+                  className={styles.primaryButton}
+                  style={{ textDecoration: "none", textAlign: "center" }}
+                >
+                  Xem hồ sơ của tôi
+                </Link>
                 <Link
                   href="/products"
                   className={styles.primaryButton}
-                  style={{ textDecoration: "none", textAlign: "center" }}
+                  style={{
+                    textDecoration: "none",
+                    textAlign: "center",
+                    background: "#bd202d",
+                    borderColor: "#bd202d",
+                  }}
                 >
                   Khám phá sản phẩm ngay
                 </Link>

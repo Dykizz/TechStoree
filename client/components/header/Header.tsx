@@ -110,7 +110,9 @@ export default function Header() {
 
           {user ? (
             <div className={styles.userInfo}>
-              <span className={styles.userName}>{user.fullName || user.username}</span>
+              <Link href="/profile" className={styles.userName} title="Xem hồ sơ cá nhân">
+                {user.fullName || user.username}
+              </Link>
               <button
                 type="button"
                 className={styles.logoutBtn}

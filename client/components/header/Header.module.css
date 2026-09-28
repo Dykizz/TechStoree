@@ -150,6 +150,12 @@
 .userName {
   font-weight: 600;
   color: #111111;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.userName:hover {
+  color: #bd202d;
 }
 
 .logoutBtn {
