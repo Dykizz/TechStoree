@@ -247,7 +247,42 @@
 
 .itemImage {
   object-fit: cover;
+  pointer-events: none;
 }
+
+.itemQtyBadge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #111111;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Aliases */
+.orderItemsList { composes: itemsList; }
+.orderItem { composes: itemRow; }
+.orderItemImageWrap { composes: itemThumb; }
+.orderItemImage { composes: itemImage; }
+.orderItemPlaceholder { width: 100%; height: 100%; background: #eee; }
+.orderItemQtyBadge { composes: itemQtyBadge; }
+.orderItemInfo { composes: itemDetails; }
+.orderItemName { composes: itemName; }
+.orderItemVariant { composes: itemVariant; }
+.orderItemPrice { composes: itemPrice; }
+.priceBreakdown { composes: calcRows; }
+.priceRow { composes: calcRow; }
+.totalAmount { composes: totalPrice; }
 
 .itemDetails {
   flex: 1;

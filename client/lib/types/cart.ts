@@ -2,6 +2,7 @@ import { Voucher } from "./order";
 
 export interface CartItem {
   cartItemId: string; // `${productId}-${variantId}`
+  backendCartItemId?: number;
   productId: number;
   productName: string;
   variantId: number;

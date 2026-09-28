@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
 import Header from "../components/header/Header";
+import Footer from "../components/footer/Footer";
 import CartDrawer from "../components/cart/CartDrawer";
 import { CartProvider } from "../lib/context/CartContext";
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         <CartProvider>
           <Header />
           {children}
+          <Footer />
           <CartDrawer />
         </CartProvider>
       </body>

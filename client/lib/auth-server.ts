@@ -109,3 +109,53 @@ export function clearSessionCookies(response: NextResponse) {
     response.cookies.set(name, "", { path, maxAge: 0 });
   }
 }
+
+export async function callBackendWithSession(
+  request: NextRequest,
+  path: string,
+  init: RequestInit = {}
+): Promise<{ response: Response; renewed: LoginData | null }> {
+  let access = request.cookies.get(ACCESS_COOKIE)?.value;
+  const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
+  let renewed: LoginData | null = null;
+
+  const makeHeaders = (token?: string) => {
+    const headers = new Headers(init.headers || {});
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+    return headers;
+  };
+
+  let response: Response;
+  try {
+    response = await fetch(apiEndpoint(path), {
+      ...init,
+      headers: makeHeaders(access),
+      cache: "no-store",
+    });
+
+    if (response.status === 401 && refresh) {
+      const renewal = await backendRequest<LoginData>("refresh-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: refresh }),
+      });
+
+      if (renewal.response.ok && renewal.body?.success && renewal.body.data?.token) {
+        renewed = renewal.body.data;
+        access = renewed.token;
+        response = await fetch(apiEndpoint(path), {
+          ...init,
+          headers: makeHeaders(access),
+          cache: "no-store",
+        });
+      }
+    }
+  } catch (err) {
+    throw err;
+  }
+
+  return { response, renewed };
+}
+

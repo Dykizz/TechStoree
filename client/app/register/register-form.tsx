@@ -89,7 +89,7 @@ export default function RegisterForm() {
         <p className={styles.signedInKicker}>TÀI KHOẢN ĐÃ ĐƯỢC TẠO</p>
         <h2>Chào mừng bạn đến TechStoree.</h2>
         <p>Đăng ký thành công. Hãy đăng nhập bằng email và mật khẩu vừa tạo để tiếp tục.</p>
-        <Link href="/" className={styles.primaryButton}>Đi đến đăng nhập</Link>
+        <Link href="/login" className={styles.primaryButton}>Đi đến đăng nhập</Link>
       </div>
     );
   }
@@ -148,7 +148,7 @@ export default function RegisterForm() {
         </button>
       </form>
       <div className={styles.signUp}>
-        <span>Đã có tài khoản?</span><Link href="/" className={styles.textButton}>Đăng nhập</Link>
+        <span>Đã có tài khoản?</span><Link href="/login" className={styles.textButton}>Đăng nhập</Link>
       </div>
     </>
   );

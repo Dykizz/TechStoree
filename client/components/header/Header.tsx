@@ -122,7 +122,7 @@ export default function Header() {
               </button>
             </div>
           ) : (
-            <Link href="/" className={styles.authLink}>
+            <Link href="/login" className={styles.authLink}>
               Đăng nhập
             </Link>
           )}

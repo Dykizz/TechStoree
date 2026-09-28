@@ -9,18 +9,43 @@ import { formatPrice } from "../../lib/products-client";
 import { Order, OrderItem, PaymentMethod } from "../../lib/types/order";
 import styles from "./checkout.module.css";
 
+const PROVINCES = [
+  "TP. Hồ Chí Minh",
+  "Hà Nội",
+  "Đà Nẵng",
+  "Hải Phòng",
+  "Cần Thơ",
+  "Bình Dương",
+  "Đồng Nai",
+  "Quảng Ninh",
+  "Khánh Hòa",
+  "Thừa Thiên Huế",
+  "Tỉnh / Thành khác",
+];
+
 export default function CheckoutPage() {
   const { items, totalPrice, appliedVoucher, discountAmount, finalPrice, clearCart } =
     useCart();
 
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
+  const [province, setProvince] = useState("TP. Hồ Chí Minh");
   const [shippingAddress, setShippingAddress] = useState("");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+
+  // Dynamic shipping fee calculation
+  const shippingFee =
+    totalPrice >= 1000000
+      ? 0
+      : province.includes("Hồ Chí Minh") || province.includes("Hà Nội")
+      ? 30000
+      : 45000;
+
+  const grandTotal = finalPrice + shippingFee;
 
   // Auto-fill logged in user info if available
   useEffect(() => {
@@ -45,27 +70,29 @@ export default function CheckoutPage() {
     if (!recipientName.trim()) {
       errs.recipientName = "Vui lòng nhập họ và tên người nhận.";
     }
-    const phoneRegex = /(84|0[3|5|7|8|9])+([0-9]{8})\b/;
+    const cleanPhone = recipientPhone.replace(/[\s.-]/g, "");
+    const phoneRegex = /^(0|\+?84)[0-9]{9}$/;
     if (!recipientPhone.trim()) {
       errs.recipientPhone = "Vui lòng nhập số điện thoại.";
-    } else if (!phoneRegex.test(recipientPhone.trim())) {
+    } else if (!phoneRegex.test(cleanPhone)) {
       errs.recipientPhone = "Số điện thoại không hợp lệ (10 số).";
     }
     if (!shippingAddress.trim()) {
-      errs.shippingAddress = "Vui lòng nhập địa chỉ nhận hàng.";
+      errs.shippingAddress = "Vui lòng nhập địa chỉ cụ thể.";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate() || items.length === 0) return;
 
     setIsSubmitting(true);
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    const orderCode = `TECH-${Date.now().toString().slice(-6)}-${randomSuffix}`;
+    let orderCode = `TECH-${Date.now().toString().slice(-6)}-${randomSuffix}`;
+    const fullAddress = `${shippingAddress.trim()}, ${province}`;
 
     const orderItems: OrderItem[] = items.map((it) => ({
       orderItemId: `item-${Date.now()}-${it.variantId}`,
@@ -78,17 +105,49 @@ export default function CheckoutPage() {
       imageUrl: it.imageUrl,
     }));
 
+    // Try calling backend checkout API first
+    try {
+      const backendCartIds = items
+        .map((it) => it.backendCartItemId)
+        .filter((id): id is number => typeof id === "number" && id > 0);
+
+      const backendPayload = {
+        receiverName: recipientName.trim(),
+        receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
+        shippingAddress: fullAddress,
+        notes: note.trim() || undefined,
+        paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : paymentMethod,
+        voucherCode: appliedVoucher?.code || undefined,
+        cartItemIds: backendCartIds.length > 0 ? backendCartIds : undefined,
+      };
+
+      const res = await fetch("/api/orders/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(backendPayload),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        if (result && result.data && result.data.orderCode) {
+          orderCode = result.data.orderCode;
+        }
+      }
+    } catch {
+      // Backend offline or guest mode: continue with generated order code
+    }
+
     const newOrder: Order = {
       orderId: `ord-${Date.now()}`,
       orderCode,
       voucherCode: appliedVoucher?.code,
       subtotalAmount: totalPrice,
       discountAmount,
-      totalAmount: finalPrice,
+      totalAmount: grandTotal,
       status: "PENDING",
       paymentMethod,
       paymentStatus: paymentMethod === "BANKING" ? "PAID" : "UNPAID",
-      shippingAddress: shippingAddress.trim(),
+      shippingAddress: fullAddress,
       recipientName: recipientName.trim(),
       recipientPhone: recipientPhone.trim(),
       note: note.trim() || undefined,
@@ -103,6 +162,11 @@ export default function CheckoutPage() {
   };
 
   if (createdOrder) {
+    const isBanking = createdOrder.paymentMethod === "BANKING";
+    const qrUrl = `https://img.vietqr.io/image/VCB-999988882026-compact2.png?amount=${createdOrder.totalAmount}&addInfo=${encodeURIComponent(
+      createdOrder.orderCode
+    )}&accountName=TECHSTOREE%20VIETNAM`;
+
     return (
       <main className={styles.main}>
         <div className={styles.container}>
@@ -130,6 +194,43 @@ export default function CheckoutPage() {
               </span>
             </div>
 
+            {/* If Banking, display VietQR immediately */}
+            {isBanking && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  borderRadius: "16px",
+                  padding: "24px",
+                  margin: "24px 0",
+                  textAlign: "center",
+                }}
+              >
+                <h3 style={{ color: "#166534", marginBottom: "6px", fontSize: "1.15rem" }}>
+                  Quét Mã VietQR Để Thanh Toán Đơn Hàng
+                </h3>
+                <p style={{ color: "#15803d", fontSize: "0.88rem", marginBottom: "16px" }}>
+                  Mở ứng dụng ngân hàng bất kỳ để quét mã QR với thông tin chuyển khoản đã điền sẵn:
+                </p>
+
+                <div style={{ display: "inline-block", background: "#fff", padding: "12px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
+                  <img
+                    src={qrUrl}
+                    alt={`VietQR ${createdOrder.orderCode}`}
+                    style={{ width: "240px", height: "auto", display: "block" }}
+                  />
+                </div>
+
+                <div style={{ marginTop: "16px", fontSize: "0.9rem", color: "#374151" }}>
+                  <p>Ngân hàng: <strong>Vietcombank (VCB)</strong></p>
+                  <p>Số tài khoản: <strong>999988882026</strong></p>
+                  <p>Chủ tài khoản: <strong>TECHSTOREE VIETNAM</strong></p>
+                  <p>Số tiền: <strong style={{ color: "#16a34a", fontSize: "1.1rem" }}>{formatPrice(createdOrder.totalAmount)}</strong></p>
+                  <p>Nội dung chuyển khoản: <strong style={{ color: "#dc2626" }}>{createdOrder.orderCode}</strong></p>
+                </div>
+              </div>
+            )}
+
             <div className={styles.orderDetailsBox}>
               <p>
                 <strong>Người nhận:</strong> {createdOrder.recipientName} (
@@ -142,7 +243,7 @@ export default function CheckoutPage() {
                 <strong>Hình thức thanh toán:</strong>{" "}
                 {createdOrder.paymentMethod === "COD"
                   ? "Thanh toán khi nhận hàng (COD)"
-                  : "Chuyển khoản ngân hàng (QR)"}
+                  : "Chuyển khoản VietQR"}
               </p>
               <p>
                 <strong>Tổng thanh toán:</strong>{" "}
@@ -190,11 +291,13 @@ export default function CheckoutPage() {
                 backgroundColor: "#111",
                 color: "#fff",
                 padding: "12px 24px",
-                borderRadius: "6px",
+                borderRadius: "999px",
                 textDecoration: "none",
+                fontWeight: 600,
+                display: "inline-block",
               }}
             >
-              Khám phá sản phẩm
+              Khám phá sản phẩm ngay
             </Link>
           </div>
         </div>
@@ -206,9 +309,9 @@ export default function CheckoutPage() {
     <main className={styles.main}>
       <div className={styles.container}>
         <div className={styles.heading}>
-          <h1 className={styles.title}>Thanh Toán & Đặt Hàng</h1>
+          <h1 className={styles.title}>Thanh Toán Đơn Hàng</h1>
           <p className={styles.subtitle}>
-            Vui lòng kiểm tra thông tin giao hàng và chọn phương thức thanh toán.
+            Vui lòng điền thông tin người nhận và chọn phương thức thanh toán.
           </p>
         </div>
 
@@ -217,11 +320,11 @@ export default function CheckoutPage() {
             <div className={styles.formSection}>
               <h2 className={styles.sectionTitle}>
                 <span className={styles.stepNumber}>1</span>
-                Thông tin người nhận hàng
+                Thông tin người nhận & Địa chỉ giao hàng
               </h2>
 
-              <div className={styles.fieldGroup}>
-                <div className={styles.row2}>
+              <div className={styles.fieldsGrid}>
+                <div className={styles.fieldRow}>
                   <div className={styles.field}>
                     <label htmlFor="recipientName" className={styles.label}>
                       Họ và tên <span className={styles.required}>*</span>
@@ -259,7 +362,7 @@ export default function CheckoutPage() {
                       className={`${styles.input} ${
                         errors.recipientPhone ? styles.inputError : ""
                       }`}
-                      placeholder="0912345678"
+                      placeholder="0987654321"
                       value={recipientPhone}
                       onChange={(e) => {
                         setRecipientPhone(e.target.value);
@@ -277,32 +380,52 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <div className={styles.field}>
-                  <label htmlFor="shippingAddress" className={styles.label}>
-                    Địa chỉ nhận hàng chi tiết{" "}
-                    <span className={styles.required}>*</span>
-                  </label>
-                  <input
-                    id="shippingAddress"
-                    type="text"
-                    className={`${styles.input} ${
-                      errors.shippingAddress ? styles.inputError : ""
-                    }`}
-                    placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành"
-                    value={shippingAddress}
-                    onChange={(e) => {
-                      setShippingAddress(e.target.value);
-                      if (errors.shippingAddress) {
-                        setErrors((prev) => ({ ...prev, shippingAddress: "" }));
-                      }
-                    }}
-                    required
-                  />
-                  {errors.shippingAddress && (
-                    <span className={styles.errorText}>
-                      {errors.shippingAddress}
-                    </span>
-                  )}
+                <div className={styles.fieldRow}>
+                  <div className={styles.field}>
+                    <label htmlFor="provinceSelect" className={styles.label}>
+                      Tỉnh / Thành phố <span className={styles.required}>*</span>
+                    </label>
+                    <select
+                      id="provinceSelect"
+                      className={styles.input}
+                      value={province}
+                      onChange={(e) => setProvince(e.target.value)}
+                    >
+                      {PROVINCES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.field}>
+                    <label htmlFor="shippingAddress" className={styles.label}>
+                      Địa chỉ cụ thể (Số nhà, Tên đường, Phường/Xã){" "}
+                      <span className={styles.required}>*</span>
+                    </label>
+                    <input
+                      id="shippingAddress"
+                      type="text"
+                      className={`${styles.input} ${
+                        errors.shippingAddress ? styles.inputError : ""
+                      }`}
+                      placeholder="Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé"
+                      value={shippingAddress}
+                      onChange={(e) => {
+                        setShippingAddress(e.target.value);
+                        if (errors.shippingAddress) {
+                          setErrors((prev) => ({ ...prev, shippingAddress: "" }));
+                        }
+                      }}
+                      required
+                    />
+                    {errors.shippingAddress && (
+                      <span className={styles.errorText}>
+                        {errors.shippingAddress}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.field}>
@@ -311,7 +434,7 @@ export default function CheckoutPage() {
                   </label>
                   <textarea
                     id="orderNote"
-                    rows={3}
+                    rows={2}
                     className={styles.textarea}
                     placeholder="Ví dụ: Giao hàng vào giờ hành chính, gọi trước khi giao..."
                     value={note}
@@ -344,8 +467,7 @@ export default function CheckoutPage() {
                       Thanh toán khi nhận hàng (COD)
                     </div>
                     <div className={styles.paymentDesc}>
-                      Kiểm tra hàng trước khi nhận, thanh toán tiền mặt trực tiếp
-                      cho shipper.
+                      Kiểm tra hàng trước khi nhận, thanh toán tiền mặt trực tiếp cho shipper.
                     </div>
                   </div>
                 </label>
@@ -365,16 +487,15 @@ export default function CheckoutPage() {
                   />
                   <div className={styles.paymentContent}>
                     <div className={styles.paymentTitle}>
-                      Chuyển khoản ngân hàng qua mã QR (VietQR)
+                      Chuyển khoản ngân hàng qua mã QR (VietQR 24/7)
                     </div>
                     <div className={styles.paymentDesc}>
-                      Chuyển khoản nhanh 24/7 qua ứng dụng ngân hàng hoặc ví điện
-                      tử.
+                      Tự động điền số tài khoản, số tiền và nội dung chuyển khoản. Quét bằng mọi App Ngân hàng hoặc Ví MoMo/ZaloPay.
                     </div>
                     {paymentMethod === "BANKING" && (
                       <div className={styles.bankQrBox}>
                         <p>
-                          <strong>Ngân hàng:</strong> Vietcombank (VCB)
+                          <strong>Ngân hàng thụ hưởng:</strong> Vietcombank (VCB)
                         </p>
                         <p>
                           <strong>Số tài khoản:</strong> 999988882026
@@ -382,9 +503,8 @@ export default function CheckoutPage() {
                         <p>
                           <strong>Chủ tài khoản:</strong> TECHSTOREE VIETNAM
                         </p>
-                        <p>
-                          <strong>Nội dung CK:</strong> [Số điện thoại] -
-                          TechStoree
+                        <p style={{ marginTop: "8px", color: "#166534" }}>
+                          ✓ Mã QR chính thức sẽ hiển thị ngay sau khi bạn bấm Xác Nhận Đặt Hàng.
                         </p>
                       </div>
                     )}
@@ -410,19 +530,26 @@ export default function CheckoutPage() {
                           src={it.imageUrl}
                           alt={it.productName}
                           fill
-                          className={styles.itemImage}
                           sizes="52px"
+                          className={styles.itemImage}
                         />
                       ) : (
-                        <div className={styles.itemImage} />
+                        <div className={styles.orderItemPlaceholder} />
                       )}
+                      <span className={styles.itemQtyBadge}>
+                        {it.quantity}
+                      </span>
                     </div>
+
                     <div className={styles.itemDetails}>
-                      <div className={styles.itemName}>{it.productName}</div>
+                      <div className={styles.itemName}>
+                        {it.productName}
+                      </div>
                       <div className={styles.itemVariant}>
-                        {it.variantName} x {it.quantity}
+                        {it.variantName}
                       </div>
                     </div>
+
                     <div className={styles.itemPrice}>
                       {formatPrice(it.price * it.quantity)}
                     </div>
@@ -432,33 +559,52 @@ export default function CheckoutPage() {
 
               <div className={styles.calcRows}>
                 <div className={styles.calcRow}>
-                  <span>Tạm tính</span>
+                  <span>Tạm tính ({items.length} món)</span>
                   <span>{formatPrice(totalPrice)}</span>
                 </div>
+
                 {discountAmount > 0 && (
-                  <div className={`${styles.calcRow} ${styles.calcDiscount}`}>
-                    <span>Giảm giá ({appliedVoucher?.code})</span>
+                  <div
+                    className={styles.calcRow}
+                    style={{ color: "#dc2626" }}
+                  >
+                    <span>Voucher ({appliedVoucher?.code})</span>
                     <span>-{formatPrice(discountAmount)}</span>
                   </div>
                 )}
-                <div className={styles.calcRow}>
-                  <span>Phí vận chuyển</span>
-                  <span className={styles.freeShipping}>Miễn phí</span>
-                </div>
-              </div>
 
-              <div className={styles.totalRow}>
-                <span className={styles.totalLabel}>Tổng thanh toán</span>
-                <span className={styles.totalPrice}>{formatPrice(finalPrice)}</span>
+                <div className={styles.calcRow}>
+                  <span>Phí vận chuyển ({province})</span>
+                  <span>
+                    {shippingFee === 0 ? (
+                      <span style={{ color: "#16a34a", fontWeight: 600 }}>Miễn phí</span>
+                    ) : (
+                      formatPrice(shippingFee)
+                    )}
+                  </span>
+                </div>
+
+                <div className={styles.totalRow}>
+                  <span className={styles.totalLabel}>Tổng thanh toán</span>
+                  <span className={styles.totalPrice}>
+                    {formatPrice(grandTotal)}
+                  </span>
+                </div>
               </div>
 
               <button
                 type="submit"
-                className={styles.submitBtn}
                 disabled={isSubmitting}
+                className={styles.submitBtn}
+                onClick={handlePlaceOrder}
               >
-                {isSubmitting ? "Đang xử lý đặt hàng…" : "Xác nhận đặt hàng"}
+                {isSubmitting ? "Đang xử lý…" : "Xác Nhận Đặt Hàng"}
               </button>
+
+              <p className={styles.policyNotice}>
+                Bằng việc bấm xác nhận, bạn đồng ý với Điều khoản mua hàng &
+                Chính sách bảo mật của TechStoree.
+              </p>
             </aside>
           </div>
         </form>
