@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useCart } from "../../lib/context/CartContext";
 import { formatPrice } from "../../lib/products-client";
@@ -10,6 +10,7 @@ import styles from "./CartDrawer.module.css";
 
 export default function CartDrawer() {
   const router = useRouter();
+  const pathname = usePathname();
   const {
     items,
     totalItems,
@@ -19,6 +20,13 @@ export default function CartDrawer() {
     updateQuantity,
     removeItem,
   } = useCart();
+
+  // Close drawer if user is on /cart or /checkout
+  useEffect(() => {
+    if (isCartOpen && (pathname === "/cart" || pathname === "/checkout")) {
+      closeCart();
+    }
+  }, [pathname, isCartOpen, closeCart]);
 
   // Close drawer on Escape key
   useEffect(() => {
@@ -195,7 +203,7 @@ export default function CartDrawer() {
                 className={styles.checkoutBtn}
                 onClick={() => {
                   closeCart();
-                  router.push("/cart");
+                  router.push("/checkout");
                 }}
               >
                 Tiến hành thanh toán

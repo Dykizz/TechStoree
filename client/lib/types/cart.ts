@@ -25,7 +25,11 @@ export interface CartContextType {
   openCart: () => void;
   closeCart: () => void;
   toggleCart: () => void;
-  addItem: (item: Omit<CartItem, "cartItemId" | "quantity">, quantity?: number) => void;
+  addItem: (
+    item: Omit<CartItem, "cartItemId" | "quantity">,
+    quantity?: number,
+    openDrawer?: boolean
+  ) => void;
   updateQuantity: (cartItemId: string, quantity: number) => void;
   removeItem: (cartItemId: string) => void;
   clearCart: () => void;

@@ -144,13 +144,28 @@ export default function ProductDetailPage({
         imageUrl: activeImage,
         stockQuantity: selectedVariant.stockQuantity,
       },
-      quantity
+      quantity,
+      true
     );
   };
 
   const handleBuyNow = () => {
     if (!selectedVariant || isOutOfStock) return;
-    handleAddToCart();
+
+    addItem(
+      {
+        productId: product.productId,
+        productName: product.productName,
+        variantId: selectedVariant.variantId,
+        variantName: selectedVariant.variantName,
+        attributes: selectedVariant.attributes,
+        price: currentPrice,
+        imageUrl: activeImage,
+        stockQuantity: selectedVariant.stockQuantity,
+      },
+      quantity,
+      false
+    );
     router.push("/cart");
   };
 

@@ -166,7 +166,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = (
     itemData: Omit<CartItem, "cartItemId" | "quantity">,
-    quantity = 1
+    quantity = 1,
+    openDrawer = true
   ) => {
     const cartItemId = `${itemData.productId}-${itemData.variantId}`;
     setItems((prevItems) => {
@@ -190,7 +191,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return [...prevItems, { ...itemData, cartItemId, quantity: initialQty }];
     });
 
-    setIsCartOpen(true);
+    if (openDrawer) {
+      setIsCartOpen(true);
+    }
 
     // Sync to backend DB if logged in
     if (isLoggedIn) {
