@@ -1,9 +1,0 @@
-$kind: http-request
-name: "\u0110\u1ECDc danh s\xE1ch danh m\u1EE5c"
-method: GET
-url: '{{baseUrl}}/api/categories'
-order: 1000
-queryParams:
-  - key: search
-    value: ''
-    disabled: true

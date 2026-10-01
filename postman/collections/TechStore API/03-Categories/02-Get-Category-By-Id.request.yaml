@@ -1,5 +1,0 @@
-$kind: http-request
-name: "\u0110\u1ECDc danh m\u1EE5c theo ID"
-method: GET
-url: '{{baseUrl}}/api/categories/{{categoryId}}'
-order: 2000

@@ -1,5 +1,0 @@
-$kind: http-request
-name: "\u0110\u1ECDc s\u1EA3n ph\u1EA9m theo ID"
-method: GET
-url: '{{baseUrl}}/api/products/{{productId}}'
-order: 2000
