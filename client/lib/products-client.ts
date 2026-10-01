@@ -313,6 +313,22 @@ export function formatPrice(price: number): string {
   }).format(price);
 }
 
+export function formatShortPrice(price: number): string {
+  if (price >= 1_000_000_000) {
+    const b = price / 1_000_000_000;
+    return `${Number.isInteger(b) ? b : b.toFixed(1)} tỷ`;
+  }
+  if (price >= 1_000_000) {
+    const m = price / 1_000_000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)} tr`;
+  }
+  if (price >= 1_000) {
+    const k = price / 1_000;
+    return `${Number.isInteger(k) ? k : k.toFixed(0)} k`;
+  }
+  return `${price} đ`;
+}
+
 export async function fetchCategories(): Promise<CategoryDto[]> {
   try {
     const res = await fetch("/api/categories", { cache: "no-store" });
@@ -334,8 +350,10 @@ export async function fetchProducts(
   if (filter.pageSize) params.set("pageSize", filter.pageSize.toString());
   if (filter.search) params.set("search", filter.search);
   if (filter.categoryId) params.set("categoryId", filter.categoryId.toString());
-  if (filter.minPrice) params.set("minPrice", filter.minPrice.toString());
-  if (filter.maxPrice) params.set("maxPrice", filter.maxPrice.toString());
+  if (filter.minPrice !== undefined && filter.minPrice !== null)
+    params.set("minPrice", filter.minPrice.toString());
+  if (filter.maxPrice !== undefined && filter.maxPrice !== null)
+    params.set("maxPrice", filter.maxPrice.toString());
   if (filter.sortBy) params.set("sortBy", filter.sortBy);
   if (filter.isAscending !== undefined)
     params.set("isAscending", filter.isAscending.toString());
@@ -375,11 +393,11 @@ export async function fetchProducts(
     filtered = filtered.filter((p) => p.categoryId === filter.categoryId);
   }
 
-  if (filter.minPrice) {
+  if (filter.minPrice !== undefined && filter.minPrice !== null) {
     filtered = filtered.filter((p) => p.maxPrice >= (filter.minPrice ?? 0));
   }
 
-  if (filter.maxPrice) {
+  if (filter.maxPrice !== undefined && filter.maxPrice !== null) {
     filtered = filtered.filter((p) => p.minPrice <= (filter.maxPrice ?? Infinity));
   }
 

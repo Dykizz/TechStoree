@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import PriceFilterDropdown from "../../components/products/PriceFilterDropdown";
 import ProductCard from "../../components/products/ProductCard";
-import { fetchCategories, fetchProducts } from "../../lib/products-client";
+import { fetchCategories, fetchProducts, formatPrice } from "../../lib/products-client";
 import { CategoryDto, ProductBaseDto } from "../../lib/types/product";
 import styles from "./products.module.css";
 
@@ -13,6 +14,8 @@ export default function ProductsPage() {
   const [onSaleOnly, setOnSaleOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("newest");
+  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
@@ -40,6 +43,8 @@ export default function ProductsPage() {
         pageSize: 9,
         search: search.trim() || undefined,
         categoryId: selectedCategory || undefined,
+        minPrice,
+        maxPrice,
         sortBy: sortField,
         isAscending: isAsc,
         onSale: onSaleOnly || undefined,
@@ -57,12 +62,20 @@ export default function ProductsPage() {
     return () => {
       active = false;
     };
-  }, [selectedCategory, search, sortBy, page, onSaleOnly]);
+  }, [selectedCategory, search, sortBy, page, onSaleOnly, minPrice, maxPrice]);
+
+  const handlePriceChange = (min?: number, max?: number) => {
+    setMinPrice(min);
+    setMaxPrice(max);
+    setPage(1);
+  };
 
   const handleResetFilters = () => {
     setSelectedCategory(null);
     setOnSaleOnly(false);
     setSearch("");
+    setMinPrice(undefined);
+    setMaxPrice(undefined);
     setSortBy("newest");
     setPage(1);
   };
@@ -108,19 +121,29 @@ export default function ProductsPage() {
               />
             </div>
 
-            <select
-              className={styles.sortSelect}
-              value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
-                setPage(1);
-              }}
-              aria-label="Sắp xếp sản phẩm"
-            >
-              <option value="newest">Mới nhất</option>
-              <option value="price-asc">Giá: Thấp đến cao</option>
-              <option value="price-desc">Giá: Cao đến thấp</option>
-            </select>
+            <div className={styles.filterControls}>
+              <PriceFilterDropdown
+                minPrice={minPrice}
+                maxPrice={maxPrice}
+                onChange={handlePriceChange}
+                systemMinPrice={1890000}
+                systemMaxPrice={28990000}
+              />
+
+              <select
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                aria-label="Sắp xếp sản phẩm"
+              >
+                <option value="newest">Mới nhất</option>
+                <option value="price-asc">Giá: Thấp đến cao</option>
+                <option value="price-desc">Giá: Cao đến thấp</option>
+              </select>
+            </div>
           </div>
 
           <div className={styles.categoryPills} role="tablist">
@@ -166,6 +189,36 @@ export default function ProductsPage() {
               </button>
             ))}
           </div>
+
+          {(minPrice !== undefined || maxPrice !== undefined) && (
+            <div className={styles.activeFilterRow}>
+              <span className={styles.activeFilterLabel}>Đang lọc giá:</span>
+              <span className={styles.activePriceBadge}>
+                💰{" "}
+                {minPrice !== undefined && maxPrice !== undefined
+                  ? `${formatPrice(minPrice)} — ${formatPrice(maxPrice)}`
+                  : minPrice !== undefined
+                  ? `Từ ${formatPrice(minPrice)} trở lên`
+                  : `Đến ${formatPrice(maxPrice!)}`}
+                <button
+                  type="button"
+                  className={styles.removeFilterBtn}
+                  onClick={() => handlePriceChange(undefined, undefined)}
+                  title="Xóa lọc giá"
+                  aria-label="Xóa lọc giá"
+                >
+                  ✕
+                </button>
+              </span>
+              <button
+                type="button"
+                className={styles.clearAllBtn}
+                onClick={() => handlePriceChange(undefined, undefined)}
+              >
+                Xóa bộ lọc giá
+              </button>
+            </div>
+          )}
         </section>
 
         {loading ? (
