@@ -367,9 +367,71 @@
 .reviewFormCard {
   background-color: #fafafa;
   border: 1px solid #ebebeb;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 32px;
+}
+
+.verifiedNoticeCard {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.noticeIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.noticeText {
+  flex: 1;
+}
+
+.noticeTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.noticeDesc {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.checkOrdersLink {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+  margin-left: 6px;
+}
+
+.eligibleBuyerBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #059669;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
 }
 
 .reviewFormTitle {

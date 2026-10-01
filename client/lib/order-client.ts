@@ -202,3 +202,129 @@ export function addProductReview(
 
   return newReview;
 }
+
+export function resolveProductAndVariant(
+  variantId?: number,
+  productName?: string,
+  variantName?: string,
+  productId?: number
+): { productId: number; variantId: number; resolvedName: string; resolvedImage: string } {
+  if (productName) {
+    const p = productName.toLowerCase();
+    const v = (variantName || "").toLowerCase();
+
+    if (p.includes("sony") || p.includes("wh-1000xm5")) {
+      const varId = v.includes("bạc") || v.includes("silver") ? 5 : 4;
+      return {
+        productId: 3,
+        variantId: varId,
+        resolvedName: "Tai nghe chụp tai Sony WH-1000XM5",
+        resolvedImage: "/images/products/sony-wh1000xm5.jpg",
+      };
+    }
+    if (p.includes("asus") || p.includes("zenbook")) {
+      const varId = v.includes("32gb") || v.includes("1tb") ? 2 : 1;
+      return {
+        productId: 1,
+        variantId: varId,
+        resolvedName: "Laptop ASUS Zenbook 14 OLED UX3405",
+        resolvedImage: "/images/products/asus-zenbook-14.jpg",
+      };
+    }
+    if (p.includes("acer") || p.includes("nitro")) {
+      return {
+        productId: 2,
+        variantId: 3,
+        resolvedName: "Laptop Gaming Acer Nitro V 15",
+        resolvedImage: "/images/products/acer-nitro-v15.jpg",
+      };
+    }
+    if (p.includes("fl-esports") || p.includes("gp75") || p.includes("bàn phím")) {
+      return {
+        productId: 4,
+        variantId: 6,
+        resolvedName: "Bàn phím cơ không dây FL-Esports GP75",
+        resolvedImage: "/images/products/fl-esports-gp75.jpg",
+      };
+    }
+    if (p.includes("nest hub") || p.includes("google")) {
+      return {
+        productId: 5,
+        variantId: 7,
+        resolvedName: "Màn hình thông minh Google Nest Hub Gen 2",
+        resolvedImage: "/images/products/google-nest-hub2.jpg",
+      };
+    }
+  }
+
+  if (variantId === 1 || variantId === 2) {
+    return {
+      productId: 1,
+      variantId,
+      resolvedName: "Laptop ASUS Zenbook 14 OLED UX3405",
+      resolvedImage: "/images/products/asus-zenbook-14.jpg",
+    };
+  }
+  if (variantId === 3) {
+    return {
+      productId: 2,
+      variantId: 3,
+      resolvedName: "Laptop Gaming Acer Nitro V 15",
+      resolvedImage: "/images/products/acer-nitro-v15.jpg",
+    };
+  }
+  if (variantId === 4 || variantId === 5) {
+    return {
+      productId: 3,
+      variantId,
+      resolvedName: "Tai nghe chụp tai Sony WH-1000XM5",
+      resolvedImage: "/images/products/sony-wh1000xm5.jpg",
+    };
+  }
+  if (variantId === 6) {
+    return {
+      productId: 4,
+      variantId: 6,
+      resolvedName: "Bàn phím cơ không dây FL-Esports GP75",
+      resolvedImage: "/images/products/fl-esports-gp75.jpg",
+    };
+  }
+  if (variantId === 7) {
+    return {
+      productId: 5,
+      variantId: 7,
+      resolvedName: "Màn hình thông minh Google Nest Hub Gen 2",
+      resolvedImage: "/images/products/google-nest-hub2.jpg",
+    };
+  }
+
+  if (productId === 1) return { productId: 1, variantId: 1, resolvedName: "Laptop ASUS Zenbook 14 OLED UX3405", resolvedImage: "/images/products/asus-zenbook-14.jpg" };
+  if (productId === 2) return { productId: 2, variantId: 3, resolvedName: "Laptop Gaming Acer Nitro V 15", resolvedImage: "/images/products/acer-nitro-v15.jpg" };
+  if (productId === 3) return { productId: 3, variantId: 4, resolvedName: "Tai nghe chụp tai Sony WH-1000XM5", resolvedImage: "/images/products/sony-wh1000xm5.jpg" };
+  if (productId === 4) return { productId: 4, variantId: 6, resolvedName: "Bàn phím cơ không dây FL-Esports GP75", resolvedImage: "/images/products/fl-esports-gp75.jpg" };
+  if (productId === 5) return { productId: 5, variantId: 7, resolvedName: "Màn hình thông minh Google Nest Hub Gen 2", resolvedImage: "/images/products/google-nest-hub2.jpg" };
+
+  return { productId: productId || 1, variantId: variantId || 1, resolvedName: productName || "Sản phẩm", resolvedImage: "/images/editorial-laptop.png" };
+}
+
+export function hasUserCompletedProductPurchase(
+  productId: number,
+  orders: Order[]
+): boolean {
+  return orders.some((order) => {
+    const isCompleted =
+      order.status === "COMPLETED" || (order.status as string) === "DELIVERED";
+    if (!isCompleted) return false;
+
+    return (order.items || []).some((item) => {
+      if (item.productId === productId) return true;
+      const resolved = resolveProductAndVariant(
+        item.variantId,
+        item.productName,
+        item.variantName,
+        item.productId
+      );
+      return resolved.productId === productId;
+    });
+  });
+}

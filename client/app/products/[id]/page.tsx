@@ -6,11 +6,30 @@ import { useRouter } from "next/navigation";
 import { use, useEffect, useState } from "react";
 import VariantSelector from "../../../components/products/VariantSelector";
 import { useCart } from "../../../lib/context/CartContext";
-import { addProductReview, getProductReviews } from "../../../lib/order-client";
+import {
+  addProductReview,
+  getProductReviews,
+  getOrders,
+  hasUserCompletedProductPurchase,
+} from "../../../lib/order-client";
 import { fetchProductById, formatPrice } from "../../../lib/products-client";
-import { ProductReview } from "../../../lib/types/order";
+import { Order, ProductReview } from "../../../lib/types/order";
 import { ProductDetailDto, ProductVariantDto } from "../../../lib/types/product";
 import styles from "./product-detail.module.css";
+
+interface BackendOrderItem {
+  variantId: number;
+  productId?: number;
+  productName: string;
+  variantName?: string;
+}
+
+interface BackendOrder {
+  orderId: number | string;
+  orderCode: string;
+  orderStatus: Order["status"];
+  items?: BackendOrderItem[];
+}
 
 export default function ProductDetailPage({
   params,
@@ -33,6 +52,7 @@ export default function ProductDetailPage({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [reviewSuccess, setReviewSuccess] = useState("");
+  const [canReview, setCanReview] = useState(false);
 
   useEffect(() => {
     async function loadProduct() {
@@ -62,6 +82,39 @@ export default function ProductDetailPage({
       })
       .catch(() => {});
 
+    // Check if user has purchased this product with COMPLETED / DELIVERED status
+    async function checkEligibility() {
+      const localOrders = getOrders();
+      let allOrders: Order[] = [...localOrders];
+
+      try {
+        const res = await fetch("/api/orders", { cache: "no-store" });
+        if (res.ok) {
+          const envelope = await res.json();
+          if (envelope && envelope.data && Array.isArray(envelope.data.items)) {
+            const backendList: Order[] = envelope.data.items.map((bo: BackendOrder) => ({
+              orderId: String(bo.orderId),
+              orderCode: bo.orderCode,
+              status: bo.orderStatus,
+              items: (bo.items || []).map((it: BackendOrderItem) => ({
+                variantId: it.variantId,
+                productId: it.productId || 0,
+                productName: it.productName,
+                variantName: it.variantName,
+              })),
+            }));
+            allOrders = [...backendList, ...localOrders];
+          }
+        }
+      } catch {
+        // Fallback to local orders
+      }
+
+      const eligible = hasUserCompletedProductPurchase(productId, allOrders);
+      setCanReview(eligible);
+    }
+    void checkEligibility();
+
     return () => clearTimeout(timer);
   }, [productId]);
 
@@ -74,6 +127,7 @@ export default function ProductDetailPage({
       userName: reviewName.trim(),
       rating: reviewRating,
       comment: reviewComment.trim(),
+      isVerifiedPurchase: true,
     });
 
     setReviews((prev) => [newRev, ...prev]);
@@ -415,55 +469,99 @@ export default function ProductDetailPage({
                 </div>
               </div>
 
-              <div className={styles.reviewFormCard}>
-                <h3 className={styles.reviewFormTitle}>Gửi đánh giá của bạn</h3>
-                <form onSubmit={handleReviewSubmit}>
-                  <div className={styles.starPicker} role="radiogroup" aria-label="Chọn số sao">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        className={`${styles.starBtn} ${
-                          star <= reviewRating ? styles.starActive : ""
-                        }`}
-                        onClick={() => setReviewRating(star)}
-                        aria-label={`${star} sao`}
-                      >
-                        ★
-                      </button>
-                    ))}
+              {/* Chỉ cho phép đánh giá nếu người dùng đã mua sản phẩm này và đơn hàng ở trạng thái "Hoàn thành" */}
+              {canReview ? (
+                <div className={styles.reviewFormCard}>
+                  <div className={styles.eligibleBuyerBadge}>
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>Bạn đã mua sản phẩm này và đơn hàng đã Hoàn thành</span>
                   </div>
+                  <h3 className={styles.reviewFormTitle}>Gửi đánh giá của bạn</h3>
+                  <form onSubmit={handleReviewSubmit}>
+                    <div className={styles.starPicker} role="radiogroup" aria-label="Chọn số sao">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          className={`${styles.starBtn} ${
+                            star <= reviewRating ? styles.starActive : ""
+                          }`}
+                          onClick={() => setReviewRating(star)}
+                          aria-label={`${star} sao`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
 
-                  <div className={styles.reviewInputRow}>
-                    <input
-                      type="text"
-                      className={styles.reviewInput}
-                      placeholder="Họ và tên của bạn *"
-                      value={reviewName}
-                      onChange={(e) => setReviewName(e.target.value)}
-                      required
-                    />
-                    <textarea
-                      rows={3}
-                      className={styles.reviewTextarea}
-                      placeholder="Chia sẻ cảm nhận chi tiết của bạn về chất lượng sản phẩm... *"
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      required
-                    />
+                    <div className={styles.reviewInputRow}>
+                      <input
+                        type="text"
+                        className={styles.reviewInput}
+                        placeholder="Họ và tên của bạn *"
+                        value={reviewName}
+                        onChange={(e) => setReviewName(e.target.value)}
+                        required
+                      />
+                      <textarea
+                        rows={3}
+                        className={styles.reviewTextarea}
+                        placeholder="Chia sẻ cảm nhận chi tiết của bạn về chất lượng sản phẩm... *"
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <button type="submit" className={styles.submitReviewBtn}>
+                      Gửi đánh giá
+                    </button>
+
+                    {reviewSuccess && (
+                      <span style={{ color: "#16a34a", fontSize: "0.85rem", marginLeft: "12px" }}>
+                        {reviewSuccess}
+                      </span>
+                    )}
+                  </form>
+                </div>
+              ) : (
+                <div className={styles.verifiedNoticeCard}>
+                  <div className={styles.noticeIconWrap}>
+                    <svg
+                      width="22"
+                      height="22"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
                   </div>
-
-                  <button type="submit" className={styles.submitReviewBtn}>
-                    Gửi đánh giá
-                  </button>
-
-                  {reviewSuccess && (
-                    <span style={{ color: "#16a34a", fontSize: "0.85rem", marginLeft: "12px" }}>
-                      {reviewSuccess}
-                    </span>
-                  )}
-                </form>
-              </div>
+                  <div className={styles.noticeText}>
+                    <div className={styles.noticeTitle}>
+                      Đánh giá được xác thực từ người mua hàng
+                    </div>
+                    <p className={styles.noticeDesc}>
+                      Chỉ những khách hàng đã mua sản phẩm này và đơn hàng đã ở trạng thái{" "}
+                      <strong>Hoàn thành</strong> mới có thể gửi đánh giá sản phẩm.
+                      <Link href="/orders" className={styles.checkOrdersLink}>
+                        Xem đơn hàng của bạn →
+                      </Link>
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className={styles.reviewsList}>
                 {reviews.map((rev) => (

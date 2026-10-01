@@ -28,6 +28,7 @@ export type OrderStatus =
   | "PENDING"
   | "CONFIRMED"
   | "SHIPPING"
+  | "DELIVERED"
   | "COMPLETED"
   | "CANCELLED";
 
