@@ -10,6 +10,8 @@ import '../../features/products/products_screen.dart';
 import '../../features/orders/orders_screen.dart';
 import '../../features/categories/categories_screen.dart';
 import '../../features/suppliers/suppliers_screen.dart';
+import '../../features/purchase_orders/purchase_orders_screen.dart';
+import '../../features/promotions/promotions_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
@@ -27,6 +29,8 @@ class MainLayout extends StatelessWidget {
       'Quản Lý Đơn Hàng',
       'Danh Mục Sản Phẩm',
       'Quản Lý Nhà Cung Cấp',
+      'Quản Lý Phiếu Nhập Hàng',
+      'Khuyến Mãi & Giảm Giá',
       'Quản Lý Người Dùng',
       'Cài Đặt Hệ Thống',
     ];
@@ -37,18 +41,23 @@ class MainLayout extends StatelessWidget {
       OrdersScreen(),
       CategoriesScreen(),
       SuppliersScreen(),
+      PurchaseOrdersScreen(),
+      PromotionsScreen(),
       UsersScreen(),
       SettingsScreen(),
     ];
 
     final currentIndex = navProvider.currentIndex < screens.length ? navProvider.currentIndex : 0;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 850;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+      drawer: isCompact ? const Drawer(child: AppSidebar()) : null,
       body: Row(
         children: [
-          // Sidebar Navigation
-          const AppSidebar(),
+          // Sidebar Navigation (Desktop / Wide Window)
+          if (!isCompact) const AppSidebar(),
 
           // Main Screen Area
           Expanded(

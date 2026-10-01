@@ -1,0 +1,24 @@
+$kind: collection
+name: TechStore API
+description: 'Bộ API hoàn chỉnh cho hệ thống Web Bán Hàng TechStore (.NET 10 Web API + PostgreSQL). Bao gồm Auth, Users, Categories, Products, Cart, Promotions, Suppliers, Purchase Orders.'
+variables:
+  - key: baseUrl
+    value: 'http://localhost:5000'
+  - key: accessToken
+    value: ''
+  - key: refreshToken
+    value: ''
+  - key: userId
+    value: '1'
+  - key: categoryId
+    value: '1'
+  - key: productId
+    value: '1'
+  - key: cartItemId
+    value: '1'
+  - key: promotionId
+    value: '1'
+  - key: supplierId
+    value: '1'
+  - key: purchaseOrderId
+    value: '1'

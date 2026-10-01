@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/app_user.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 
@@ -14,7 +14,6 @@ class UsersScreen extends StatefulWidget {
 }
 
 class _UsersScreenState extends State<UsersScreen> {
-  final dateFormat = DateFormat('dd/MM/yyyy');
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   String _selectedRole = 'Tất cả';
@@ -28,7 +27,8 @@ class _UsersScreenState extends State<UsersScreen> {
 
   void _loadUsers() {
     final apiService = Provider.of<ApiService>(context, listen: false);
-    _usersFuture = apiService.getUsers();
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    _usersFuture = apiService.getUsers(token: token);
   }
 
   @override
@@ -40,6 +40,7 @@ class _UsersScreenState extends State<UsersScreen> {
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -72,9 +73,13 @@ class _UsersScreenState extends State<UsersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header & Search
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 240, maxWidth: 400),
                     child: SizedBox(
                       height: 42,
                       child: TextField(
@@ -108,7 +113,6 @@ class _UsersScreenState extends State<UsersScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
 
                   // Role Filter Dropdown
                   Container(
@@ -123,14 +127,13 @@ class _UsersScreenState extends State<UsersScreen> {
                         value: _selectedRole,
                         dropdownColor: backgroundColor,
                         style: TextStyle(color: textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
-                        items: ['Tất cả', 'Admin', 'Staff', 'Customer']
+                        items: ['Tất cả', 'ADMIN', 'USER']
                             .map((role) => DropdownMenuItem(value: role, child: Text(role)))
                             .toList(),
                         onChanged: (val) => setState(() => _selectedRole = val ?? 'Tất cả'),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
 
                   // Add User Button
                   ElevatedButton.icon(
@@ -140,9 +143,9 @@ class _UsersScreenState extends State<UsersScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () => _showUserDialog(context, apiService),
-                    icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
-                    label: const Text('Thêm Người Dùng', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => _showCreateUserDialog(context, apiService, authProvider.token),
+                    icon: const Icon(Icons.person_add_rounded, size: 20),
+                    label: const Text('Thêm người dùng', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -165,7 +168,7 @@ class _UsersScreenState extends State<UsersScreen> {
                       separatorBuilder: (_, __) => const Divider(height: 16),
                       itemBuilder: (context, index) {
                         final user = users[index];
-                        final isActive = user.status == 'Hoạt động';
+                        final isActive = !user.isLocked;
 
                         return Material(
                           color: Colors.transparent,
@@ -185,35 +188,52 @@ class _UsersScreenState extends State<UsersScreen> {
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Chip(
-                                  label: Text(user.role),
-                                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                                  labelStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 12),
+                                // Role Chip & Change Dropdown
+                                PopupMenuButton<String>(
+                                  onSelected: (newRole) async {
+                                    final success = await apiService.updateUserRole(user.id, newRole, token: authProvider.token);
+                                    if (success) setState(() { _loadUsers(); });
+                                  },
+                                  itemBuilder: (_) => [
+                                    const PopupMenuItem(value: 'ADMIN', child: Text('Chuyển thành ADMIN')),
+                                    const PopupMenuItem(value: 'USER', child: Text('Chuyển thành USER')),
+                                  ],
+                                  child: Chip(
+                                    label: Text(user.role),
+                                    backgroundColor: user.role == 'ADMIN' ? AppColors.primary.withOpacity(0.15) : AppColors.info.withOpacity(0.15),
+                                    labelStyle: TextStyle(color: user.role == 'ADMIN' ? AppColors.primary : AppColors.info, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: isActive ? AppColors.successBg : AppColors.dangerBg,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    user.status,
-                                    style: TextStyle(
-                                      color: isActive ? AppColors.success : AppColors.danger,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+
+                                // Lock Status Chip
+                                InkWell(
+                                  onTap: () async {
+                                    final success = await apiService.toggleUserLock(user.id, token: authProvider.token);
+                                    if (success) setState(() { _loadUsers(); });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isActive ? AppColors.successBg : AppColors.dangerBg,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(isActive ? Icons.lock_open_rounded : Icons.lock_rounded, size: 14, color: isActive ? AppColors.success : AppColors.danger),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          user.status,
+                                          style: TextStyle(
+                                            color: isActive ? AppColors.success : AppColors.danger,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.info),
-                                  onPressed: () => _showUserDialog(context, apiService, user: user),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                                  onPressed: () => _showDeleteUserConfirm(context, apiService, user),
                                 ),
                               ],
                             ),
@@ -231,134 +251,109 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
-  void _showUserDialog(BuildContext context, ApiService apiService, {AppUser? user}) {
-    final isEditing = user != null;
-    final nameCtrl = TextEditingController(text: isEditing ? user.userName : '');
-    final emailCtrl = TextEditingController(text: isEditing ? user.email : '');
-    final phoneCtrl = TextEditingController(text: isEditing ? user.phone : '');
-    String role = isEditing ? user.role : 'Customer';
-    String status = isEditing ? user.status : 'Hoạt động';
+  void _showCreateUserDialog(BuildContext context, ApiService apiService, String? token) {
+    final nameCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+    String selectedRole = 'USER';
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text(isEditing ? 'Chỉnh Sửa Người Dùng' : 'Thêm Người Dùng Mới', style: const TextStyle(fontWeight: FontWeight.bold)),
+          title: const Text('Tạo Tài Khoản Mới', style: TextStyle(fontWeight: FontWeight.bold)),
           content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Họ và tên', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: emailCtrl,
-                  decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: phoneCtrl,
-                  decoration: const InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: role,
-                        decoration: const InputDecoration(labelText: 'Phân quyền', border: OutlineInputBorder()),
-                        items: ['Admin', 'Manager', 'Staff', 'Customer']
-                            .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                            .toList(),
-                        onChanged: (val) => setDialogState(() => role = val ?? 'Customer'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: status,
-                        decoration: const InputDecoration(labelText: 'Trạng thái', border: OutlineInputBorder()),
-                        items: ['Hoạt động', 'Tạm khóa']
-                            .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                            .toList(),
-                        onChanged: (val) => setDialogState(() => status = val ?? 'Hoạt động'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            width: 450,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'Họ và tên (*)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(labelText: 'Email (*)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Mật khẩu (*)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(labelText: 'Vai trò (*)', border: OutlineInputBorder()),
+                    items: const [
+                      DropdownMenuItem(value: 'USER', child: Text('Khách hàng (USER)')),
+                      DropdownMenuItem(value: 'ADMIN', child: Text('Quản trị viên (ADMIN)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setDialogState(() => selectedRole = val);
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Hủy'),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               onPressed: () async {
-                if (nameCtrl.text.isEmpty || emailCtrl.text.isEmpty) return;
+                if (nameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty || passwordCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu!'), backgroundColor: AppColors.danger),
+                  );
+                  return;
+                }
 
                 final newUser = AppUser(
-                  id: isEditing ? user.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
                   userName: nameCtrl.text.trim(),
                   email: emailCtrl.text.trim(),
-                  role: role,
-                  status: status,
+                  role: selectedRole,
+                  status: 'Hoạt động',
+                  isLocked: false,
                   phone: phoneCtrl.text.trim(),
-                  createdAt: isEditing ? user.createdAt : DateTime.now(),
+                  createdAt: DateTime.now(),
                 );
 
-                if (isEditing) {
-                  await apiService.updateUser(newUser);
-                } else {
-                  await apiService.createUser(newUser);
-                }
+                final result = await apiService.createUser(newUser, passwordCtrl.text.trim(), token: token);
 
                 if (context.mounted) {
                   Navigator.pop(ctx);
-                  setState(() {
-                    _loadUsers();
-                  });
+                  if (result.success) {
+                    setState(() { _loadUsers(); });
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(isEditing ? 'Đã cập nhật thông tin người dùng!' : 'Đã thêm người dùng mới!')),
+                    SnackBar(
+                      content: Text(result.message),
+                      backgroundColor: result.success ? AppColors.success : AppColors.danger,
+                    ),
                   );
                 }
               },
-              child: Text(isEditing ? 'Cập Nhật' : 'Lưu Người Dùng', style: const TextStyle(color: Colors.white)),
+              child: const Text('Tạo tài khoản', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
       ),
     );
   }
-
-  void _showDeleteUserConfirm(BuildContext context, ApiService apiService, AppUser user) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận xóa người dùng', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Bạn có chắc chắn muốn xóa tài khoản "${user.userName}" (${user.email}) không?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            onPressed: () async {
-              await apiService.deleteUser(user.id);
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _loadUsers();
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã xóa người dùng thành công!')),
-                );
-              }
-            },
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
 }
+

@@ -17,9 +17,9 @@ class Category {
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
-      id: json['id']?.toString() ?? '',
-      name: json['name'] ?? json['tenDanhMuc'] ?? '',
-      code: json['code'] ?? json['maDanhMuc'] ?? '',
+      id: (json['categoryId'] ?? json['id'])?.toString() ?? '',
+      name: json['categoryName'] ?? json['name'] ?? json['tenDanhMuc'] ?? '',
+      code: json['code'] ?? json['maDanhMuc'] ?? 'CAT-${json['categoryId'] ?? json['id']}',
       productCount: (json['productCount'] ?? json['soLuongSanPham'] ?? 0).toInt(),
       description: json['description'] ?? json['moTa'] ?? '',
       iconName: json['iconName'] ?? 'devices',
@@ -36,4 +36,11 @@ class Category {
       'iconName': iconName,
     };
   }
+
+  Map<String, dynamic> toUpsertJson() {
+    return {
+      'categoryName': name,
+    };
+  }
 }
+

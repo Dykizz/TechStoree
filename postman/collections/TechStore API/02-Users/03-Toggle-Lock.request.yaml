@@ -1,0 +1,19 @@
+$kind: http-request
+name: "\u0110\u1ED5i tr\u1EA1ng th\xE1i kh\xF3a t\xE0i kho\u1EA3n"
+method: PATCH
+url: '{{baseUrl}}/api/users/{{userId}}/toggle-lock'
+order: 3000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "isLocked": true
+    }

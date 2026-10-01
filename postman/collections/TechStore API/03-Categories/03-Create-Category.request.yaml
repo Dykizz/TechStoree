@@ -1,0 +1,19 @@
+$kind: http-request
+name: "T\u1EA1o danh m\u1EE5c m\u1EDBi"
+method: POST
+url: '{{baseUrl}}/api/categories'
+order: 3000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "categoryName": "\u0110i\u1EC7n tho\u1EA1i th\xF4ng minh"
+    }

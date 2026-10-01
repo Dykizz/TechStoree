@@ -1,0 +1,19 @@
+$kind: http-request
+name: "C\u1EADp nh\u1EADt s\u1ED1 l\u01B0\u1EE3ng s\u1EA3n ph\u1EA9m trong gi\u1ECF"
+method: PUT
+url: '{{baseUrl}}/api/cart/items/{{cartItemId}}'
+order: 3000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "quantity": 3
+    }

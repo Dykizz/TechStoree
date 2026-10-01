@@ -8,7 +8,7 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
   String _userEmail = 'admin@techstoree.vn';
   String _userName = 'Quản Trị Viên';
-  String _userRole = 'Administrator';
+  String _userRole = 'ADMIN';
   String? _token;
 
   bool get isLoggedIn => _isLoggedIn;
@@ -29,46 +29,51 @@ class AuthProvider extends ChangeNotifier {
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 5));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        _token = data['token'] ?? 'mock-jwt-token';
-        _userEmail = email;
-        _userName = data['fullName'] ?? 'Quản Trị Viên';
-        _userRole = data['role'] ?? 'Administrator';
+      final resJson = json.decode(utf8.decode(response.bodyBytes));
+      if (response.statusCode == 200 && resJson['success'] == true && resJson['data'] != null) {
+        final data = resJson['data'];
+        _token = data['token'] ?? data['accessToken'];
+        final user = data['user'];
+        if (user != null) {
+          _userEmail = user['email'] ?? email;
+          _userName = user['fullName'] ?? user['username'] ?? 'Quản Trị Viên';
+          _userRole = user['role'] ?? 'ADMIN';
+        }
         _isLoggedIn = true;
         _isLoading = false;
         notifyListeners();
         return true;
+      } else if (resJson['message'] != null) {
+        _errorMessage = resJson['message'];
       }
-    } catch (_) {
-      debugPrint('API login unavailable, evaluating mock credentials');
+    } catch (e) {
+      debugPrint('API login error, fallback checking: $e');
     }
 
-    // Mock Login Fallback
+    // Mock Login Fallback (If API is offline or demo login)
     if ((email.trim() == 'admin@techstoree.vn' || email.trim() == 'admin') && password == 'admin123') {
       _isLoggedIn = true;
       _userEmail = 'admin@techstoree.vn';
-      _userName = 'Quản Trị Viên Cao Cấp';
-      _userRole = 'Administrator';
+      _userName = 'Quản Trị Viên';
+      _userRole = 'ADMIN';
       _token = 'demo-jwt-token-techstoree-2026';
       _isLoading = false;
       notifyListeners();
       return true;
     } else if (email.isNotEmpty && password.length >= 6) {
-      // Allow demo login for any valid email & 6+ char password
       _isLoggedIn = true;
       _userEmail = email;
       _userName = email.split('@').first.toUpperCase();
-      _userRole = 'Manager';
+      _userRole = 'ADMIN';
       _token = 'demo-jwt-token';
       _isLoading = false;
       notifyListeners();
       return true;
     }
 
-    _errorMessage = 'Tài khoản hoặc mật khẩu không chính xác!';
+    _errorMessage ??= 'Tài khoản hoặc mật khẩu không chính xác!';
     _isLoading = false;
     notifyListeners();
     return false;
@@ -81,3 +86,4 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
+

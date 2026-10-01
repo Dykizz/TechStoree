@@ -1,0 +1,5 @@
+$kind: http-request
+name: "\u0110\u1ECDc khuy\u1EBFn m\xE3i theo ID"
+method: GET
+url: '{{baseUrl}}/api/promotions/{{promotionId}}'
+order: 2000

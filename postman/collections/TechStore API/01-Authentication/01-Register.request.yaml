@@ -1,0 +1,21 @@
+$kind: http-request
+name: "\u0110\u0103ng k\xFD t\xE0i kho\u1EA3n"
+method: POST
+url: '{{baseUrl}}/api/auth/register'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "nguyenvana",
+      "password": "Password@123",
+      "email": "nguyenvana@example.com",
+      "fullName": "Nguy\u1EC5n V\u0103n A",
+      "phone": "0987654321",
+      "dateOfBirth": "2000-01-15T00:00:00Z",
+      "techInterest": "Gaming",
+      "address": "TP. H\u1ED3 Ch\xED Minh"
+    }

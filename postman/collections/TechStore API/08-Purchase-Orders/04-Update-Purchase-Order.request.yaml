@@ -1,0 +1,28 @@
+$kind: http-request
+name: "C\u1EADp nh\u1EADt phi\u1EBFu nh\u1EADp h\xE0ng"
+method: PUT
+url: '{{baseUrl}}/api/purchase-orders/{{purchaseOrderId}}'
+order: 4000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "supplierId": 1,
+      "status": "COMPLETED",
+      "note": "C\u1EADp nh\u1EADt phi\u1EBFu nh\u1EADp - \u0111\xE3 ki\u1EC3m tra h\xE0ng h\xF3a",
+      "items": [
+        {
+          "variantId": 1,
+          "importPrice": 18500000,
+          "quantity": 12
+        }
+      ]
+    }

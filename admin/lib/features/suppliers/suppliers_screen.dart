@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/supplier.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 
@@ -25,7 +26,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   void _loadSuppliers() {
     final apiService = Provider.of<ApiService>(context, listen: false);
-    _suppliersFuture = apiService.getSuppliers();
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    _suppliersFuture = apiService.getSuppliers(token: token);
   }
 
   @override
@@ -37,6 +39,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -66,9 +69,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header & Actions
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 240, maxWidth: 450),
                     child: SizedBox(
                       height: 42,
                       child: TextField(
@@ -102,7 +109,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -110,7 +116,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () => _showSupplierDialog(context, apiService),
+                    onPressed: () => _showSupplierDialog(context, apiService, authProvider.token),
                     icon: const Icon(Icons.add_business_rounded, size: 20),
                     label: const Text('Thêm Nhà Cung Cấp', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -131,7 +137,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     borderRadius: BorderRadius.circular(16),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.vertical,
-                      child: DataTable(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
                         headingRowColor: WidgetStateProperty.all(
                           isDark ? AppColors.darkBackground : AppColors.lightBackground,
                         ),
@@ -176,12 +184,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
-                                          Text(
-                                            supplier.description,
-                                            style: TextStyle(color: textSecondary, fontSize: 11),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
+                                          if (supplier.description.isNotEmpty)
+                                            Text(
+                                              supplier.description,
+                                              style: TextStyle(color: textSecondary, fontSize: 11),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -220,11 +229,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                   children: [
                                     IconButton(
                                       icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.info),
-                                      onPressed: () => _showSupplierDialog(context, apiService, supplier: supplier),
+                                      onPressed: () => _showSupplierDialog(context, apiService, authProvider.token, supplier: supplier),
                                     ),
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                                      onPressed: () => _showDeleteSupplierConfirm(context, apiService, supplier),
+                                      onPressed: () => _showDeleteSupplierConfirm(context, apiService, authProvider.token, supplier),
                                     ),
                                   ],
                                 ),
@@ -235,6 +244,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                       ),
                     ),
                   ),
+                  ),
                 ),
               ),
             ],
@@ -244,22 +254,19 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  void _showSupplierDialog(BuildContext context, ApiService apiService, {Supplier? supplier}) {
+  void _showSupplierDialog(BuildContext context, ApiService apiService, String? token, {Supplier? supplier}) {
     final isEditing = supplier != null;
     final nameCtrl = TextEditingController(text: isEditing ? supplier.name : '');
-    final codeCtrl = TextEditingController(text: isEditing ? supplier.code : '');
-    final contactCtrl = TextEditingController(text: isEditing ? supplier.contactName : '');
     final phoneCtrl = TextEditingController(text: isEditing ? supplier.phone : '');
     final emailCtrl = TextEditingController(text: isEditing ? supplier.email : '');
     final addressCtrl = TextEditingController(text: isEditing ? supplier.address : '');
-    final descCtrl = TextEditingController(text: isEditing ? supplier.description : '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(isEditing ? 'Chỉnh Sửa Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp Mới', style: const TextStyle(fontWeight: FontWeight.bold)),
         content: SizedBox(
-          width: 500,
+          width: 480,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -267,24 +274,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Tên Nhà cung cấp', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: codeCtrl,
-                        decoration: const InputDecoration(labelText: 'Mã NCC (vd: SUP-AAPL)', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: contactCtrl,
-                        decoration: const InputDecoration(labelText: 'Người liên hệ', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -309,12 +298,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   controller: addressCtrl,
                   decoration: const InputDecoration(labelText: 'Địa chỉ trụ sở', border: OutlineInputBorder()),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: descCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Ghi chú / Mô tả', border: OutlineInputBorder()),
-                ),
               ],
             ),
           ),
@@ -324,23 +307,23 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () async {
-              if (nameCtrl.text.isEmpty) return;
+              if (nameCtrl.text.trim().isEmpty) return;
 
-              final newSupplier = Supplier(
-                id: isEditing ? supplier.id : DateTime.now().millisecondsSinceEpoch.toString(),
+              final s = Supplier(
+                id: isEditing ? supplier.id : '0',
                 name: nameCtrl.text.trim(),
-                code: codeCtrl.text.trim().toUpperCase(),
-                contactName: contactCtrl.text.trim(),
+                code: isEditing ? supplier.code : 'SUP-${DateTime.now().millisecondsSinceEpoch}',
+                contactName: isEditing ? supplier.contactName : 'N/A',
                 phone: phoneCtrl.text.trim(),
                 email: emailCtrl.text.trim(),
                 address: addressCtrl.text.trim(),
-                description: descCtrl.text.trim(),
               );
 
+              bool success;
               if (isEditing) {
-                await apiService.updateSupplier(newSupplier);
+                success = await apiService.updateSupplier(s, token: token);
               } else {
-                await apiService.createSupplier(newSupplier);
+                success = await apiService.createSupplier(s, token: token);
               }
 
               if (context.mounted) {
@@ -349,7 +332,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                   _loadSuppliers();
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(isEditing ? 'Đã cập nhật nhà cung cấp!' : 'Đã thêm nhà cung cấp mới!')),
+                  SnackBar(content: Text(success ? (isEditing ? 'Cập nhật nhà cung cấp thành công!' : 'Thêm nhà cung cấp thành công!') : 'Thao tác thất bại')),
                 );
               }
             },
@@ -360,7 +343,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  void _showDeleteSupplierConfirm(BuildContext context, ApiService apiService, Supplier supplier) {
+  void _showDeleteSupplierConfirm(BuildContext context, ApiService apiService, String? token, Supplier supplier) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -371,14 +354,14 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () async {
-              await apiService.deleteSupplier(supplier.id);
+              final success = await apiService.deleteSupplier(supplier.id, token: token);
               if (context.mounted) {
                 Navigator.pop(ctx);
                 setState(() {
                   _loadSuppliers();
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã xóa nhà cung cấp thành công!')),
+                  SnackBar(content: Text(success ? 'Xóa nhà cung cấp thành công!' : 'Không thể xóa nhà cung cấp')),
                 );
               }
             },
@@ -389,3 +372,4 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 }
+

@@ -1,0 +1,26 @@
+$kind: http-request
+name: "T\u1EA1o khuy\u1EBFn m\xE3i m\u1EDBi"
+method: POST
+url: '{{baseUrl}}/api/promotions'
+order: 3000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Flash Sale Cu\u1ED1i Tu\u1EA7n",
+      "description": "Gi\u1EA3m 10% cho to\xE0n b\u1ED9 c\xE1c d\xF2ng tai nghe Sony v\xE0 b\xE0n ph\xEDm c\u01A1",
+      "discountType": "PERCENTAGE",
+      "discountValue": 10,
+      "startDate": "2026-10-01T00:00:00Z",
+      "endDate": "2026-10-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [1, 2, 4]
+    }

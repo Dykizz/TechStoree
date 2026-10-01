@@ -25,8 +25,10 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.shopping_bag_rounded, label: 'Đơn hàng', index: 2),
       _NavItem(icon: Icons.category_rounded, label: 'Danh mục', index: 3),
       _NavItem(icon: Icons.domain_rounded, label: 'Nhà cung cấp', index: 4),
-      _NavItem(icon: Icons.people_alt_rounded, label: 'Khách hàng / User', index: 5),
-      _NavItem(icon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 6),
+      _NavItem(icon: Icons.receipt_long_rounded, label: 'Phiếu nhập hàng', index: 5),
+      _NavItem(icon: Icons.local_offer_rounded, label: 'Khuyến mãi & Giảm giá', index: 6),
+      _NavItem(icon: Icons.people_alt_rounded, label: 'Khách hàng / User', index: 7),
+      _NavItem(icon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 8),
     ];
 
     return Container(
@@ -125,7 +127,12 @@ class AppSidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
-                      onTap: () => navProvider.setIndex(item.index),
+                      onTap: () {
+                        navProvider.setIndex(item.index);
+                        if (Scaffold.of(context).hasDrawer && Scaffold.of(context).isDrawerOpen) {
+                          Navigator.of(context).pop();
+                        }
+                      },
                       hoverColor: AppColors.primary.withOpacity(0.08),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

@@ -1,0 +1,46 @@
+$kind: http-request
+name: "C\u1EADp nh\u1EADt s\u1EA3n ph\u1EA9m"
+method: PUT
+url: '{{baseUrl}}/api/products/{{productId}}'
+order: 4000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "productName": "Samsung Galaxy S25 Ultra AI (C\u1EADp nh\u1EADt)",
+      "categoryId": 1,
+      "description": "Phi\xEAn b\u1EA3n c\u1EADp nh\u1EADt v\u1EDBi nhi\u1EC1u c\u1EA3i ti\u1EBFn m\u1EDBi.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/2/s25-ultra.png",
+      "variantAttributes": ["\u0110ung l\u01B0\u1EE3ng", "M\xE0u s\u1EAFc"],
+      "isActive": true,
+      "variants": [
+        {
+          "variantId": 1,
+          "price": 30990000,
+          "imageUrl": null,
+          "attributes": {
+            "\u0110ung l\u01B0\u1EE3ng": "256GB",
+            "M\xE0u s\u1EAFc": "Xanh Titan"
+          },
+          "isActive": true
+        },
+        {
+          "variantId": null,
+          "price": 36990000,
+          "imageUrl": null,
+          "attributes": {
+            "\u0110ung l\u01B0\u1EE3ng": "1TB",
+            "M\xE0u s\u1EAFc": "Tr\u1EAFng Titan"
+          },
+          "isActive": true
+        }
+      ]
+    }

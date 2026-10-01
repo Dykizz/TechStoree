@@ -1,0 +1,10 @@
+$kind: http-request
+name: "\u0110\u1ED5i tr\u1EA1ng th\xE1i s\u1EA3n ph\u1EA9m"
+method: PATCH
+url: '{{baseUrl}}/api/products/{{productId}}/status'
+order: 5000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

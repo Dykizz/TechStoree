@@ -1,0 +1,10 @@
+$kind: http-request
+name: "X\xF3a khuy\u1EBFn m\xE3i"
+method: DELETE
+url: '{{baseUrl}}/api/promotions/{{promotionId}}'
+order: 5000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

@@ -17,6 +17,9 @@ class AppTopbar extends StatelessWidget implements PreferredSizeWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final apiService = Provider.of<ApiService>(context);
     final isDark = themeProvider.isDarkMode;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isCompact = screenWidth < 850;
+    final isVerySmall = screenWidth < 600;
 
     final backgroundColor = isDark ? AppColors.darkSidebar : AppColors.lightSidebar;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
@@ -25,50 +28,64 @@ class AppTopbar extends StatelessWidget implements PreferredSizeWidget {
 
     return Container(
       height: 65,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(bottom: BorderSide(color: borderColor, width: 1)),
       ),
       child: Row(
         children: [
+          // Drawer Hamburger Menu for Mobile/Narrow Windows
+          if (isCompact)
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: Icon(Icons.menu_rounded, color: textPrimary),
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+                tooltip: 'Mở Menu',
+              ),
+            ),
+
           // Page Title
-          Text(
-            title,
-            style: TextStyle(
-              color: textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 20,
-              letterSpacing: -0.3,
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                color: textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: isVerySmall ? 15 : (isCompact ? 17 : 20),
+                letterSpacing: -0.3,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const Spacer(),
 
-          // Desktop Search Input
-          SizedBox(
-            width: 280,
-            height: 38,
-            child: TextField(
-              style: TextStyle(color: textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Tìm kiếm sản phẩm, đơn hàng...',
-                hintStyle: TextStyle(color: textSecondary, fontSize: 13),
-                prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSecondary),
-                filled: true,
-                fillColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: borderColor),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.primary),
+          // Search Input (Hidden on very small screens < 600px)
+          if (!isVerySmall) ...[
+            SizedBox(
+              width: isCompact ? 160 : 280,
+              height: 38,
+              child: TextField(
+                style: TextStyle(color: textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: isCompact ? 'Tìm kiếm...' : 'Tìm kiếm sản phẩm, đơn hàng...',
+                  hintStyle: TextStyle(color: textSecondary, fontSize: 12),
+                  prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSecondary),
+                  filled: true,
+                  fillColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppColors.primary),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 8),
+          ],
 
           // Refresh Button
           IconButton(

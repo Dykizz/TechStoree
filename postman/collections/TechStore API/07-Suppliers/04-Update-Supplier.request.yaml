@@ -1,0 +1,22 @@
+$kind: http-request
+name: "C\u1EADp nh\u1EADt nh\xE0 cung c\u1EA5p"
+method: PUT
+url: '{{baseUrl}}/api/suppliers/{{supplierId}}'
+order: 4000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "supplierName": "C\xF4ng ty TNHH Logitech Vi\u1EC7t Nam (C\u1EADp nh\u1EADt)",
+      "phone": "02838234568",
+      "email": "info@logitech.vn",
+      "address": "T\xF2a nh\xE0 Bitexco, Q.1, TP.HCM"
+    }

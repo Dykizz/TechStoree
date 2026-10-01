@@ -21,9 +21,9 @@ class Supplier {
 
   factory Supplier.fromJson(Map<String, dynamic> json) {
     return Supplier(
-      id: json['id']?.toString() ?? '',
-      name: json['name'] ?? json['tenNhaCungCap'] ?? '',
-      code: json['code'] ?? json['maNhaCungCap'] ?? 'SUP-${json['id']}',
+      id: (json['supplierId'] ?? json['id'])?.toString() ?? '',
+      name: json['supplierName'] ?? json['name'] ?? json['tenNhaCungCap'] ?? '',
+      code: json['code'] ?? json['maNhaCungCap'] ?? 'SUP-${json['supplierId'] ?? json['id']}',
       contactName: json['contactName'] ?? json['nguoiLienHe'] ?? 'N/A',
       phone: json['phone'] ?? json['soDienThoai'] ?? '',
       email: json['email'] ?? '',
@@ -44,4 +44,14 @@ class Supplier {
       'description': description,
     };
   }
+
+  Map<String, dynamic> toUpsertJson() {
+    return {
+      'supplierName': name,
+      'phone': phone.isNotEmpty ? phone : '0900000000',
+      'email': email.isNotEmpty ? email : null,
+      'address': address.isNotEmpty ? address : null,
+    };
+  }
 }
+

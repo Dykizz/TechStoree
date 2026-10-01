@@ -46,25 +46,28 @@ class _OrdersScreenState extends State<OrdersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Filter Status Tabs
-              Row(
-                children: ['Tất cả', 'Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled']
-                    .map((status) {
-                  final isSelected = _selectedStatus == status;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(status),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      checkmarkColor: Colors.white,
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : textPrimary,
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: ['Tất cả', 'Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled']
+                      .map((status) {
+                    final isSelected = _selectedStatus == status;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(status),
+                        selected: isSelected,
+                        selectedColor: AppColors.primary,
+                        checkmarkColor: Colors.white,
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : textPrimary,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                        onSelected: (_) => setState(() => _selectedStatus = status),
                       ),
-                      onSelected: (_) => setState(() => _selectedStatus = status),
-                    ),
-                  );
-                }).toList(),
+                    );
+                  }).toList(),
+                ),
               ),
               const SizedBox(height: 20),
 

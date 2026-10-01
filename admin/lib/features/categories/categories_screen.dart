@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/models/category.dart';
+import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 
@@ -25,7 +26,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   void _loadCategories() {
     final apiService = Provider.of<ApiService>(context, listen: false);
-    _categoriesFuture = apiService.getCategories();
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    _categoriesFuture = apiService.getCategories(token: token);
   }
 
   @override
@@ -37,6 +39,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -65,9 +68,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Search & Add Bar
-              Row(
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 240, maxWidth: 450),
                     child: SizedBox(
                       height: 42,
                       child: TextField(
@@ -101,7 +108,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -109,7 +115,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: () => _showCategoryDialog(context, apiService),
+                    onPressed: () => _showCategoryDialog(context, apiService, authProvider.token),
                     icon: const Icon(Icons.add_rounded, size: 20),
                     label: const Text('Thêm Danh Mục', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -119,7 +125,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
               // Categories Grid
               Expanded(
-                child: GridView.builder(
+                child: categories.isEmpty
+                    ? Center(child: Text('Chưa có danh mục nào', style: TextStyle(color: textSecondary)))
+                    : GridView.builder(
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 340,
                     mainAxisSpacing: 16,
@@ -175,9 +183,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 color: backgroundColor,
                                 onSelected: (val) {
                                   if (val == 'edit') {
-                                    _showCategoryDialog(context, apiService, category: cat);
+                                    _showCategoryDialog(context, apiService, authProvider.token, category: cat);
                                   } else if (val == 'delete') {
-                                    _showDeleteConfirm(context, apiService, cat);
+                                    _showDeleteConfirm(context, apiService, authProvider.token, cat);
                                   }
                                 },
                                 itemBuilder: (_) => [
@@ -216,13 +224,15 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                   fontSize: 15,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                cat.description,
-                                style: TextStyle(color: textSecondary, fontSize: 12),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              if (cat.description.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  cat.description,
+                                  style: TextStyle(color: textSecondary, fontSize: 12),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ],
                           ),
                           Container(
@@ -249,10 +259,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _showCategoryDialog(BuildContext context, ApiService apiService, {Category? category}) {
+  void _showCategoryDialog(BuildContext context, ApiService apiService, String? token, {Category? category}) {
     final isEditing = category != null;
     final nameCtrl = TextEditingController(text: isEditing ? category.name : '');
-    final codeCtrl = TextEditingController(text: isEditing ? category.code : '');
     final descCtrl = TextEditingController(text: isEditing ? category.description : '');
 
     showDialog(
@@ -270,11 +279,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               ),
               const SizedBox(height: 12),
               TextField(
-                controller: codeCtrl,
-                decoration: const InputDecoration(labelText: 'Mã danh mục (vd: LAPTOP)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextField(
                 controller: descCtrl,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Mô tả danh mục', border: OutlineInputBorder()),
@@ -287,21 +291,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () async {
-              if (nameCtrl.text.isEmpty) return;
+              if (nameCtrl.text.trim().isEmpty) return;
 
               final newCat = Category(
-                id: isEditing ? category.id : DateTime.now().millisecondsSinceEpoch.toString(),
+                id: isEditing ? category.id : '0',
                 name: nameCtrl.text.trim(),
-                code: codeCtrl.text.trim().toUpperCase(),
+                code: isEditing ? category.code : nameCtrl.text.trim().toUpperCase(),
                 productCount: isEditing ? category.productCount : 0,
                 description: descCtrl.text.trim(),
                 iconName: 'devices',
               );
 
+              bool success;
               if (isEditing) {
-                await apiService.updateCategory(newCat);
+                success = await apiService.updateCategory(newCat, token: token);
               } else {
-                await apiService.createCategory(newCat);
+                success = await apiService.createCategory(newCat, token: token);
               }
 
               if (context.mounted) {
@@ -310,7 +315,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   _loadCategories();
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(isEditing ? 'Đã cập nhật danh mục!' : 'Đã thêm danh mục mới!')),
+                  SnackBar(content: Text(success ? (isEditing ? 'Cập nhật danh mục thành công!' : 'Tạo danh mục mới thành công!') : 'Thao tác thất bại')),
                 );
               }
             },
@@ -321,7 +326,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _showDeleteConfirm(BuildContext context, ApiService apiService, Category category) {
+  void _showDeleteConfirm(BuildContext context, ApiService apiService, String? token, Category category) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -332,14 +337,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () async {
-              await apiService.deleteCategory(category.id);
+              final success = await apiService.deleteCategory(category.id, token: token);
               if (context.mounted) {
                 Navigator.pop(ctx);
                 setState(() {
                   _loadCategories();
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Đã xóa danh mục thành công!')),
+                  SnackBar(content: Text(success ? 'Đã xóa danh mục thành công!' : 'Không thể xóa danh mục')),
                 );
               }
             },
@@ -350,3 +355,4 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 }
+

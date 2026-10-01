@@ -1,0 +1,10 @@
+$kind: http-request
+name: "\u0110\u1ECDc phi\u1EBFu nh\u1EADp h\xE0ng theo ID"
+method: GET
+url: '{{baseUrl}}/api/purchase-orders/{{purchaseOrderId}}'
+order: 2000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'

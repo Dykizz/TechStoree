@@ -1,0 +1,10 @@
+$kind: http-request
+name: "X\xF3a s\u1EA3n ph\u1EA9m kh\u1ECFi gi\u1ECF h\xE0ng"
+method: DELETE
+url: '{{baseUrl}}/api/cart/items/{{cartItemId}}'
+order: 4000
+auth:
+  type: bearer
+  credentials:
+    - key: token
+      value: '{{accessToken}}'
