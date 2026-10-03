@@ -55,5 +55,10 @@ public interface IVoucherService
     /// Khách hàng thu thập / lưu một voucher công khai vào ví cá nhân của mình
     /// </summary>
     Task<UserVoucherItemDto> ClaimVoucherAsync(int voucherId, int userId);
+
+    /// <summary>
+    /// Cấp phát voucher thưởng vào ví người dùng (cho khảo sát CRM hoặc quà tặng sự kiện)
+    /// </summary>
+    Task<UserVoucherItemDto?> AwardVoucherAsync(int voucherId, int userId, VoucherAssignedType assignedType = VoucherAssignedType.SURVEY_REWARD);
 }
 

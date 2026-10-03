@@ -26,6 +26,11 @@ public class AppDbContext : DbContext
     public DbSet<UserVoucher> UserVouchers => Set<UserVoucher>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Survey> Surveys => Set<Survey>();
+    public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();
+    public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
+    public DbSet<SurveyAssignment> SurveyAssignments => Set<SurveyAssignment>();
+    public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -425,6 +430,116 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
+        // 14. Cấu hình bảng Surveys (Khảo sát thị trường CRM)
+        modelBuilder.Entity<Survey>(entity =>
+        {
+            entity.ToTable("surveys");
+            entity.HasKey(s => s.SurveyId);
+            entity.Property(s => s.SurveyId).HasColumnName("survey_id");
+            entity.Property(s => s.Title).HasColumnName("title").IsRequired().HasMaxLength(255);
+            entity.Property(s => s.Description).HasColumnName("description");
+            entity.Property(s => s.RewardVoucherId).HasColumnName("reward_voucher_id");
+            entity.Property(s => s.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+            entity.Property(s => s.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(s => s.RewardVoucher)
+                  .WithMany()
+                  .HasForeignKey(s => s.RewardVoucherId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // 15. Cấu hình bảng SurveyQuestions (Câu hỏi khảo sát)
+        modelBuilder.Entity<SurveyQuestion>(entity =>
+        {
+            entity.ToTable("survey_questions");
+            entity.HasKey(q => q.QuestionId);
+            entity.Property(q => q.QuestionId).HasColumnName("question_id");
+            entity.Property(q => q.SurveyId).HasColumnName("survey_id");
+            entity.Property(q => q.QuestionText).HasColumnName("question_text").IsRequired();
+            entity.Property(q => q.QuestionType)
+                  .HasColumnName("question_type")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(Enums.SurveyQuestionType.SINGLE_CHOICE);
+            entity.Property(q => q.IsRequired).HasColumnName("is_required").HasDefaultValue(true);
+            entity.Property(q => q.OrderNum).HasColumnName("order_num").HasDefaultValue(1);
+
+            entity.HasOne(q => q.Survey)
+                  .WithMany(s => s.Questions)
+                  .HasForeignKey(q => q.SurveyId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 16. Cấu hình bảng SurveyOptions (Các đáp án trắc nghiệm)
+        modelBuilder.Entity<SurveyOption>(entity =>
+        {
+            entity.ToTable("survey_options");
+            entity.HasKey(o => o.OptionId);
+            entity.Property(o => o.OptionId).HasColumnName("option_id");
+            entity.Property(o => o.QuestionId).HasColumnName("question_id");
+            entity.Property(o => o.OptionText).HasColumnName("option_text").IsRequired().HasMaxLength(255);
+            entity.Property(o => o.OrderNum).HasColumnName("order_num").HasDefaultValue(1);
+
+            entity.HasOne(o => o.Question)
+                  .WithMany(q => q.Options)
+                  .HasForeignKey(o => o.QuestionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 17. Cấu hình bảng SurveyAssignments (Phát bài khảo sát theo mục tiêu)
+        modelBuilder.Entity<SurveyAssignment>(entity =>
+        {
+            entity.ToTable("survey_assignments");
+            entity.HasKey(a => a.AssignmentId);
+            entity.Property(a => a.AssignmentId).HasColumnName("assignment_id");
+            entity.Property(a => a.SurveyId).HasColumnName("survey_id");
+            entity.Property(a => a.UserId).HasColumnName("user_id");
+            entity.Property(a => a.AssignedAt).HasColumnName("assigned_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(a => a.CompletedAt).HasColumnName("completed_at");
+
+            // Ngăn chặn giao bài trùng lặp cho cùng một khách hàng
+            entity.HasIndex(a => new { a.SurveyId, a.UserId }).IsUnique();
+
+            entity.HasOne(a => a.Survey)
+                  .WithMany(s => s.Assignments)
+                  .HasForeignKey(a => a.SurveyId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.User)
+                  .WithMany()
+                  .HasForeignKey(a => a.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 18. Cấu hình bảng SurveyAnswers (Câu trả lời khách hàng - Khóa chính phức hợp 3NF)
+        modelBuilder.Entity<SurveyAnswer>(entity =>
+        {
+            entity.ToTable("survey_answers", t =>
+                t.HasCheckConstraint("chk_survey_answer_content", "selected_option_id IS NOT NULL OR text_answer IS NOT NULL"));
+
+            entity.HasKey(a => new { a.AssignmentId, a.QuestionId });
+            entity.Property(a => a.AssignmentId).HasColumnName("assignment_id");
+            entity.Property(a => a.QuestionId).HasColumnName("question_id");
+            entity.Property(a => a.SelectedOptionId).HasColumnName("selected_option_id");
+            entity.Property(a => a.TextAnswer).HasColumnName("text_answer");
+
+            entity.HasOne(a => a.Assignment)
+                  .WithMany(asg => asg.Answers)
+                  .HasForeignKey(a => a.AssignmentId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.Question)
+                  .WithMany(q => q.Answers)
+                  .HasForeignKey(a => a.QuestionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(a => a.SelectedOption)
+                  .WithMany(o => o.Answers)
+                  .HasForeignKey(a => a.SelectedOptionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
 
         // 10. Seed dữ liệu mặc định cho Role (ADMIN và USER)
         modelBuilder.Entity<Role>().HasData(
@@ -636,6 +751,46 @@ public class AppDbContext : DbContext
                 IsActive = true,
                 CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
             }
+        );
+
+        // 12. Seed dữ liệu mẫu cho Khảo sát Thăm dò Sony WH-1000XM6 (2026)
+        modelBuilder.Entity<Survey>().HasData(
+            new Survey
+            {
+                SurveyId = 1,
+                Title = "Thăm dò nhu cầu Tai nghe chống ồn Sony WH-1000XM6 (2026)",
+                Description = "Khảo sát ý kiến khách hàng về mức giá và tính năng kỳ vọng của dòng tai nghe cao cấp Sony WH-1000XM6 sắp mở bán. Nhận ngay Voucher giảm giá sau khi hoàn thành!",
+                RewardVoucherId = null,
+                IsActive = true,
+                CreatedAt = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc)
+            }
+        );
+
+        modelBuilder.Entity<SurveyQuestion>().HasData(
+            new SurveyQuestion
+            {
+                QuestionId = 1,
+                SurveyId = 1,
+                QuestionText = "Bạn kỳ vọng mức giá niêm yết của Sony WH-1000XM6 khoảng bao nhiêu?",
+                QuestionType = Enums.SurveyQuestionType.SINGLE_CHOICE,
+                IsRequired = true,
+                OrderNum = 1
+            },
+            new SurveyQuestion
+            {
+                QuestionId = 2,
+                SurveyId = 1,
+                QuestionText = "Bạn có đóng góp ý kiến hoặc kỳ vọng tính năng gì mới ở thế hệ Sony XM6 này?",
+                QuestionType = Enums.SurveyQuestionType.TEXT,
+                IsRequired = false,
+                OrderNum = 2
+            }
+        );
+
+        modelBuilder.Entity<SurveyOption>().HasData(
+            new SurveyOption { OptionId = 1, QuestionId = 1, OptionText = "Dưới 8.000.000 VNĐ", OrderNum = 1 },
+            new SurveyOption { OptionId = 2, QuestionId = 1, OptionText = "Từ 8.000.000 - 10.000.000 VNĐ", OrderNum = 2 },
+            new SurveyOption { OptionId = 3, QuestionId = 1, OptionText = "Trên 10.000.000 VNĐ", OrderNum = 3 }
         );
     }
 }
