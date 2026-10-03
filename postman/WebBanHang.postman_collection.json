@@ -429,6 +429,93 @@
           "createdAt": "2026-09-21T17:11:35.000Z",
           "updatedAt": "2026-09-21T17:11:50.000Z",
           "uid": "37058152-ddef2316-3e15-4b51-81b6-8f4deb181266"
+        },
+        {
+          "name": "6. Lấy danh mục sở thích công nghệ chuẩn hóa (GET /api/users/tech-interests)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/tech-interests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "tech-interests"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Tech interests list is not empty\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.length).to.be.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. [Admin] Báo cáo phân tích nhân khẩu học khách hàng (GET /api/users/demographics)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/demographics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "demographics"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Demographics report contains ageGroups and interests\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data).to.have.property(\"totalCustomers\");",
+                  "    pm.expect(res.data).to.have.property(\"ageGroups\");",
+                  "    pm.expect(res.data).to.have.property(\"interests\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ],
       "id": "7ce77fe1-736f-42d8-8361-ae5f2c84e585",

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Users;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Services.Interfaces;
@@ -143,5 +144,135 @@ public class UserService(AppDbContext context) : IUserService
 
         await context.SaveChangesAsync();
         return user.ToUserDto();
+    }
+
+    public List<TechInterestOptionDto> GetTechInterests()
+    {
+        return Enum.GetValues<TechInterestType>()
+            .Select(type =>
+            {
+                var (displayName, description) = type.GetMetadata();
+                return new TechInterestOptionDto
+                {
+                    Key = type.ToString(),
+                    DisplayName = displayName,
+                    Description = description
+                };
+            })
+            .ToList();
+    }
+
+    public async Task<DemographicsReportDto> GetDemographicsReportAsync()
+    {
+        // 1. Chỉ lấy nhóm khách hàng (RoleId là USER, loại trừ tài khoản quản trị ADMIN)
+        var customers = await context.Users
+            .AsNoTracking()
+            .Where(u => u.RoleId == UserRoleTypeExtensions.User)
+            .Select(u => new
+            {
+                u.UserId,
+                u.DateOfBirth,
+                u.TechInterest
+            })
+            .ToListAsync();
+
+        var totalCustomers = customers.Count;
+        var customersWithBirthDate = customers.Count(c => c.DateOfBirth.HasValue);
+        var customersWithInterest = customers.Count(c => !string.IsNullOrWhiteSpace(c.TechInterest));
+
+        // 2. Thống kê theo phân khúc độ tuổi chuẩn hóa từ CustomerAgeGroupType Enum
+        var ageCounts = Enum.GetValues<CustomerAgeGroupType>()
+            .ToDictionary(g => g, _ => 0);
+        int unknownAge = 0;
+
+        var now = DateTime.UtcNow;
+        foreach (var c in customers)
+        {
+            if (!c.DateOfBirth.HasValue)
+            {
+                unknownAge++;
+                continue;
+            }
+
+            var dob = c.DateOfBirth.Value;
+            var age = now.Year - dob.Year;
+            if (now.DayOfYear < dob.DayOfYear) age--;
+
+            var group = CustomerAgeGroupTypeExtensions.FromAge(age);
+            ageCounts[group]++;
+        }
+
+        var ageGroups = ageCounts
+            .Select(kv => new AgeGroupReportDto
+            {
+                GroupKey = kv.Key.ToString(),
+                GroupName = kv.Key.GetDisplayName(),
+                Count = kv.Value,
+                Percentage = totalCustomers > 0 ? Math.Round((double)kv.Value / totalCustomers * 100, 1) : 0
+            })
+            .ToList();
+
+        if (unknownAge > 0)
+        {
+            ageGroups.Add(new AgeGroupReportDto
+            {
+                GroupKey = "UNKNOWN",
+                GroupName = "Chưa cập nhật ngày sinh",
+                Count = unknownAge,
+                Percentage = totalCustomers > 0 ? Math.Round((double)unknownAge / totalCustomers * 100, 1) : 0
+            });
+        }
+
+        // 3. Thống kê theo phân khúc sở thích công nghệ chuẩn hóa từ TechInterestType Enum
+        var interestCounts = Enum.GetValues<TechInterestType>()
+            .ToDictionary(type => type, _ => 0);
+        int notSetCount = 0;
+
+        foreach (var c in customers)
+        {
+            if (!string.IsNullOrWhiteSpace(c.TechInterest) &&
+                Enum.TryParse<TechInterestType>(c.TechInterest.Trim(), true, out var matchedType))
+            {
+                interestCounts[matchedType]++;
+            }
+            else
+            {
+                notSetCount++;
+            }
+        }
+
+        var interestGroups = interestCounts
+            .Select(kv =>
+            {
+                var (displayName, _) = kv.Key.GetMetadata();
+                return new InterestGroupReportDto
+                {
+                    Key = kv.Key.ToString(),
+                    Name = displayName,
+                    Count = kv.Value,
+                    Percentage = totalCustomers > 0 ? Math.Round((double)kv.Value / totalCustomers * 100, 1) : 0
+                };
+            })
+            .ToList();
+
+        if (notSetCount > 0)
+        {
+            interestGroups.Add(new InterestGroupReportDto
+            {
+                Key = "NOT_SET",
+                Name = "Chưa cập nhật sở thích",
+                Count = notSetCount,
+                Percentage = totalCustomers > 0 ? Math.Round((double)notSetCount / totalCustomers * 100, 1) : 0
+            });
+        }
+
+        return new DemographicsReportDto
+        {
+            TotalCustomers = totalCustomers,
+            CustomersWithBirthDate = customersWithBirthDate,
+            CustomersWithInterest = customersWithInterest,
+            AgeGroups = ageGroups,
+            Interests = interestGroups
+        };
     }
 }
