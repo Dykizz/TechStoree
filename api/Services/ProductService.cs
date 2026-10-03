@@ -10,7 +10,7 @@ using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services;
 
-public class ProductService(AppDbContext context) : IProductService
+public class ProductService(AppDbContext context, ICloudinaryService cloudinaryService) : IProductService
 {
     public async Task<PagedResult<ProductBaseDto>> GetProductsAsync(ProductQueryFilter filter, bool isAdmin = false)
     {
@@ -148,6 +148,14 @@ public class ProductService(AppDbContext context) : IProductService
             product.CategoryId = dto.CategoryId;
         }
 
+        var imagesToDelete = new List<string>();
+
+        // Nếu sản phẩm đổi ảnh mới, gom ảnh cũ để xóa sau khi lưu DB thành công
+        if (dto.ImageUrl != null && dto.ImageUrl != product.ImageUrl && !string.IsNullOrWhiteSpace(product.ImageUrl))
+        {
+            imagesToDelete.Add(product.ImageUrl);
+        }
+
         product.ProductName = dto.ProductName;
         product.Description = dto.Description;
         product.ImageUrl = dto.ImageUrl;
@@ -177,13 +185,20 @@ public class ProductService(AppDbContext context) : IProductService
         // Xử lý đồng bộ danh sách biến thể nếu client gửi kèm trong payload
         if (dto.Variants != null)
         {
-            SyncProductVariants(product, dto.Variants);
+            SyncProductVariants(product, dto.Variants, imagesToDelete);
         }
 
         try
         {
             await context.SaveChangesAsync();
             await context.Entry(product).Reference(p => p.Category).LoadAsync();
+
+            // Xóa ảnh cũ trên Cloudinary sau khi cập nhật CSDL thành công
+            foreach (var imgUrl in imagesToDelete)
+            {
+                try { await cloudinaryService.DeleteMediaAsync(imgUrl); } catch { /* Bỏ qua lỗi cloud để không ảnh hưởng dữ liệu */ }
+            }
+
             return product.ToProductDetailDto();
         }
         catch (DbUpdateException)
@@ -210,10 +225,30 @@ public class ProductService(AppDbContext context) : IProductService
             .FirstOrDefaultAsync(p => p.ProductId == id)
             ?? throw new KeyNotFoundException($"Không tìm thấy sản phẩm với mã ID: {id}.");
 
+        // Thu thập toàn bộ ảnh của sản phẩm và biến thể để dọn dẹp trên Cloudinary
+        var imagesToDelete = new List<string>();
+        if (!string.IsNullOrWhiteSpace(product.ImageUrl))
+        {
+            imagesToDelete.Add(product.ImageUrl);
+        }
+        foreach (var v in product.Variants)
+        {
+            if (!string.IsNullOrWhiteSpace(v.ImageUrl))
+            {
+                imagesToDelete.Add(v.ImageUrl);
+            }
+        }
+
         try
         {
             context.Products.Remove(product);
             await context.SaveChangesAsync();
+
+            // Xóa ảnh trên Cloudinary sau khi đã xóa thành công khỏi CSDL
+            foreach (var imgUrl in imagesToDelete)
+            {
+                try { await cloudinaryService.DeleteMediaAsync(imgUrl); } catch { /* Bỏ qua lỗi cloud để không ảnh hưởng dữ liệu */ }
+            }
         }
         catch (DbUpdateException)
         {
@@ -221,7 +256,7 @@ public class ProductService(AppDbContext context) : IProductService
         }
     }
 
-    private void SyncProductVariants(Product product, List<ProductVariantUpsertRequestDto> incomingVariants)
+    private void SyncProductVariants(Product product, List<ProductVariantUpsertRequestDto> incomingVariants, List<string>? imagesToDelete = null)
     {
         // A. Kiểm tra các VariantId gửi lên phải thuộc về sản phẩm này trong database
         ValidateVariantBelongsToProduct(product, incomingVariants);
@@ -244,6 +279,10 @@ public class ProductService(AppDbContext context) : IProductService
         {
             foreach (var v in variantsToRemove)
             {
+                if (!string.IsNullOrWhiteSpace(v.ImageUrl))
+                {
+                    imagesToDelete?.Add(v.ImageUrl);
+                }
                 product.Variants.Remove(v);
             }
             context.ProductVariants.RemoveRange(variantsToRemove);
@@ -255,7 +294,15 @@ public class ProductService(AppDbContext context) : IProductService
             if (vDto.VariantId.HasValue && vDto.VariantId.Value > 0)
             {
                 var existingVariant = product.Variants.FirstOrDefault(v => v.VariantId == vDto.VariantId.Value);
-                existingVariant?.UpdateEntity(vDto);
+                if (existingVariant != null)
+                {
+                    var newImgUrl = string.IsNullOrWhiteSpace(vDto.ImageUrl) ? null : vDto.ImageUrl.Trim();
+                    if (!string.IsNullOrWhiteSpace(existingVariant.ImageUrl) && existingVariant.ImageUrl != newImgUrl)
+                    {
+                        imagesToDelete?.Add(existingVariant.ImageUrl);
+                    }
+                    existingVariant.UpdateEntity(vDto);
+                }
             }
             else
             {

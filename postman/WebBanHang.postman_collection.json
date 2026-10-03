@@ -6632,6 +6632,76 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Media",
+      "id": "f8c09d3b-1e24-4f81-a90a-112233445566",
+      "description": "Lấy chữ ký số Cloudinary (Direct Signed Upload) cho Frontend (Web/Flutter)",
+      "item": [
+        {
+          "name": "1. Lấy chữ ký tải ảnh trực tiếp (POST /api/media/signature)",
+          "id": "99aa88bb-1122-3344-5566-778899aabbcc",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folder\": \"techstore/products\",\n  \"publicId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/media/signature",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                "signature"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Has valid signature and uploadUrl\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data).to.have.property(\"signature\");",
+                  "    pm.expect(res.data).to.have.property(\"uploadUrl\");",
+                  "    pm.expect(res.data).to.have.property(\"apiKey\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
