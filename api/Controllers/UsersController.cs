@@ -94,4 +94,30 @@ public class UsersController(IUserService userService) : BaseApiController
         var result = await userService.UpdateProfileAsync(CurrentUserId, dto);
         return Success(result, "Cập nhật thông tin cá nhân thành công.");
     }
+
+    /// <summary>
+    /// Lấy danh mục các sở thích công nghệ chuẩn hóa (Dành cho Web &amp; Desktop binding vào Dropdown chọn)
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("tech-interests")]
+    [ProducesResponseType(typeof(ApiResponse<List<TechInterestOptionDto>>), StatusCodes.Status200OK)]
+    public IActionResult GetTechInterests()
+    {
+        var result = userService.GetTechInterests();
+        return Success(result, "Lấy danh mục sở thích công nghệ thành công.");
+    }
+
+    /// <summary>
+    /// [Admin / CRM Manager] Báo cáo phân tích nhân khẩu học khách hàng (Độ tuổi và Sở thích công nghệ - Barem III.4.1)
+    /// </summary>
+    [Authorize(Roles = "ADMIN,CRM_MANAGER")]
+    [HttpGet("demographics")]
+    [ProducesResponseType(typeof(ApiResponse<DemographicsReportDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetDemographicsReport()
+    {
+        var result = await userService.GetDemographicsReportAsync();
+        return Success(result, "Lấy báo cáo phân tích nhân khẩu học khách hàng thành công.");
+    }
 }
