@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_tokens.dart';
 import '../../core/models/order.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/widgets/app_pagination.dart';
+import '../../core/widgets/app_search_field.dart';
+import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/filter_bar.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/status_badge.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -16,17 +24,27 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+  final TextEditingController _searchCtrl = TextEditingController();
   String _selectedStatus = 'Tất cả';
+  String _searchQuery = '';
+  int _currentPage = 1;
+  int _itemsPerPage = 8;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+    final bgSubtle = isDark ? AppColors.darkBackground : AppColors.lightBackground;
 
     return FutureBuilder<List<Order>>(
       future: apiService.getOrders(),
@@ -36,130 +54,187 @@ class _OrdersScreenState extends State<OrdersScreen> {
         }
 
         var orders = snapshot.data ?? [];
+        if (_searchQuery.isNotEmpty) {
+          orders = orders.where((o) =>
+            o.orderNumber.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            o.customerName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            o.customerEmail.toLowerCase().contains(_searchQuery.toLowerCase())
+          ).toList();
+        }
         if (_selectedStatus != 'Tất cả') {
           orders = orders.where((o) => o.status == _selectedStatus).toList();
         }
 
+        final totalItems = orders.length;
+        final totalPages = (totalItems / _itemsPerPage).ceil();
+        final safePage = _currentPage > totalPages ? (totalPages > 0 ? totalPages : 1) : _currentPage;
+        final startIndex = (safePage - 1) * _itemsPerPage;
+        final paginatedOrders = totalItems == 0
+            ? <Order>[]
+            : orders.skip(startIndex).take(_itemsPerPage).toList();
+
         return Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppTokens.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Filter Status Tabs
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['Tất cả', 'Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled']
-                      .map((status) {
-                    final isSelected = _selectedStatus == status;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: FilterChip(
-                        label: Text(status),
-                        selected: isSelected,
-                        selectedColor: AppColors.primary,
-                        checkmarkColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : textPrimary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                        onSelected: (_) => setState(() => _selectedStatus = status),
-                      ),
-                    );
-                  }).toList(),
-                ),
+              const PageHeader(
+                title: 'Quản lý Đơn hàng',
+                subtitle: 'Theo dõi, xử lý và cập nhật trạng thái đơn hàng của khách hàng TechStoree',
               ),
-              const SizedBox(height: 20),
 
-              // Orders List Table
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: orders.length,
-                      separatorBuilder: (_, __) => const Divider(height: 16),
-                      itemBuilder: (context, index) {
-                        final order = orders[index];
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    order.orderNumber,
-                                    style: TextStyle(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildBadge(order.status),
-                                  const Spacer(),
-                                  Text(
-                                    dateFormat.format(order.createdAt),
-                                    style: TextStyle(color: textSecondary, fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Khách hàng: ${order.customerName}',
-                                          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
-                                        ),
-                                        Text(
-                                          'Email: ${order.customerEmail}',
-                                          style: TextStyle(color: textSecondary, fontSize: 12),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        'Tổng tiền thanh toán',
-                                        style: TextStyle(color: textSecondary, fontSize: 11),
-                                      ),
-                                      Text(
-                                        currencyFormat.format(order.totalAmount),
-                                        style: TextStyle(
-                                          color: textPrimary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
+              // Filter Controls Bar
+              FilterBar(
+                searchField: AppSearchField<Order>(
+                  controller: _searchCtrl,
+                  hintText: 'Tìm kiếm mã đơn, tên khách hàng, email...',
+                  items: snapshot.data ?? [],
+                  searchFilter: (o, q) => o.orderNumber.toLowerCase().contains(q.toLowerCase()) ||
+                      o.customerName.toLowerCase().contains(q.toLowerCase()) ||
+                      o.customerEmail.toLowerCase().contains(q.toLowerCase()),
+                  itemLabel: (o) => '#${o.orderNumber} - ${o.customerName}',
+                  itemSubtitle: (o) => '${currencyFormat.format(o.totalAmount)} • ${o.status}',
+                  onSelected: (o) => setState(() => _searchQuery = o.orderNumber),
+                  onSubmitted: (val) => setState(() => _searchQuery = val),
+                  onCleared: () => setState(() => _searchQuery = ''),
+                ),
+                filters: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: ['Tất cả', 'Pending', 'Processing', 'Shipped', 'Completed', 'Cancelled']
+                          .map((status) {
+                        final isSelected = _selectedStatus == status;
+                        String label = status;
+                        if (status == 'Pending') label = 'Chờ xử lý';
+                        if (status == 'Processing') label = 'Đang xử lý';
+                        if (status == 'Shipped') label = 'Vận chuyển';
+                        if (status == 'Completed') label = 'Hoàn thành';
+                        if (status == 'Cancelled') label = 'Đã hủy';
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: AppTokens.space8),
+                          child: ChoiceChip(
+                            label: Text(label),
+                            selected: isSelected,
+                            selectedColor: AppColors.primary,
+                            backgroundColor: bgSubtle,
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : textPrimary,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              fontSize: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                              side: BorderSide(color: isSelected ? AppColors.primary : borderColor),
+                            ),
+                            onSelected: (_) => setState(() {
+                              _selectedStatus = status;
+                              _currentPage = 1;
+                            }),
                           ),
                         );
-                      },
+                      }).toList(),
                     ),
                   ),
-                ),
+                ],
+              ),
+
+              // Orders List Table Container
+              Flexible(
+                fit: FlexFit.loose,
+                child: orders.isEmpty
+                    ? const DataTableContainer(
+                        child: EmptyState(
+                          title: 'Chưa có đơn hàng nào',
+                          message: 'Không tìm thấy đơn hàng thuộc trạng thái đã chọn.',
+                          icon: Icons.shopping_bag_outlined,
+                        ),
+                      )
+                    : DataTableContainer(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: SizedBox(
+                                    width: constraints.maxWidth,
+                                    child: DataTable(
+                                      headingRowHeight: 38,
+                                      dataRowMinHeight: 42,
+                                      dataRowMaxHeight: 42,
+                                      columnSpacing: 16,
+                                      horizontalMargin: 16,
+                                      headingRowColor: WidgetStateProperty.all(
+                                        isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                      ),
+                                      columns: const [
+                                        DataColumn(label: Text('Mã đơn', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        DataColumn(label: Text('Ngày đặt', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                      ],
+                                      rows: paginatedOrders.map((order) {
+                                        return DataRow(
+                                          color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                                            if (states.contains(WidgetState.hovered)) {
+                                              return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+                                            }
+                                            return null;
+                                          }),
+                                          cells: [
+                                            DataCell(
+                                              Text(
+                                                order.orderNumber,
+                                                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 12),
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Text(order.customerName, style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
+                                            ),
+                                            DataCell(
+                                              Text(order.customerEmail, style: TextStyle(color: textSecondary, fontSize: 11)),
+                                            ),
+                                            DataCell(
+                                              Text(dateFormat.format(order.createdAt), style: TextStyle(color: textSecondary, fontSize: 11)),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                currencyFormat.format(order.totalAmount),
+                                                style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
+                                              ),
+                                            ),
+                                            DataCell(_renderBadge(order.status)),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (totalItems > 0)
+                              AppPagination(
+                                currentPage: safePage,
+                                totalPages: totalPages,
+                                totalItems: totalItems,
+                                itemsPerPage: _itemsPerPage,
+                                onPageChanged: (page) => setState(() => _currentPage = page),
+                                onItemsPerPageChanged: (items) {
+                                  setState(() {
+                                    _itemsPerPage = items;
+                                    _currentPage = 1;
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -168,33 +243,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
-  Widget _buildBadge(String status) {
-    Color bg;
-    Color fg;
+  Widget _renderBadge(String status) {
     switch (status) {
       case 'Completed':
-        bg = AppColors.successBg;
-        fg = AppColors.success;
-        break;
+        return const StatusBadge(label: 'Hoàn thành', isSuccess: true);
       case 'Processing':
-        bg = AppColors.infoBg;
-        fg = AppColors.info;
-        break;
+        return const StatusBadge(label: 'Đang xử lý', isInfo: true);
+      case 'Shipped':
+        return const StatusBadge(label: 'Đã giao vận chuyển', isInfo: true);
       case 'Pending':
-        bg = AppColors.warningBg;
-        fg = AppColors.warning;
-        break;
+        return const StatusBadge(label: 'Chờ xử lý', isWarning: true);
       default:
-        bg = AppColors.dangerBg;
-        fg = AppColors.danger;
+        return const StatusBadge(label: 'Đã hủy', isDanger: true);
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(
-        status,
-        style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
-      ),
-    );
   }
 }

@@ -15,3 +15,8 @@
 ## OS Files
 .DS_Store
 Thumbs.db
+
+## Postman
+postman/collections/
+
+

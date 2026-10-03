@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_tokens.dart';
 import '../../core/models/purchase_order.dart';
 import '../../core/models/supplier.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
+import '../../core/widgets/app_search_field.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/filter_bar.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/status_badge.dart';
 
 class PurchaseOrdersScreen extends StatefulWidget {
   const PurchaseOrdersScreen({super.key});
@@ -25,7 +35,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
   String _selectedStatus = 'Tất cả';
   int _selectedSupplierId = 0;
   int _currentPage = 1;
-  int _itemsPerPage = 10;
+  int _itemsPerPage = 12;
 
   late Future<List<PurchaseOrder>> _ordersFuture;
   late Future<List<Supplier>> _suppliersFuture;
@@ -55,8 +65,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
@@ -99,235 +107,192 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
             final paginatedOrders = orders.sublist(startIndex, endIndex);
 
             return Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.all(AppTokens.space16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Controls
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      // Search box
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(minWidth: 240, maxWidth: 380),
-                        child: SizedBox(
-                          height: 42,
-                          child: TextField(
-                            controller: _searchCtrl,
-                            onChanged: (val) => setState(() => _searchQuery = val),
-                            style: TextStyle(color: textPrimary, fontSize: 13),
-                            decoration: InputDecoration(
-                              hintText: 'Tìm kiếm mã phiếu nhập, nhà cung cấp, ghi chú...',
-                              hintStyle: TextStyle(color: textSecondary, fontSize: 13),
-                              prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
-                              suffixIcon: _searchCtrl.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, size: 18),
-                                      onPressed: () {
-                                        _searchCtrl.clear();
-                                        setState(() => _searchQuery = '');
-                                      },
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: backgroundColor,
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: BorderSide(color: borderColor),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                                borderSide: const BorderSide(color: AppColors.primary),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                  PageHeader(
+                    title: 'Quản lý Phiếu nhập hàng',
+                    subtitle: 'Theo dõi các đợt nhập hàng từ nhà cung cấp và nhập kho sản phẩm',
+                    action: AppButton(
+                      label: 'Tạo phiếu nhập hàng',
+                      icon: Icons.add_rounded,
+                      variant: AppButtonVariant.primary,
+                      onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers),
+                    ),
+                  ),
 
-                      // Supplier Filter
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: backgroundColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: _selectedSupplierId,
-                            dropdownColor: backgroundColor,
-                            style: TextStyle(color: textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
-                            items: [
-                              const DropdownMenuItem(value: 0, child: Text('Tất cả nhà cung cấp')),
-                              ...suppliers.map((s) {
-                                final sId = int.tryParse(s.id) ?? 0;
-                                return DropdownMenuItem(value: sId, child: Text(s.name));
-                              }),
-                            ],
-                            onChanged: (val) => setState(() => _selectedSupplierId = val ?? 0),
-                          ),
-                        ),
+                  // Filter Controls
+                  FilterBar(
+                    searchField: AppSearchField<PurchaseOrder>(
+                      controller: _searchCtrl,
+                      hintText: 'Tìm kiếm mã phiếu nhập, nhà cung cấp, ghi chú...',
+                      items: orders,
+                      searchFilter: (po, q) => po.poCode.toLowerCase().contains(q.toLowerCase()) ||
+                          po.supplierName.toLowerCase().contains(q.toLowerCase()) ||
+                          po.note.toLowerCase().contains(q.toLowerCase()),
+                      itemLabel: (po) => '${po.poCode} - ${po.supplierName}',
+                      itemSubtitle: (po) => '${currencyFormat.format(po.totalCost)} • ${po.status}',
+                      onSelected: (po) => setState(() => _searchQuery = po.poCode),
+                      onSubmitted: (val) => setState(() => _searchQuery = val),
+                      onCleared: () => setState(() => _searchQuery = ''),
+                    ),
+                    filters: [
+                      AppDropdown<int>(
+                        value: _selectedSupplierId,
+                        items: [
+                          const DropdownMenuItem(value: 0, child: Text('Tất cả nhà cung cấp')),
+                          ...suppliers.map((s) {
+                            final sId = int.tryParse(s.id) ?? 0;
+                            return DropdownMenuItem(value: sId, child: Text(s.name, overflow: TextOverflow.ellipsis));
+                          }),
+                        ],
+                        onChanged: (val) => setState(() => _selectedSupplierId = val ?? 0),
                       ),
-
-                      // Status Filter
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: backgroundColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: borderColor),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedStatus,
-                            dropdownColor: backgroundColor,
-                            style: TextStyle(color: textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
-                            items: ['Tất cả', 'DRAFT', 'COMPLETED', 'CANCELLED']
-                                .map((st) => DropdownMenuItem(
-                                      value: st,
-                                      child: Text(st == 'DRAFT' ? 'DRAFT (Nháp)' : (st == 'COMPLETED' ? 'COMPLETED (Nhập kho)' : st)),
-                                    ))
-                                .toList(),
-                            onChanged: (val) => setState(() => _selectedStatus = val ?? 'Tất cả'),
-                          ),
-                        ),
-                      ),
-
-                      // Add Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers),
-                        icon: const Icon(Icons.add_rounded, size: 20),
-                        label: const Text('Tạo phiếu nhập hàng', style: TextStyle(fontWeight: FontWeight.bold)),
+                      AppDropdown<String>(
+                        value: _selectedStatus,
+                        items: const [
+                          DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả trạng thái')),
+                          DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT (Nháp)')),
+                          DropdownMenuItem(value: 'COMPLETED', child: Text('COMPLETED (Nhập kho)')),
+                          DropdownMenuItem(value: 'CANCELLED', child: Text('Đã hủy')),
+                        ],
+                        onChanged: (val) => setState(() => _selectedStatus = val ?? 'Tất cả'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
 
-                  // Data Table Container
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: backgroundColor,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: borderColor),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: orders.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.inventory_2_outlined, size: 48, color: textSecondary),
-                                    const SizedBox(height: 12),
-                                    Text('Chưa có phiếu nhập hàng nào', style: TextStyle(color: textSecondary, fontSize: 14)),
-                                  ],
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                scrollDirection: Axis.vertical,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: DataTable(
-                                  headingRowColor: WidgetStateProperty.all(
-                                    isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                                  ),
-                                  dataRowMinHeight: 65,
-                                  dataRowMaxHeight: 65,
-                                  columns: const [
-                                    DataColumn(label: Text('Mã phiếu', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Số mặt hàng', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Tổng tiền nhập', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  ],
-                                  rows: paginatedOrders.map((po) {
-                                    return DataRow(
-                                      cells: [
-                                        DataCell(
-                                          Text(
-                                            po.poCode,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 13),
-                                          ),
-                                        ),
-                                        DataCell(
-                                          Text(po.supplierName, style: TextStyle(color: textPrimary, fontSize: 13)),
-                                        ),
-                                        DataCell(
-                                          Text(dateFormat.format(po.createdAt), style: TextStyle(color: textSecondary, fontSize: 12)),
-                                        ),
-                                        DataCell(
-                                          Text('${po.totalItems} dòng', style: TextStyle(color: textPrimary, fontSize: 12)),
-                                        ),
-                                        DataCell(
-                                          Text(
-                                            currencyFormat.format(po.totalCost),
-                                            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 13),
-                                          ),
-                                        ),
-                                        DataCell(_buildStatusChip(po.status)),
-                                        DataCell(
-                                          Row(
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.visibility_outlined, size: 18, color: AppColors.info),
-                                                tooltip: 'Xem chi tiết',
-                                                onPressed: () => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
-                                              ),
-                                              if (po.isDraft) ...[
-                                                IconButton(
-                                                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
-                                                  tooltip: 'Sửa phiếu nháp',
-                                                  onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers, existingPoId: po.purchaseOrderId),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                                                  tooltip: 'Xóa phiếu nháp',
-                                                  onPressed: () => _showDeleteConfirm(context, apiService, authProvider.token, po),
-                                                ),
-                                              ] else ...[
-                                                const Tooltip(
-                                                  message: 'Phiếu đã hoàn thành (COMPLETED) - Không thể sửa/xóa',
-                                                  child: Padding(
-                                                    padding: EdgeInsets.all(8.0),
-                                                    child: Icon(Icons.lock_rounded, size: 18, color: Colors.grey),
-                                                  ),
-                                                ),
-                                              ],
+                  // Table Container
+                  Flexible(
+                    child: DataTableContainer(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: orders.isEmpty
+                                ? const EmptyState(
+                                    title: 'Chưa có phiếu nhập hàng nào',
+                                    message: 'Không tìm thấy thông tin phiếu nhập khớp với bộ lọc.',
+                                    icon: Icons.inventory_2_outlined,
+                                  )
+                                : LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return SingleChildScrollView(
+                                        scrollDirection: Axis.vertical,
+                                        child: SizedBox(
+                                          width: constraints.maxWidth,
+                                          child: DataTable(
+                                            headingRowHeight: 38,
+                                            dataRowMinHeight: 44,
+                                            dataRowMaxHeight: 48,
+                                            columnSpacing: 16,
+                                            horizontalMargin: 16,
+                                            headingRowColor: WidgetStateProperty.all(
+                                              isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                            ),
+                                            columns: const [
+                                              DataColumn(label: Text('Mã phiếu', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Số mặt hàng', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Tổng tiền nhập', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                              DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
                                             ],
+                                            rows: paginatedOrders.map((po) {
+                                              return DataRow(
+                                                color: WidgetStateProperty.resolveWith<Color?>((states) {
+                                                  if (states.contains(WidgetState.hovered)) {
+                                                    return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
+                                                  }
+                                                  return null;
+                                                }),
+                                                cells: [
+                                                  DataCell(
+                                                    Text(
+                                                      po.poCode,
+                                                      style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 12),
+                                                    ),
+                                                  ),
+                                                  DataCell(
+                                                    Text(po.supplierName, style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
+                                                  ),
+                                                  DataCell(
+                                                    Text(dateFormat.format(po.createdAt), style: TextStyle(color: textSecondary, fontSize: 11)),
+                                                  ),
+                                                  DataCell(
+                                                    Text('${po.totalItems} dòng', style: TextStyle(color: textPrimary, fontSize: 12)),
+                                                  ),
+                                                  DataCell(
+                                                    Text(
+                                                      currencyFormat.format(po.totalCost),
+                                                      style: TextStyle(color: textPrimary, fontWeight: FontWeight.w700, fontSize: 12),
+                                                    ),
+                                                  ),
+                                                  DataCell(_renderStatusBadge(po.status)),
+                                                  DataCell(
+                                                    Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        IconButton(
+                                                          icon: const Icon(Icons.visibility_outlined, size: 15, color: AppColors.primary),
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                          tooltip: 'Xem chi tiết',
+                                                          onPressed: () => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
+                                                        ),
+                                                        if (po.isDraft) ...[
+                                                          IconButton(
+                                                            icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                            padding: EdgeInsets.zero,
+                                                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                            tooltip: 'Sửa phiếu nháp',
+                                                            onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers, existingPoId: po.purchaseOrderId),
+                                                          ),
+                                                          IconButton(
+                                                            icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
+                                                            padding: EdgeInsets.zero,
+                                                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                            tooltip: 'Xóa phiếu nháp',
+                                                            onPressed: () => _showDeleteConfirm(context, apiService, authProvider.token, po),
+                                                          ),
+                                                        ] else ...[
+                                                          Tooltip(
+                                                            message: 'Phiếu đã hoàn thành (COMPLETED) - Không thể sửa/xóa',
+                                                            child: Padding(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                              child: Icon(Icons.lock_outline_rounded, size: 14, color: textSecondary),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              );
+                                            }).toList(),
                                           ),
                                         ),
-                                      ],
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          if (totalItems > 0)
+                            AppPagination(
+                              currentPage: safePage,
+                              totalPages: totalPages,
+                              totalItems: totalItems,
+                              itemsPerPage: _itemsPerPage,
+                              onPageChanged: (page) => setState(() => _currentPage = page),
+                              onItemsPerPageChanged: (size) => setState(() {
+                                _itemsPerPage = size;
+                                _currentPage = 1;
+                              }),
                             ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  AppPagination(
-                    currentPage: safePage,
-                    totalPages: totalPages,
-                    totalItems: totalItems,
-                    itemsPerPage: _itemsPerPage,
-                    onPageChanged: (page) => setState(() => _currentPage = page),
-                    onItemsPerPageChanged: (size) => setState(() {
-                      _itemsPerPage = size;
-                      _currentPage = 1;
-                    }),
                   ),
                 ],
               ),
@@ -338,33 +303,14 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     );
   }
 
-  Widget _buildStatusChip(String status) {
-    Color bg;
-    Color fg;
-    String label = status;
-
+  Widget _renderStatusBadge(String status) {
     if (status == 'COMPLETED' || status == '1') {
-      bg = AppColors.successBg;
-      fg = AppColors.success;
-      label = 'ĐÃ NHẬP KHO';
+      return const StatusBadge(label: 'ĐÃ NHẬP KHO', isSuccess: true);
     } else if (status == 'DRAFT' || status == '0') {
-      bg = AppColors.warningBg;
-      fg = AppColors.warning;
-      label = 'BẢN NHÁP';
+      return const StatusBadge(label: 'BẢN NHÁP', isWarning: true);
     } else {
-      bg = AppColors.dangerBg;
-      fg = AppColors.danger;
-      label = 'ĐÃ HỦY';
+      return const StatusBadge(label: 'ĐÃ HỦY', isDanger: true);
     }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(
-        label,
-        style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
-      ),
-    );
   }
 
   // --- Show Detail Dialog ---
@@ -375,13 +321,14 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: Row(
           children: [
-            const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text('Chi Tiết Phiếu Nhập: ${po.poCode}', style: const TextStyle(fontWeight: FontWeight.bold)),
+            const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 18),
+            const SizedBox(width: AppTokens.space8),
+            Text('Chi Tiết Phiếu Nhập: ${po.poCode}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             const Spacer(),
-            _buildStatusChip(po.status),
+            _renderStatusBadge(po.status),
           ],
         ),
         content: SizedBox(
@@ -398,40 +345,45 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                   ],
                 ),
                 if (po.note.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppTokens.space8),
                   _buildInfoItem('Ghi chú', po.note),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTokens.space12),
                 const Divider(),
-                const SizedBox(height: 8),
-                const Text('DANH SÁCH MẶT HÀNG NHẬP KHO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppTokens.space8),
+                const Text('DANH SÁCH MẶT HÀNG NHẬP KHO', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppColors.primary)),
+                const SizedBox(height: AppTokens.space8),
 
-                DataTable(
-                  columnSpacing: 16,
-                  columns: const [
-                    DataColumn(label: Text('Sản phẩm / Biến thể', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Đơn giá nhập', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Số lượng', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('Thành tiền', style: TextStyle(fontWeight: FontWeight.bold))),
-                  ],
-                  rows: po.items.map((item) {
-                    return DataRow(cells: [
-                      DataCell(Text(item.fullName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500))),
-                      DataCell(Text(currencyFormat.format(item.importPrice), style: const TextStyle(fontSize: 12))),
-                      DataCell(Text('${item.quantity}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))),
-                      DataCell(Text(currencyFormat.format(item.totalPrice), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary))),
-                    ]);
-                  }).toList(),
+                DataTableContainer(
+                  child: DataTable(
+                    columnSpacing: 16,
+                    headingRowHeight: 36,
+                    dataRowMinHeight: 38,
+                    dataRowMaxHeight: 38,
+                    columns: const [
+                      DataColumn(label: Text('Sản phẩm / Biến thể', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
+                      DataColumn(label: Text('Đơn giá nhập', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
+                      DataColumn(label: Text('Số lượng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
+                      DataColumn(label: Text('Thành tiền', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
+                    ],
+                    rows: po.items.map((item) {
+                      return DataRow(cells: [
+                        DataCell(Text(item.fullName, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500))),
+                        DataCell(Text(currencyFormat.format(item.importPrice), style: const TextStyle(fontSize: 11))),
+                        DataCell(Text('${item.quantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                        DataCell(Text(currencyFormat.format(item.totalPrice), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary))),
+                      ]);
+                    }).toList(),
+                  ),
                 ),
 
-                const SizedBox(height: 16),
+                const SizedBox(height: AppTokens.space12),
                 const Divider(),
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
                     'Tổng tiền hàng: ${currencyFormat.format(po.totalCost)}',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
                   ),
                 ),
               ],
@@ -440,10 +392,10 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
         ),
         actions: [
           if (po.isDraft)
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-              icon: const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-              label: const Text('Chốt phiếu & Nhập kho', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            AppButton(
+              label: 'Chốt phiếu & Nhập kho',
+              icon: Icons.check_circle_outline,
+              variant: AppButtonVariant.primary,
               onPressed: () async {
                 Navigator.pop(ctx);
                 final updatedPo = PurchaseOrder(
@@ -471,7 +423,11 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                 }
               },
             ),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Đóng')),
+          AppButton(
+            label: 'Đóng',
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.pop(ctx),
+          ),
         ],
       ),
     );
@@ -481,9 +437,9 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+        Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -511,7 +467,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
       return;
     }
 
-    // Build selectable variant options from products list
     List<_VariantSelectOption> variantOptions = [];
     for (var p in products) {
       if (p.variants.isNotEmpty) {
@@ -580,29 +535,27 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
           }
 
           return AlertDialog(
-            title: Text(isEditing ? 'Sửa Phiếu Nhập Hàng (${existingPo?.poCode})' : 'Tạo Phiếu Nhập Hàng Mới', style: const TextStyle(fontWeight: FontWeight.bold)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            title: Text(isEditing ? 'Sửa Phiếu Nhập Hàng (${existingPo?.poCode})' : 'Tạo Phiếu Nhập Hàng Mới', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
             content: SizedBox(
               width: 700,
               child: SingleChildScrollView(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Supplier Select & Status Select
                     Row(
                       children: [
                         Expanded(
                           flex: 2,
-                          child: DropdownButtonFormField<int>(
-                            isExpanded: true,
+                          child: AppDropdown<int>(
                             value: suppliers.any((s) => int.tryParse(s.id) == selectedSupplierId)
                                 ? selectedSupplierId
                                 : (int.tryParse(suppliers.first.id) ?? 1),
-                            decoration: const InputDecoration(labelText: 'Nhà cung cấp (*)', border: OutlineInputBorder()),
                             items: suppliers.map((s) {
                               final sId = int.tryParse(s.id) ?? 1;
                               return DropdownMenuItem<int>(
                                 value: sId,
-                                child: Text(s.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 13)),
+                                child: Text(s.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12)),
                               );
                             }).toList(),
                             onChanged: (val) {
@@ -610,16 +563,14 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppTokens.space8),
                         Expanded(
                           flex: 1,
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
+                          child: AppDropdown<String>(
                             value: selectedStatus,
-                            decoration: const InputDecoration(labelText: 'Trạng thái (*)', border: OutlineInputBorder()),
                             items: const [
-                              DropdownMenuItem(value: 'COMPLETED', child: Text('COMPLETED', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13))),
-                              DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT (Nháp)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13))),
+                              DropdownMenuItem(value: 'COMPLETED', child: Text('COMPLETED', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12))),
+                              DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT (Nháp)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12))),
                             ],
                             onChanged: (val) {
                               if (val != null) setDialogState(() => selectedStatus = val);
@@ -628,21 +579,24 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppTokens.space8),
 
-                    TextField(
+                    AppTextField(
                       controller: noteCtrl,
-                      decoration: const InputDecoration(labelText: 'Ghi chú phiếu nhập (Mã lô, hóa đơn, chứng từ...)', border: OutlineInputBorder()),
+                      labelText: 'Ghi chú phiếu nhập (Mã lô, hóa đơn, chứng từ...)',
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: AppTokens.space12),
                     const Divider(),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppTokens.space4),
 
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('DANH SÁCH SẢN PHẨM NHẬP KHO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
-                        TextButton.icon(
+                        const Text('DANH SÁCH SẢN PHẨM NHẬP KHO', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11, color: AppColors.primary)),
+                        AppButton(
+                          label: 'Thêm mặt hàng',
+                          icon: Icons.add_rounded,
+                          variant: AppButtonVariant.secondary,
                           onPressed: () {
                             setDialogState(() {
                               itemRows.add(_POItemRowInput(
@@ -652,31 +606,28 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                               ));
                             });
                           },
-                          icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-                          label: const Text('Thêm mặt hàng', style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppTokens.space8),
 
                     ...itemRows.asMap().entries.map((entry) {
                       final index = entry.key;
                       final row = entry.value;
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.all(10),
+                        margin: const EdgeInsets.only(bottom: AppTokens.space8),
+                        padding: const EdgeInsets.all(AppTokens.space8),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.04),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+                          color: AppColors.primary.withOpacity(0.02),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppColors.primary.withOpacity(0.12)),
                         ),
                         child: Row(
                           children: [
-                            Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                            const SizedBox(width: 8),
+                            Text('#${index + 1}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                            const SizedBox(width: AppTokens.space8),
 
-                            // Variant Autocomplete Suggestion Select
                             Expanded(
                               flex: 3,
                               child: RawAutocomplete<_VariantSelectOption>(
@@ -701,17 +652,10 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                   });
                                 },
                                 fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
-                                  return TextField(
+                                  return AppTextField(
                                     controller: textController,
-                                    focusNode: focusNode,
-                                    style: const TextStyle(fontSize: 12),
-                                    decoration: const InputDecoration(
-                                      labelText: 'Gõ tên SP / biến thể (*)',
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                      border: OutlineInputBorder(),
-                                      suffixIcon: Icon(Icons.arrow_drop_down, size: 20),
-                                    ),
+                                    labelText: 'SP / Biến thể (*)',
+                                    suffixIcon: const Icon(Icons.arrow_drop_down, size: 18),
                                   );
                                 },
                                 optionsViewBuilder: (context, onSelected, options) {
@@ -719,7 +663,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                     alignment: Alignment.topLeft,
                                     child: Material(
                                       elevation: 4,
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(4),
                                       child: SizedBox(
                                         width: 360,
                                         height: options.length > 5 ? 200 : options.length * 45.0,
@@ -730,8 +674,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                             final option = options.elementAt(index);
                                             return ListTile(
                                               dense: true,
-                                              title: Text(option.label, style: const TextStyle(fontSize: 12)),
-                                              subtitle: Text('Giá niêm yết: ${currencyFormat.format(option.defaultPrice)} | Tồn kho: ${option.stockQuantity}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                              title: Text(option.label, style: const TextStyle(fontSize: 11)),
+                                              subtitle: Text('Giá niêm yết: ${currencyFormat.format(option.defaultPrice)} | Tồn: ${option.stockQuantity}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                               onTap: () => onSelected(option),
                                             );
                                           },
@@ -742,45 +686,44 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                 },
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppTokens.space8),
 
-                            // Price input
                             Expanded(
                               flex: 2,
-                              child: TextField(
+                              child: AppTextField(
                                 controller: row.importPriceCtrl,
+                                labelText: 'Giá nhập',
                                 keyboardType: TextInputType.number,
                                 onChanged: (_) => setDialogState(() {}),
-                                decoration: const InputDecoration(labelText: 'Giá nhập (VNĐ)', isDense: true, border: OutlineInputBorder()),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppTokens.space8),
 
-                            // Quantity input
                             SizedBox(
-                              width: 80,
-                              child: TextField(
+                              width: 75,
+                              child: AppTextField(
                                 controller: row.quantityCtrl,
+                                labelText: 'SL',
                                 keyboardType: TextInputType.number,
                                 onChanged: (_) => setDialogState(() {}),
-                                decoration: const InputDecoration(labelText: 'SL', isDense: true, border: OutlineInputBorder()),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppTokens.space8),
 
-                            // Subtotal
                             SizedBox(
-                              width: 100,
+                              width: 95,
                               child: Text(
                                 currencyFormat.format(row.totalPrice),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.primary),
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: AppColors.primary),
                                 textAlign: TextAlign.right,
                               ),
                             ),
 
                             if (itemRows.length > 1)
                               IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 18),
+                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 15),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                 onPressed: () {
                                   setDialogState(() {
                                     row.dispose();
@@ -793,13 +736,13 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                       );
                     }),
 
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppTokens.space8),
                     const Divider(),
                     Align(
                       alignment: Alignment.centerRight,
                       child: Text(
                         'TỔNG TIỀN PHIẾU NHẬP: ${currencyFormat.format(totalCalc)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppColors.primary),
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.primary),
                       ),
                     ),
                   ],
@@ -807,18 +750,19 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
               ),
             ),
             actions: [
-              TextButton(
+              AppButton(
+                label: 'Hủy',
+                variant: AppButtonVariant.secondary,
                 onPressed: () {
                   for (var r in itemRows) { r.dispose(); }
                   noteCtrl.dispose();
                   Navigator.pop(ctx);
                 },
-                child: const Text('Hủy'),
               ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              AppButton(
+                label: isEditing ? 'Cập Nhật Phiếu' : 'Lưu Phiếu Nhập',
+                variant: AppButtonVariant.primary,
                 onPressed: () async {
-                  // Check duplicate variants
                   final seenVariantIds = <int>{};
                   for (var r in itemRows) {
                     if (seenVariantIds.contains(r.variantId)) {
@@ -875,7 +819,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                     );
                   }
                 },
-                child: Text(isEditing ? 'Cập Nhật Phiếu' : 'Lưu Phiếu Nhập', style: const TextStyle(color: Colors.white)),
               ),
             ],
           );
@@ -889,12 +832,18 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận xóa phiếu nhập hàng', style: TextStyle(fontWeight: FontWeight.bold)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        title: const Text('Xác nhận xóa phiếu nhập hàng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         content: Text('Bạn có chắc muốn xóa phiếu nháp "${po.poCode}" không?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+          AppButton(
+            label: 'Hủy',
+            variant: AppButtonVariant.secondary,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          AppButton(
+            label: 'Xóa',
+            variant: AppButtonVariant.danger,
             onPressed: () async {
               final result = await apiService.deletePurchaseOrder(po.purchaseOrderId, token: token);
               if (context.mounted) {
@@ -910,7 +859,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                 );
               }
             },
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
