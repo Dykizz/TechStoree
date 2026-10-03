@@ -471,7 +471,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             DataCell(Text(o.customerName, style: TextStyle(color: textPrimary, fontSize: 13))),
                             DataCell(Text(currencyFormat.format(o.totalAmount), style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 13))),
                             DataCell(_buildOrderStatusBadge(o.status)),
-                            DataCell(Text(DateFormat('dd/MM/yyyy HH:mm').format(o.createdAt), style: TextStyle(color: textSecondary, fontSize: 12))),
+                            DataCell(Text(o.createdAt != null ? DateFormat('dd/MM/yyyy HH:mm').format(o.createdAt!) : 'N/A', style: TextStyle(color: textSecondary, fontSize: 12))),
                           ],
                         );
                       }).toList(),

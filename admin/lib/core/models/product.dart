@@ -1,23 +1,177 @@
+import 'dart:math' as math;
+
+int _parseInt(dynamic val, [int defaultValue = 0]) {
+  if (val == null) return defaultValue;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    return int.tryParse(val) ?? double.tryParse(val)?.toInt() ?? defaultValue;
+  }
+  return defaultValue;
+}
+
+int? _parseNullableInt(dynamic val) {
+  if (val == null) return null;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    final parsed = int.tryParse(val);
+    if (parsed != null) return parsed;
+    final d = double.tryParse(val);
+    return d?.toInt();
+  }
+  return null;
+}
+
+double _parseDouble(dynamic val, [double defaultValue = 0.0]) {
+  if (val == null) return defaultValue;
+  if (val is double) return val;
+  if (val is num) return val.toDouble();
+  if (val is String) {
+    return double.tryParse(val) ?? defaultValue;
+  }
+  return defaultValue;
+}
+
+double? _parseNullableDouble(dynamic val) {
+  if (val == null) return null;
+  if (val is double) return val;
+  if (val is num) return val.toDouble();
+  if (val is String) {
+    return double.tryParse(val);
+  }
+  return null;
+}
+
+bool _parseBool(dynamic val, [bool defaultValue = true]) {
+  if (val == null) return defaultValue;
+  if (val is bool) return val;
+  if (val is num) return val != 0;
+  if (val is String) {
+    final lower = val.trim().toLowerCase();
+    if (lower == 'true' || lower == '1') return true;
+    if (lower == 'false' || lower == '0') return false;
+  }
+  return defaultValue;
+}
+
+class VariantPromotionSummary {
+  final bool hasPromotion;
+  final int? promotionId;
+  final String promotionName;
+  final String? discountType;
+  final double? discountValue;
+  final double promotionalPrice;
+  final double discountAmount;
+
+  VariantPromotionSummary({
+    this.hasPromotion = false,
+    this.promotionId,
+    this.promotionName = '',
+    this.discountType,
+    this.discountValue,
+    this.promotionalPrice = 0,
+    this.discountAmount = 0,
+  });
+
+  factory VariantPromotionSummary.fromJson(Map<String, dynamic> json) {
+    return VariantPromotionSummary(
+      hasPromotion: _parseBool(json['hasPromotion'], true),
+      promotionId: _parseNullableInt(json['promotionId']),
+      promotionName: json['promotionName']?.toString() ?? '',
+      discountType: json['discountType']?.toString(),
+      discountValue: _parseNullableDouble(json['discountValue']),
+      promotionalPrice: _parseDouble(json['promotionalPrice']),
+      discountAmount: _parseDouble(json['discountAmount']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'hasPromotion': hasPromotion,
+      if (promotionId != null) 'promotionId': promotionId,
+      'promotionName': promotionName,
+      if (discountType != null) 'discountType': discountType,
+      if (discountValue != null) 'discountValue': discountValue,
+      'promotionalPrice': promotionalPrice,
+      'discountAmount': discountAmount,
+    };
+  }
+}
+
+class ProductPromotionSummary {
+  final bool hasPromotion;
+  final int? promotionId;
+  final String promotionName;
+  final String? discountType; // "PERCENTAGE" or "FIXED_AMOUNT"
+  final double? discountValue;
+  final double promotionalMinPrice;
+  final double promotionalMaxPrice;
+
+  ProductPromotionSummary({
+    this.hasPromotion = false,
+    this.promotionId,
+    this.promotionName = '',
+    this.discountType,
+    this.discountValue,
+    this.promotionalMinPrice = 0,
+    this.promotionalMaxPrice = 0,
+  });
+
+  factory ProductPromotionSummary.fromJson(Map<String, dynamic> json) {
+    return ProductPromotionSummary(
+      hasPromotion: _parseBool(json['hasPromotion'], true),
+      promotionId: _parseNullableInt(json['promotionId']),
+      promotionName: json['promotionName']?.toString() ?? '',
+      discountType: json['discountType']?.toString(),
+      discountValue: _parseNullableDouble(json['discountValue']),
+      promotionalMinPrice: _parseDouble(json['promotionalMinPrice']),
+      promotionalMaxPrice: _parseDouble(json['promotionalMaxPrice']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'hasPromotion': hasPromotion,
+      if (promotionId != null) 'promotionId': promotionId,
+      'promotionName': promotionName,
+      if (discountType != null) 'discountType': discountType,
+      if (discountValue != null) 'discountValue': discountValue,
+      'promotionalMinPrice': promotionalMinPrice,
+      'promotionalMaxPrice': promotionalMaxPrice,
+    };
+  }
+}
+
 class ProductVariant {
   final int? variantId;
   final int? productId;
+  final String? productName;
   final String? variantNameAttr;
   final double price;
   final int stockQuantity;
   final String? imageUrl;
   final Map<String, String> attributes;
+  final VariantPromotionSummary? promotion;
+  final bool hasPromotion;
   final bool isActive;
+  final DateTime? createdAt;
 
   ProductVariant({
     this.variantId,
     this.productId,
+    this.productName,
     this.variantNameAttr,
     required this.price,
     this.stockQuantity = 0,
     this.imageUrl,
     Map<String, String>? attributes,
+    this.promotion,
+    bool? hasPromotion,
     this.isActive = true,
-  }) : attributes = attributes ?? {};
+    this.createdAt,
+  })  : attributes = attributes ?? {},
+        hasPromotion = hasPromotion ?? (promotion != null && promotion.hasPromotion);
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
     Map<String, String> attrs = {};
@@ -26,15 +180,30 @@ class ProductVariant {
         attrs[k.toString()] = v.toString();
       });
     }
+
+    VariantPromotionSummary? promo;
+    if (json['promotion'] != null && json['promotion'] is Map) {
+      promo = VariantPromotionSummary.fromJson(json['promotion'] as Map<String, dynamic>);
+    }
+
+    DateTime? parsedCreatedAt;
+    if (json['createdAt'] != null) {
+      parsedCreatedAt = DateTime.tryParse(json['createdAt'].toString());
+    }
+
     return ProductVariant(
-      variantId: (json['variantId'] ?? json['variant_id']) as int?,
-      productId: (json['productId'] ?? json['product_id']) as int?,
+      variantId: _parseNullableInt(json['variantId'] ?? json['variant_id']),
+      productId: _parseNullableInt(json['productId'] ?? json['product_id']),
+      productName: json['productName']?.toString(),
       variantNameAttr: (json['variantName'] ?? json['variant_name'])?.toString(),
-      price: (json['price'] ?? 0).toDouble(),
-      stockQuantity: (json['stockQuantity'] ?? json['stock_quantity'] ?? 0).toInt(),
-      imageUrl: (json['imageUrl'] ?? json['image_url']) as String?,
+      price: _parseDouble(json['price']),
+      stockQuantity: _parseInt(json['stockQuantity'] ?? json['stock_quantity'], 0),
+      imageUrl: (json['imageUrl'] ?? json['image_url'])?.toString(),
       attributes: attrs,
-      isActive: (json['isActive'] ?? json['is_active'] ?? true) as bool,
+      promotion: promo,
+      hasPromotion: _parseBool(json['hasPromotion'] ?? (promo != null && promo.hasPromotion), false),
+      isActive: _parseBool(json['isActive'] ?? json['is_active'], true),
+      createdAt: parsedCreatedAt,
     );
   }
 
@@ -42,12 +211,16 @@ class ProductVariant {
     return {
       if (variantId != null && variantId! > 0) 'variantId': variantId,
       if (productId != null && productId! > 0) 'productId': productId,
+      if (productName != null) 'productName': productName,
       if (variantNameAttr != null) 'variantName': variantNameAttr,
       'price': price,
       'stockQuantity': stockQuantity,
       'imageUrl': imageUrl?.isNotEmpty == true ? imageUrl : null,
       'attributes': attributes,
+      if (promotion != null) 'promotion': promotion!.toJson(),
+      'hasPromotion': hasPromotion,
       'isActive': isActive,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
     };
   }
 
@@ -70,19 +243,25 @@ class ProductVariant {
   }
 }
 
-
 class Product {
   final String id;
   final String name;
   final String sku;
   final String category;
   final int categoryId;
-  final double price;
-  final int stock;
+  final double minPrice;
+  final double maxPrice;
+  final int totalStock;
+  final double price; // Alias for minPrice
+  final double? originalPrice;
+  final int stock; // Alias for totalStock
   final String status; // 'In Stock', 'Low Stock', 'Out of Stock', 'Ngừng bán'
   final bool isActive;
   final String imageUrl;
   final String description;
+  final ProductPromotionSummary? promotion;
+  final bool hasPromotion;
+  final DateTime? createdAt;
   final List<String> variantAttributes;
   final List<ProductVariant> variants;
 
@@ -92,38 +271,81 @@ class Product {
     required this.sku,
     required this.category,
     this.categoryId = 1,
-    required this.price,
-    required this.stock,
+    double? minPrice,
+    double? maxPrice,
+    int? totalStock,
+    double? price,
+    this.originalPrice,
+    int? stock,
     required this.status,
     this.isActive = true,
     required this.imageUrl,
     this.description = '',
+    this.promotion,
+    bool? hasPromotion,
+    this.createdAt,
     List<String>? variantAttributes,
     List<ProductVariant>? variants,
-  })  : variantAttributes = variantAttributes ?? [],
-        variants = variants ?? [];
+  })  : variants = variants ?? [],
+        variantAttributes = variantAttributes ?? [],
+        minPrice = minPrice ?? (price ?? 0),
+        maxPrice = maxPrice ?? (price ?? 0),
+        totalStock = totalStock ?? (stock ?? 0),
+        price = price ?? (minPrice ?? 0),
+        stock = stock ?? (totalStock ?? 0),
+        hasPromotion = hasPromotion ?? (promotion != null && promotion.hasPromotion);
 
   factory Product.fromJson(Map<String, dynamic> json) {
-    final rawStock = (json['totalStock'] ?? json['stock'] ?? json['soLuongTon'] ?? 0).toInt();
-    final active = (json['isActive'] ?? true) as bool;
-    final minP = (json['minPrice'] ?? json['price'] ?? json['giaBan'] ?? 0).toDouble();
-
-    String currentStatus;
-    if (!active) {
-      currentStatus = 'Ngừng bán';
-    } else if (rawStock > 10) {
-      currentStatus = 'In Stock';
-    } else if (rawStock > 0) {
-      currentStatus = 'Low Stock';
-    } else {
-      currentStatus = 'Out of Stock';
-    }
+    final rawStock = _parseInt(json['totalStock'] ?? json['stock'] ?? json['soLuongTon'], 0);
+    final active = _parseBool(json['isActive'] ?? json['is_active'], true);
 
     List<ProductVariant> parsedVariants = [];
     if (json['variants'] != null && json['variants'] is List) {
       parsedVariants = (json['variants'] as List)
+          .where((v) => v != null && v is Map)
           .map((v) => ProductVariant.fromJson(v as Map<String, dynamic>))
           .toList();
+    }
+
+    double calcMinP = _parseDouble(json['minPrice'] ?? json['price'] ?? json['giaBan'], 0);
+    double calcMaxP = _parseDouble(json['maxPrice'] ?? json['price'] ?? json['giaBan'], 0);
+    int calcStock = rawStock;
+
+    if (parsedVariants.isNotEmpty) {
+      final variantPrices = parsedVariants.map((v) => v.price).toList();
+      final variantStocks = parsedVariants.map((v) => v.stockQuantity).toList();
+      calcMinP = variantPrices.reduce(math.min);
+      calcMaxP = variantPrices.reduce(math.max);
+      calcStock = variantStocks.reduce((a, b) => a + b);
+    }
+
+    ProductPromotionSummary? promo;
+    if (json['promotion'] != null && json['promotion'] is Map) {
+      promo = ProductPromotionSummary.fromJson(json['promotion'] as Map<String, dynamic>);
+    }
+
+    double? origP;
+    if (promo != null && promo.hasPromotion && promo.promotionalMinPrice > 0 && promo.promotionalMinPrice < calcMinP) {
+      origP = calcMinP;
+    } else {
+      final rawOrig = (json['originalPrice'] ?? json['giaGoc'] ?? json['marketPrice']);
+      if (rawOrig != null) {
+        final val = _parseDouble(rawOrig, 0);
+        if (val > calcMinP) {
+          origP = val;
+        }
+      }
+    }
+
+    String currentStatus;
+    if (!active) {
+      currentStatus = 'Ngừng bán';
+    } else if (calcStock > 10) {
+      currentStatus = 'In Stock';
+    } else if (calcStock > 0) {
+      currentStatus = 'Low Stock';
+    } else {
+      currentStatus = 'Out of Stock';
     }
 
     List<String> parsedVarAttrs = [];
@@ -138,18 +360,30 @@ class Product {
       parsedVarAttrs = keys.toList();
     }
 
+    DateTime? parsedCreatedAt;
+    if (json['createdAt'] != null) {
+      parsedCreatedAt = DateTime.tryParse(json['createdAt'].toString());
+    }
+
     return Product(
       id: (json['productId'] ?? json['id'])?.toString() ?? '',
-      name: json['productName'] ?? json['name'] ?? json['tenSanPham'] ?? '',
-      sku: json['sku'] ?? json['maSKU'] ?? 'TS-PROD-${json['productId'] ?? json['id']}',
-      category: json['categoryName'] ?? json['category'] ?? json['tenDanhMuc'] ?? 'Công nghệ',
-      categoryId: (json['categoryId'] ?? 1).toInt(),
-      price: minP,
-      stock: rawStock,
+      name: json['productName']?.toString() ?? json['name']?.toString() ?? json['tenSanPham']?.toString() ?? '',
+      sku: json['sku']?.toString() ?? json['maSKU']?.toString() ?? 'TS-PROD-${json['productId'] ?? json['id']}',
+      category: json['categoryName']?.toString() ?? json['category']?.toString() ?? json['tenDanhMuc']?.toString() ?? 'Công nghệ',
+      categoryId: _parseInt(json['categoryId'], 1),
+      minPrice: calcMinP,
+      maxPrice: calcMaxP,
+      totalStock: calcStock,
+      price: calcMinP,
+      originalPrice: origP,
+      stock: calcStock,
       status: currentStatus,
       isActive: active,
-      imageUrl: json['imageUrl'] ?? json['hinhAnh'] ?? 'https://picsum.photos/200',
-      description: json['description'] ?? json['moTa'] ?? '',
+      imageUrl: json['imageUrl']?.toString() ?? json['hinhAnh']?.toString() ?? 'https://picsum.photos/200',
+      description: json['description']?.toString() ?? json['moTa']?.toString() ?? '',
+      promotion: promo,
+      hasPromotion: _parseBool(json['hasPromotion'] ?? (promo != null && promo.hasPromotion), false),
+      createdAt: parsedCreatedAt,
       variantAttributes: parsedVarAttrs,
       variants: parsedVariants,
     );
@@ -157,17 +391,20 @@ class Product {
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'name': name,
+      'productId': int.tryParse(id) ?? id,
+      'productName': name,
       'sku': sku,
-      'category': category,
+      'categoryName': category,
       'categoryId': categoryId,
-      'price': price,
-      'stock': stock,
-      'status': status,
+      'minPrice': minPrice,
+      'maxPrice': maxPrice,
+      'totalStock': totalStock,
       'isActive': isActive,
       'imageUrl': imageUrl,
       'description': description,
+      if (promotion != null) 'promotion': promotion!.toJson(),
+      'hasPromotion': hasPromotion,
+      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
       'variantAttributes': variantAttributes,
       'variants': variants.map((v) => v.toJson()).toList(),
     };

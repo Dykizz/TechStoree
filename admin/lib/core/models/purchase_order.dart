@@ -1,3 +1,36 @@
+int _parseInt(dynamic val, [int defaultValue = 0]) {
+  if (val == null) return defaultValue;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    return int.tryParse(val) ?? double.tryParse(val)?.toInt() ?? defaultValue;
+  }
+  return defaultValue;
+}
+
+int? _parseNullableInt(dynamic val) {
+  if (val == null) return null;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) {
+    final parsed = int.tryParse(val);
+    if (parsed != null) return parsed;
+    final d = double.tryParse(val);
+    return d?.toInt();
+  }
+  return null;
+}
+
+double _parseDouble(dynamic val, [double defaultValue = 0.0]) {
+  if (val == null) return defaultValue;
+  if (val is double) return val;
+  if (val is num) return val.toDouble();
+  if (val is String) {
+    return double.tryParse(val) ?? defaultValue;
+  }
+  return defaultValue;
+}
+
 class PurchaseOrderItem {
   final int? poItemId;
   final int variantId;
@@ -20,7 +53,7 @@ class PurchaseOrderItem {
   double get totalPrice => importPrice * quantity;
 
   String get fullName {
-    if (productName.isEmpty) return variantName;
+    if (productName.isEmpty) return variantName.isNotEmpty ? variantName : 'Biến thể #$variantId';
     if (variantName.isEmpty || variantName.toLowerCase() == 'phiên bản tiêu chuẩn' || variantName.toLowerCase() == 'biến thể mặc định') {
       return productName;
     }
@@ -29,13 +62,13 @@ class PurchaseOrderItem {
 
   factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
     return PurchaseOrderItem(
-      poItemId: json['poItemId'] as int?,
-      variantId: (json['variantId'] ?? 0) as int,
-      productId: json['productId'] as int?,
-      productName: (json['productName'] ?? '').toString(),
-      variantName: (json['variantName'] ?? '').toString(),
-      importPrice: (json['importPrice'] ?? 0).toDouble(),
-      quantity: (json['quantity'] ?? 1) as int,
+      poItemId: _parseNullableInt(json['poItemId'] ?? json['id']),
+      variantId: _parseInt(json['variantId'] ?? json['variant_id'], 0),
+      productId: _parseNullableInt(json['productId'] ?? json['product_id']),
+      productName: json['productName']?.toString() ?? '',
+      variantName: json['variantName']?.toString() ?? '',
+      importPrice: _parseDouble(json['importPrice'] ?? json['price']),
+      quantity: _parseInt(json['quantity'], 1),
     );
   }
 
@@ -57,7 +90,7 @@ class PurchaseOrder {
   final String createdByName;
   final double totalCost;
   final int totalItems;
-  final String status; // 'DRAFT' or 'COMPLETED' or 'CANCELLED'
+  final String status; // 'DRAFT', 'COMPLETE', 'CANCLE'
   final String note;
   final DateTime createdAt;
   final List<PurchaseOrderItem> items;
@@ -77,24 +110,27 @@ class PurchaseOrder {
     List<PurchaseOrderItem>? items,
   }) : items = items ?? [];
 
-  bool get isDraft => status == 'DRAFT' || status == '0';
-  bool get isCompleted => status == 'COMPLETED' || status == '1';
+  bool get isDraft => status.toUpperCase() == 'DRAFT' || status == '0';
+  bool get isComplete => status.toUpperCase() == 'COMPLETE' || status.toUpperCase() == 'COMPLETED' || status == '1';
+  bool get isCompleted => isComplete;
+  bool get isCancle => status.toUpperCase() == 'CANCLE' || status.toUpperCase() == 'CANCELLED' || status == '2';
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
     List<PurchaseOrderItem> parsedItems = [];
     if (json['items'] != null && json['items'] is List) {
       parsedItems = (json['items'] as List)
+          .where((i) => i != null && i is Map)
           .map((i) => PurchaseOrderItem.fromJson(i as Map<String, dynamic>))
           .toList();
     }
 
     String parsedStatus = 'DRAFT';
     if (json['status'] != null) {
-      final s = json['status'].toString();
-      if (s == 'COMPLETED' || s == '1') {
-        parsedStatus = 'COMPLETED';
-      } else if (s == 'CANCELLED' || s == '2') {
-        parsedStatus = 'CANCELLED';
+      final s = json['status'].toString().toUpperCase();
+      if (s == 'COMPLETE' || s == 'COMPLETED' || s == '1') {
+        parsedStatus = 'COMPLETE';
+      } else if (s == 'CANCLE' || s == 'CANCELLED' || s == '2') {
+        parsedStatus = 'CANCLE';
       } else {
         parsedStatus = 'DRAFT';
       }
@@ -110,14 +146,14 @@ class PurchaseOrder {
     }
 
     return PurchaseOrder(
-      purchaseOrderId: (json['purchaseOrderId'] ?? json['id'] ?? 0) as int,
+      purchaseOrderId: _parseInt(json['purchaseOrderId'] ?? json['id'], 0),
       poCode: (json['poCode'] ?? json['code'] ?? '').toString(),
-      supplierId: (json['supplierId'] ?? 0) as int,
+      supplierId: _parseInt(json['supplierId'], 0),
       supplierName: (json['supplierName'] ?? 'Chưa xác định').toString(),
-      createdByUserId: (json['createdByUserId'] ?? 0) as int,
+      createdByUserId: _parseInt(json['createdByUserId'], 0),
       createdByName: (json['createdByName'] ?? 'Admin').toString(),
-      totalCost: (json['totalCost'] ?? 0).toDouble(),
-      totalItems: (json['totalItems'] ?? parsedItems.length) as int,
+      totalCost: _parseDouble(json['totalCost']),
+      totalItems: _parseInt(json['totalItems'], parsedItems.length),
       status: parsedStatus,
       note: (json['note'] ?? '').toString(),
       createdAt: parsedDate,
