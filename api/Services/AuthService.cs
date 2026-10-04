@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
@@ -42,7 +43,7 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
             DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
             TechInterest = dto.TechInterest?.Trim(),
             Address = dto.Address?.Trim(),
-            RoleId = "USER", // Mặc định tài khoản đăng ký là USER
+            RoleId = UserRoleTypeExtensions.User, // Mặc định tài khoản đăng ký là USER
             IsLocked = false,
             CreatedAt = DateTime.UtcNow
         };

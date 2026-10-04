@@ -858,6 +858,245 @@ namespace WebBanHang.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Survey", b =>
+                {
+                    b.Property<int>("SurveyId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("survey_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("SurveyId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<int?>("RewardVoucherId")
+                        .HasColumnType("integer")
+                        .HasColumnName("reward_voucher_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("title");
+
+                    b.HasKey("SurveyId");
+
+                    b.HasIndex("RewardVoucherId");
+
+                    b.ToTable("surveys", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            SurveyId = 1,
+                            CreatedAt = new DateTime(2026, 1, 5, 0, 0, 0, 0, DateTimeKind.Utc),
+                            Description = "Khảo sát ý kiến khách hàng về mức giá và tính năng kỳ vọng của dòng tai nghe cao cấp Sony WH-1000XM6 sắp mở bán. Nhận ngay Voucher giảm giá sau khi hoàn thành!",
+                            IsActive = true,
+                            Title = "Thăm dò nhu cầu Tai nghe chống ồn Sony WH-1000XM6 (2026)"
+                        });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyAnswer", b =>
+                {
+                    b.Property<int>("AssignmentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assignment_id");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    b.Property<int?>("SelectedOptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("selected_option_id");
+
+                    b.Property<string>("TextAnswer")
+                        .HasColumnType("text")
+                        .HasColumnName("text_answer");
+
+                    b.HasKey("AssignmentId", "QuestionId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.HasIndex("SelectedOptionId");
+
+                    b.ToTable("survey_answers", null, t =>
+                        {
+                            t.HasCheckConstraint("chk_survey_answer_content", "selected_option_id IS NOT NULL OR text_answer IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyAssignment", b =>
+                {
+                    b.Property<int>("AssignmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("assignment_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AssignmentId"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer")
+                        .HasColumnName("survey_id");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("AssignmentId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SurveyId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("survey_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyOption", b =>
+                {
+                    b.Property<int>("OptionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("option_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OptionId"));
+
+                    b.Property<string>("OptionText")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("option_text");
+
+                    b.Property<int>("OrderNum")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("order_num");
+
+                    b.Property<int>("QuestionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    b.HasKey("OptionId");
+
+                    b.HasIndex("QuestionId");
+
+                    b.ToTable("survey_options", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            OptionId = 1,
+                            OptionText = "Dưới 8.000.000 VNĐ",
+                            OrderNum = 1,
+                            QuestionId = 1
+                        },
+                        new
+                        {
+                            OptionId = 2,
+                            OptionText = "Từ 8.000.000 - 10.000.000 VNĐ",
+                            OrderNum = 2,
+                            QuestionId = 1
+                        },
+                        new
+                        {
+                            OptionId = 3,
+                            OptionText = "Trên 10.000.000 VNĐ",
+                            OrderNum = 3,
+                            QuestionId = 1
+                        });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyQuestion", b =>
+                {
+                    b.Property<int>("QuestionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("question_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("QuestionId"));
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_required");
+
+                    b.Property<int>("OrderNum")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("order_num");
+
+                    b.Property<string>("QuestionText")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("question_text");
+
+                    b.Property<string>("QuestionType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("SINGLE_CHOICE")
+                        .HasColumnName("question_type");
+
+                    b.Property<int>("SurveyId")
+                        .HasColumnType("integer")
+                        .HasColumnName("survey_id");
+
+                    b.HasKey("QuestionId");
+
+                    b.HasIndex("SurveyId");
+
+                    b.ToTable("survey_questions", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            QuestionId = 1,
+                            IsRequired = true,
+                            OrderNum = 1,
+                            QuestionText = "Bạn kỳ vọng mức giá niêm yết của Sony WH-1000XM6 khoảng bao nhiêu?",
+                            QuestionType = "SINGLE_CHOICE",
+                            SurveyId = 1
+                        },
+                        new
+                        {
+                            QuestionId = 2,
+                            IsRequired = false,
+                            OrderNum = 2,
+                            QuestionText = "Bạn có đóng góp ý kiến hoặc kỳ vọng tính năng gì mới ở thế hệ Sony XM6 này?",
+                            QuestionType = "TEXT",
+                            SurveyId = 1
+                        });
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -1252,6 +1491,83 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Variant");
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Survey", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.Voucher", "RewardVoucher")
+                        .WithMany()
+                        .HasForeignKey("RewardVoucherId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RewardVoucher");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyAnswer", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.SurveyAssignment", "Assignment")
+                        .WithMany("Answers")
+                        .HasForeignKey("AssignmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.SurveyQuestion", "Question")
+                        .WithMany("Answers")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.SurveyOption", "SelectedOption")
+                        .WithMany("Answers")
+                        .HasForeignKey("SelectedOptionId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Assignment");
+
+                    b.Navigation("Question");
+
+                    b.Navigation("SelectedOption");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyAssignment", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.Survey", "Survey")
+                        .WithMany("Assignments")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Survey");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyOption", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.SurveyQuestion", "Question")
+                        .WithMany("Options")
+                        .HasForeignKey("QuestionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Question");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyQuestion", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.Survey", "Survey")
+                        .WithMany("Questions")
+                        .HasForeignKey("SurveyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Survey");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.User", b =>
                 {
                     b.HasOne("WebBanHang.Api.Models.Role", "Role")
@@ -1332,6 +1648,30 @@ namespace WebBanHang.Api.Migrations
             modelBuilder.Entity("WebBanHang.Api.Models.Role", b =>
                 {
                     b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.Survey", b =>
+                {
+                    b.Navigation("Assignments");
+
+                    b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyAssignment", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyOption", b =>
+                {
+                    b.Navigation("Answers");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.SurveyQuestion", b =>
+                {
+                    b.Navigation("Answers");
+
+                    b.Navigation("Options");
                 });
 
             modelBuilder.Entity("WebBanHang.Api.Models.User", b =>

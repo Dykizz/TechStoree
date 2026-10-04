@@ -10,6 +10,36 @@ using WebBanHang.Api.Services;
 using WebBanHang.Api.Services.Interfaces;
 using Microsoft.OpenApi;
 
+// 0. Tự động nạp file .env (nếu có) vào Environment Variables khi chạy local dev
+var currentDir = Directory.GetCurrentDirectory();
+var candidateEnvPaths = new[]
+{
+    Path.Combine(currentDir, ".env"),
+    Path.Combine(currentDir, "..", ".env"),
+    Path.Combine(AppContext.BaseDirectory, ".env"),
+    Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".env")
+};
+
+foreach (var envPath in candidateEnvPaths)
+{
+    if (File.Exists(envPath))
+    {
+        foreach (var line in File.ReadAllLines(envPath))
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith('#')) continue;
+            var parts = trimmed.Split('=', 2);
+            if (parts.Length == 2)
+            {
+                var key = parts[0].Trim();
+                var val = parts[1].Trim().Trim('"').Trim('\'');
+                Environment.SetEnvironmentVariable(key, val);
+            }
+        }
+        break;
+    }
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Cấu hình DbContext với PostgreSQL Npgsql
@@ -32,6 +62,8 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ISurveyService, SurveyService>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 
 

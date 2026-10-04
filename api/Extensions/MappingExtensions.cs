@@ -7,6 +7,7 @@ using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.Promotions;
 using WebBanHang.Api.DTOs.PurchaseOrders;
 using WebBanHang.Api.DTOs.Suppliers;
+using WebBanHang.Api.DTOs.Surveys;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.DTOs.Variants;
 using WebBanHang.Api.DTOs.Vouchers;
@@ -565,6 +566,204 @@ public static class MappingExtensions
         detail.User = order.User != null ? order.User.ToDto() : null;
         detail.Items = order.Items?.Select(i => i.ToOrderItemDto()).ToList() ?? new List<OrderItemDto>();
         return detail;
+    }
+
+    // ==========================================
+    // SURVEY MAPPINGS (CRM SURVEY MODULE)
+    // ==========================================
+
+    public static SurveyOptionDto ToOptionDto(this SurveyOption option, int voteCount = 0, double percentage = 0.0)
+    {
+        return new SurveyOptionDto
+        {
+            OptionId = option.OptionId,
+            OptionText = option.OptionText,
+            OrderNum = option.OrderNum,
+            VoteCount = voteCount,
+            Percentage = percentage
+        };
+    }
+
+    public static SurveyQuestionDetailDto ToQuestionDetailDto(
+        this SurveyQuestion question,
+        List<SurveyAnswer>? questionAnswers = null,
+        List<SurveyAssignment>? completedAssignments = null)
+    {
+        var answers = questionAnswers ?? question.Answers?.ToList() ?? new List<SurveyAnswer>();
+        var totalAnswers = answers.Count;
+
+        var optionsDto = new List<SurveyOptionDto>();
+        if (question.QuestionType == SurveyQuestionType.SINGLE_CHOICE && question.Options != null)
+        {
+            foreach (var opt in question.Options.OrderBy(o => o.OrderNum))
+            {
+                var voteCount = answers.Count(a => a.SelectedOptionId == opt.OptionId);
+                var percentage = totalAnswers > 0 ? Math.Round((double)voteCount / totalAnswers * 100, 1) : 0.0;
+                optionsDto.Add(opt.ToOptionDto(voteCount, percentage));
+            }
+        }
+
+        var textAnswersDto = new List<TextAnswerDto>();
+        if (question.QuestionType == SurveyQuestionType.TEXT && completedAssignments != null)
+        {
+            textAnswersDto = completedAssignments
+                .SelectMany(a => a.Answers
+                    .Where(ans => ans.QuestionId == question.QuestionId && !string.IsNullOrWhiteSpace(ans.TextAnswer))
+                    .Select(ans => new TextAnswerDto
+                    {
+                        Text = ans.TextAnswer!,
+                        CustomerName = a.User?.FullName ?? a.User?.Username ?? "Khách hàng",
+                        SubmittedAt = a.CompletedAt ?? a.AssignedAt
+                    }))
+                .OrderByDescending(t => t.SubmittedAt)
+                .Take(100)
+                .ToList();
+        }
+
+        return new SurveyQuestionDetailDto
+        {
+            QuestionId = question.QuestionId,
+            QuestionText = question.QuestionText,
+            QuestionType = question.QuestionType,
+            IsRequired = question.IsRequired,
+            OrderNum = question.OrderNum,
+            TotalAnswers = totalAnswers,
+            Options = optionsDto,
+            TextAnswers = textAnswersDto
+        };
+    }
+
+    public static SurveyAdminListDto ToAdminListDto(this Survey survey, int? totalAssigned = null, int? totalCompleted = null)
+    {
+        var assigned = totalAssigned ?? (survey.Assignments?.Count ?? 0);
+        var completed = totalCompleted ?? (survey.Assignments?.Count(a => a.CompletedAt != null) ?? 0);
+
+        return new SurveyAdminListDto
+        {
+            SurveyId = survey.SurveyId,
+            Title = survey.Title,
+            Description = survey.Description,
+            RewardVoucherId = survey.RewardVoucherId,
+            RewardVoucherCode = survey.RewardVoucher?.Code,
+            RewardVoucherTitle = survey.RewardVoucher?.Title,
+            IsActive = survey.IsActive,
+            CreatedAt = survey.CreatedAt,
+            TotalAssigned = assigned,
+            TotalCompleted = completed
+        };
+    }
+
+    public static SurveyAdminDetailDto ToAdminDetailDto(this Survey survey)
+    {
+        var completedAssignments = survey.Assignments?.Where(a => a.CompletedAt != null).ToList() ?? new List<SurveyAssignment>();
+        var allAnswers = completedAssignments.SelectMany(a => a.Answers).ToList();
+
+        return new SurveyAdminDetailDto
+        {
+            SurveyId = survey.SurveyId,
+            Title = survey.Title,
+            Description = survey.Description,
+            RewardVoucherId = survey.RewardVoucherId,
+            RewardVoucherCode = survey.RewardVoucher?.Code,
+            RewardVoucherTitle = survey.RewardVoucher?.Title,
+            IsActive = survey.IsActive,
+            CreatedAt = survey.CreatedAt,
+            TotalAssigned = survey.Assignments?.Count ?? 0,
+            TotalCompleted = completedAssignments.Count,
+            RewardVoucher = survey.RewardVoucher?.ToVoucherBaseDto(),
+            Questions = survey.Questions?
+                .OrderBy(q => q.OrderNum)
+                .Select(q => q.ToQuestionDetailDto(
+                    allAnswers.Where(ans => ans.QuestionId == q.QuestionId).ToList(),
+                    completedAssignments))
+                .ToList() ?? new List<SurveyQuestionDetailDto>()
+        };
+    }
+
+    public static CustomerSurveyListDto ToCustomerSurveyListDto(this SurveyAssignment assignment)
+    {
+        var survey = assignment.Survey;
+        return new CustomerSurveyListDto
+        {
+            SurveyId = assignment.SurveyId,
+            Title = survey?.Title ?? string.Empty,
+            Description = survey?.Description,
+            RewardVoucherTitle = survey?.RewardVoucher?.Title,
+            RewardVoucherDiscount = survey?.RewardVoucher?.DiscountValue,
+            RewardVoucherDiscountType = survey?.RewardVoucher?.DiscountType,
+            IsCompleted = assignment.CompletedAt.HasValue,
+            AssignedAt = assignment.AssignedAt,
+            CompletedAt = assignment.CompletedAt
+        };
+    }
+
+    public static TakeOptionDto ToTakeOptionDto(this SurveyOption option)
+    {
+        return new TakeOptionDto
+        {
+            OptionId = option.OptionId,
+            OptionText = option.OptionText,
+            OrderNum = option.OrderNum
+        };
+    }
+
+    public static TakeQuestionDto ToTakeQuestionDto(this SurveyQuestion question)
+    {
+        return new TakeQuestionDto
+        {
+            QuestionId = question.QuestionId,
+            QuestionText = question.QuestionText,
+            QuestionType = question.QuestionType,
+            IsRequired = question.IsRequired,
+            OrderNum = question.OrderNum,
+            Options = question.Options?
+                .OrderBy(o => o.OrderNum)
+                .Select(o => o.ToTakeOptionDto())
+                .ToList() ?? new List<TakeOptionDto>()
+        };
+    }
+
+    public static TakeSurveyDto ToTakeSurveyDto(this Survey survey)
+    {
+        return new TakeSurveyDto
+        {
+            SurveyId = survey.SurveyId,
+            Title = survey.Title,
+            Description = survey.Description,
+            RewardVoucherTitle = survey.RewardVoucher?.Title,
+            Questions = survey.Questions?
+                .OrderBy(q => q.OrderNum)
+                .Select(q => q.ToTakeQuestionDto())
+                .ToList() ?? new List<TakeQuestionDto>()
+        };
+    }
+
+    public static SurveyRewardVoucherDto ToRewardDto(this Voucher voucher)
+    {
+        return new SurveyRewardVoucherDto
+        {
+            VoucherId = voucher.VoucherId,
+            Code = voucher.Code,
+            Title = voucher.Title,
+            DiscountType = voucher.DiscountType,
+            DiscountValue = voucher.DiscountValue,
+            MinOrderValue = voucher.MinOrderValue,
+            EndDate = voucher.EndDate
+        };
+    }
+
+    public static SurveyRewardVoucherDto ToRewardDto(this UserVoucherItemDto uv)
+    {
+        return new SurveyRewardVoucherDto
+        {
+            VoucherId = uv.VoucherId,
+            Code = uv.Code,
+            Title = uv.Title,
+            DiscountType = uv.DiscountType,
+            DiscountValue = uv.DiscountValue,
+            MinOrderValue = uv.MinOrderValue,
+            EndDate = uv.EndDate
+        };
     }
 }
 
