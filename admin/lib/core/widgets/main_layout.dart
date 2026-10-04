@@ -13,6 +13,7 @@ import '../../features/suppliers/suppliers_screen.dart';
 import '../../features/purchase_orders/purchase_orders_screen.dart';
 import '../../features/promotions/promotions_screen.dart';
 import '../../features/vouchers/vouchers_screen.dart';
+import '../../features/surveys/surveys_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
@@ -33,6 +34,7 @@ class MainLayout extends StatelessWidget {
       'Phiếu nhập hàng',
       'Khuyến mãi & Giảm giá',
       'Mã giảm giá Voucher',
+      'Khảo sát thị trường',
       'Khách hàng / User',
       'Cài đặt hệ thống',
     ];
@@ -46,6 +48,7 @@ class MainLayout extends StatelessWidget {
       PurchaseOrdersScreen(),
       PromotionsScreen(),
       VouchersScreen(),
+      SurveysScreen(),
       UsersScreen(),
       SettingsScreen(),
     ];

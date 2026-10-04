@@ -7,6 +7,7 @@ export 'order_api_service.dart';
 export 'purchase_order_api_service.dart';
 export 'promotion_api_service.dart';
 export 'voucher_api_service.dart';
+export 'survey_api_service.dart';
 
 import 'base_api_service.dart';
 import 'product_api_service.dart';
@@ -17,6 +18,7 @@ import 'order_api_service.dart';
 import 'purchase_order_api_service.dart';
 import 'promotion_api_service.dart';
 import 'voucher_api_service.dart';
+import 'survey_api_service.dart';
 
 class ApiService extends BaseApiService
     with
@@ -27,4 +29,6 @@ class ApiService extends BaseApiService
         OrderApiService,
         PurchaseOrderApiService,
         PromotionApiService,
-        VoucherApiService {}
+        VoucherApiService,
+        SurveyApiService {}
+
