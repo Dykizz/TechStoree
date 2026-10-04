@@ -1,0 +1,370 @@
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+.triggerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: #ffffff;
+  font-size: 0.9rem;
+  color: #333333;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.triggerBtn:hover {
+  border-color: #111111;
+  color: #111111;
+}
+
+.triggerBtnActive {
+  border-color: #111111;
+  background-color: #f7f7f7;
+  color: #111111;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.triggerIcon {
+  color: #666666;
+  flex-shrink: 0;
+  transition: color 0.2s;
+}
+
+.triggerBtnActive .triggerIcon {
+  color: #111111;
+}
+
+.triggerLabel {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.triggerBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #e52d27;
+}
+
+.chevron {
+  color: #888888;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.clearTriggerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background-color: #e8e8e8;
+  color: #555555;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.clearTriggerBtn:hover {
+  background-color: #111111;
+  color: #ffffff;
+}
+
+/* Popover Panel */
+.popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background-color: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.12);
+  padding: 18px;
+  z-index: 100;
+  animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.popoverHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.popoverTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111111;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.resetLink {
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  color: #777777;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.resetLink:hover {
+  color: #bd202d;
+}
+
+.systemPriceHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f7f7f7;
+  border: 1px solid #ebebeb;
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  color: #555555;
+  margin-bottom: 14px;
+}
+
+.systemPriceHint strong {
+  color: #111111;
+}
+
+.sectionLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #888888;
+  margin-bottom: 8px;
+}
+
+/* Presets Grid */
+.presetsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.presetBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid #e5e5e5;
+  background-color: #ffffff;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.presetBtn:hover {
+  border-color: #111111;
+  background-color: #fafafa;
+}
+
+.presetBtnActive {
+  border-color: #111111;
+  background-color: #111111;
+  color: #ffffff;
+}
+
+.presetBtnActive:hover {
+  background-color: #222222;
+  border-color: #222222;
+}
+
+.presetLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.presetDesc {
+  font-size: 0.7rem;
+  color: #888888;
+  margin-top: 2px;
+}
+
+.presetBtnActive .presetDesc {
+  color: #bbbbbb;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background-color: #eeeeee;
+  margin: 14px 0;
+}
+
+/* Custom Range */
+.customSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputsRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.inputGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inputLabel {
+  font-size: 0.72rem;
+  color: #666666;
+  font-weight: 500;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.customInput {
+  width: 100%;
+  padding: 8px 24px 8px 10px;
+  border: 1px solid #d5d5d5;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #111111;
+  outline: none;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.customInput:focus {
+  border-color: #111111;
+  box-shadow: 0 0 0 1px #111111;
+}
+
+.customInput::placeholder {
+  color: #b5b5b5;
+}
+
+.currencySuffix {
+  position: absolute;
+  right: 8px;
+  font-size: 0.75rem;
+  color: #888888;
+  pointer-events: none;
+  font-weight: 500;
+}
+
+.rangeDash {
+  font-size: 0.9rem;
+  color: #999999;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.errorMessage {
+  font-size: 0.75rem;
+  color: #d32f2f;
+  background-color: #fde8e8;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.actionsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.applyBtn {
+  flex: 1;
+  padding: 9px 16px;
+  background-color: #111111;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  text-align: center;
+}
+
+.applyBtn:hover {
+  background-color: #2b2b2b;
+}
+
+.closeBtn {
+  padding: 9px 14px;
+  border: 1px solid #d5d5d5;
+  background-color: #ffffff;
+  color: #444444;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.closeBtn:hover {
+  border-color: #111111;
+  color: #111111;
+}
+
+@media (max-width: 480px) {
+  .popover {
+    width: 320px;
+    right: auto;
+    left: 0;
+  }
+
+  .presetsGrid {
+    grid-template-columns: 1fr;
+  }
+}
