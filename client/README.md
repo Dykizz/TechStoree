@@ -13,7 +13,7 @@ npm ci
 npm run dev
 ```
 
-Mở <http://localhost:3000>. Backend và Swagger của dự án được mô tả trong
+Trang chủ ở <http://localhost:3000>; đăng nhập ở `/login` (không còn ở `/`). Backend và Swagger của dự án được mô tả trong
 [`../README.md`](../README.md); khi backend chạy theo Docker Compose, Swagger ở
 <http://localhost:5000/swagger>.
 
@@ -47,10 +47,11 @@ thị dữ liệu cá nhân, lấy hồ sơ từ `GET /api/Auth/me` và lưu tha
 `PUT /api/Users/profile`. Tên đăng nhập và email chỉ xem, chưa có API sửa.
 Route Handler hồ sơ cũng kiểm tra token ở backend, kể cả khi được gọi trực tiếp.
 Nếu API ngừng hoạt động, trang hiện lỗi và nút thử lại thay vì coi phiên đã hết
-hạn. Khảo sát vẫn đang được dựng bằng dữ liệu mẫu, chưa kết nối backend.
+hạn. Khảo sát dùng API thật: danh sách được giao, tải câu hỏi và nộp câu trả lời.
+Không tự đánh dấu hoàn thành hay tạo voucher khi API chưa xác nhận.
 Khi chạy `npm run dev`, có thể mở `/profile?preview=1` để xem giao diện với dữ
 liệu mẫu mà không cần đăng nhập hay backend. Chỉnh sửa trong bản xem trước chỉ
-thay đổi trên màn hình, không gọi API; chế độ này không khả dụng ở bản build
+thay đổi thông tin hồ sơ trên màn hình, không lưu hồ sơ tới API; nhóm sở thích vẫn đọc từ API; chế độ này không khả dụng ở bản build
 production. `/profile` bình thường vẫn yêu cầu phiên đăng nhập.
 Backend cũng chưa có API đặt lại mật
 khẩu; nút tương ứng chỉ hiển thị thông báo, không gửi yêu cầu giả.
@@ -74,3 +75,18 @@ quảng cáo, vì vậy có thể khác ảnh sản phẩm chính thức ở chi
 chữ “PRO” phía sau iPhone 18 Pro được giữ theo yêu cầu. Những hình này chỉ dùng
 cho bản mẫu nội bộ; tên mẫu không có nghĩa TechStoree đang bán sản phẩm đó.
 Trước khi phát hành công khai, nhóm cần xác nhận quyền sử dụng ảnh và nhãn hiệu.
+
+## Bản tích hợp khách hàng
+
+- Hồ sơ mặc định chỉ xem; chọn **Chỉnh sửa** để mở các trường, **Hủy** khôi phục bản đã lưu, **Lưu thay đổi** chỉ khóa lại sau khi API thành công.
+- Danh mục, giá, giỏ hàng và đơn hàng đọc từ backend; không fallback sang sản phẩm/đơn hàng/voucher mẫu khi API lỗi.
+- Giỏ hàng cần đăng nhập. Cookie refresh có đường dẫn `/` để các route giỏ hàng/đơn hàng cũng làm mới phiên được; request đồng thời dùng chung một lần refresh.
+- Giá và promotion của biến thể được lấy lại từ API preview; voucher hợp lệ do backend xác nhận.
+- Chuyển khoản chỉ bật khi đã cấu hình đủ ba biến `NEXT_PUBLIC_BANK_*` trong `.env.example`. Mã QR không tự xác nhận đã thanh toán. Những biến này là thông tin nhận tiền công khai, không chứa API secret.
+- API chưa tính phí giao hàng: UI ghi rõ “Chưa tính phí”, không tự tạo cam kết miễn phí vận chuyển.
+- Khảo sát tại `/surveys`, biểu mẫu tại `/surveys/[id]`; backend kiểm tra phân quyền, bắt buộc trả lời, nộp một lần và thưởng voucher.
+- Đánh giá sản phẩm chưa có API tương ứng; UI không hiển thị đánh giá mẫu như phản hồi khách hàng thật. Địa chỉ/hotline giả cũng không được dùng làm kênh liên hệ.
+
+### Điều kiện trước khi merge main
+
+Backend phải đọc được `GET /api/Products` và `GET /api/Products/{id}`; kiểm thử lại lọc sản phẩm, biến thể, khuyến mãi và mua lại trên dữ liệu thật. Khi chưa cấu hình Cloudinary, backend main hiện có thể lỗi ngay lúc khởi tạo dịch vụ. Nhánh frontend không tự sửa backend. Commit `07479c2` trên `son-client` là bản sửa backend riêng cần nhóm backend review; chưa được đưa vào bản tích hợp này.

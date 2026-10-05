@@ -18,6 +18,7 @@ type SessionUser = {
 export default function Header() {
   const pathname = usePathname();
   const { totalItems, openCart, isCartOpen } = useCart();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
   const [isRightHovered, setIsRightHovered] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
@@ -56,6 +57,7 @@ export default function Header() {
   useEffect(() => {
     const t = setTimeout(() => {
       closeDropdowns();
+      setMenuOpen(false);
     }, 0);
     return () => clearTimeout(t);
   }, [pathname, isCartOpen]);
@@ -65,6 +67,7 @@ export default function Header() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         closeDropdowns();
+        setMenuOpen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -72,20 +75,23 @@ export default function Header() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     async function checkAuth() {
       try {
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const res = await fetch("/api/auth/session", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
-          if (data && data.user) {
-            setUser(data.user);
-          }
-        }
+          if (!controller.signal.aborted) setUser(data?.user ?? null);
+        } else if (!controller.signal.aborted) setUser(null);
       } catch {
         // Auth session check optional
       }
     }
     void checkAuth();
+    return () => controller.abort();
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -103,11 +109,15 @@ export default function Header() {
       <div className={styles.inner}>
         <div className={styles.left}>
           <Link href="/" className={styles.brand} aria-label="TechStoree Home">
-            <span className={styles.brandMark}>T</span>
+            <span className={styles.brandMark} aria-hidden="true" />
             <span>TECHSTOREE</span>
           </Link>
 
-          <nav className={styles.nav} aria-label="Điều hướng chính">
+          <nav
+            id="site-navigation"
+            className={`${styles.nav} ${menuOpen ? styles.navOpen : ""}`}
+            aria-label="Điều hướng chính"
+          >
             <Link
               href="/"
               className={`${styles.navLink} ${pathname === "/" ? styles.navLinkActive : ""}`}
@@ -146,6 +156,16 @@ export default function Header() {
         </div>
 
         <div className={styles.right}>
+          <button
+            type="button"
+            className={styles.menuToggle}
+            aria-label={menuOpen ? "Đóng menu" : "Mở menu"}
+            aria-controls="site-navigation"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            {menuOpen ? "×" : "☰"}
+          </button>
           <div
             className={styles.cartWrapper}
             onMouseEnter={handleRightMouseEnter}
@@ -175,7 +195,9 @@ export default function Header() {
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               <span className={styles.cartText}>Giỏ hàng</span>
-              {totalItems > 0 && <span className={styles.cartBadge}>{totalItems}</span>}
+              {totalItems > 0 && (
+                <span className={styles.cartBadge}>{totalItems}</span>
+              )}
             </button>
 
             {isRightHovered && !isCartOpen && (
@@ -185,7 +207,11 @@ export default function Header() {
 
           {user ? (
             <div className={styles.userInfo}>
-              <Link href="/profile" className={styles.userName} title="Xem hồ sơ cá nhân">
+              <Link
+                href="/profile"
+                className={styles.userName}
+                title="Xem hồ sơ cá nhân"
+              >
                 {user.fullName || user.username}
               </Link>
               <button

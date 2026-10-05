@@ -22,7 +22,7 @@
 .left {
   display: flex;
   align-items: center;
-  gap: 40px;
+  gap: 30px;
 }
 
 .brand {
@@ -31,17 +31,19 @@
   gap: 10px;
   text-decoration: none;
   color: #111111;
-  font-family: var(--font-noto-serif-display, Georgia, serif);
+  font-family: inherit;
   font-weight: 700;
   letter-spacing: 0.15em;
-  font-size: 1.15rem;
+  font-size: 0.82rem;
 }
 
 .brandMark {
   width: 28px;
   height: 28px;
-  background-color: #111111;
+  background-color: var(--brand);
   color: #ffffff;
+  border-radius: 5px;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,7 +55,7 @@
 .nav {
   display: flex;
   align-items: center;
-  gap: 28px;
+  gap: 24px;
 }
 
 .navLink {
@@ -125,7 +127,7 @@
 }
 
 .cartBadge {
-  background-color: #284cff;
+  background-color: var(--brand);
   color: #ffffff;
   font-size: 0.75rem;
   font-weight: 700;
@@ -200,5 +202,111 @@
 
   .cartText {
     display: none;
+  }
+}
+.brandMark::before {
+  content: "";
+  position: absolute;
+  width: 17px;
+  height: 5px;
+  top: 6px;
+  left: 5px;
+  background: white;
+}
+.brandMark::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 11px;
+  top: 11px;
+  left: 11px;
+  background: white;
+}
+.userName {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menuToggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  cursor: pointer;
+}
+@media (max-width: 1050px) {
+  .left {
+    gap: 18px;
+  }
+  .nav {
+    gap: 16px;
+  }
+  .right {
+    gap: 12px;
+  }
+  .userName {
+    max-width: 100px;
+  }
+}
+@media (max-width: 850px) {
+  .nav {
+    display: none;
+  }
+  .navOpen {
+    display: flex;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px;
+    background: white;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 12px 24px #0000000a;
+  }
+  .navLink {
+    padding: 12px 0;
+  }
+  .menuToggle {
+    display: block;
+  }
+  .cartText {
+    display: none;
+  }
+  .userInfo {
+    gap: 6px;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .logoutBtn {
+    font-size: 10px;
+  }
+  .cartButton {
+    padding: 9px;
+  }
+  .navCartWrapper {
+    display: block;
+  }
+}
+@media (max-width: 450px) {
+  .brand {
+    font-size: 10px;
+    gap: 7px;
+  }
+  .right {
+    gap: 6px;
+  }
+  .authLink {
+    padding: 8px;
+    font-size: 12px;
+  }
+  .userName {
+    font-size: 11px;
+    max-width: 75px;
   }
 }
