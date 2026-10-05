@@ -9,8 +9,8 @@ namespace WebBanHang.Api.Services;
 
 public partial class CloudinaryService : ICloudinaryService
 {
-    private readonly Cloudinary _cloudinary;
-    private readonly Account _account;
+    private readonly Cloudinary? _cloudinary;
+    private readonly Account? _account;
     private readonly string _defaultFolder;
     private readonly bool _isConfigured;
 
@@ -23,23 +23,50 @@ public partial class CloudinaryService : ICloudinaryService
         var cloudinaryUrl = Environment.GetEnvironmentVariable("CLOUDINARY_URL");
         if (!string.IsNullOrWhiteSpace(cloudinaryUrl))
         {
-            _cloudinary = new Cloudinary(cloudinaryUrl);
-            _account = _cloudinary.Api.Account;
-            _isConfigured = !string.IsNullOrWhiteSpace(_account.Cloud) &&
-                            !string.IsNullOrWhiteSpace(_account.ApiKey) &&
-                            !string.IsNullOrWhiteSpace(_account.ApiSecret);
+            try
+            {
+                _cloudinary = new Cloudinary(cloudinaryUrl);
+                _account = _cloudinary.Api.Account;
+                _isConfigured = !string.IsNullOrWhiteSpace(_account?.Cloud) &&
+                                !string.IsNullOrWhiteSpace(_account?.ApiKey) &&
+                                !string.IsNullOrWhiteSpace(_account?.ApiSecret);
+            }
+            catch
+            {
+                _cloudinary = null;
+                _account = null;
+                _isConfigured = false;
+            }
         }
         else
         {
-            var cloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME") ?? string.Empty;
-            var apiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY") ?? string.Empty;
-            var apiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET") ?? string.Empty;
+            var cloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
+            var apiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
+            var apiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
 
-            _account = new Account(cloudName, apiKey, apiSecret);
-            _cloudinary = new Cloudinary(_account);
-            _isConfigured = !string.IsNullOrWhiteSpace(cloudName) &&
-                            !string.IsNullOrWhiteSpace(apiKey) &&
-                            !string.IsNullOrWhiteSpace(apiSecret);
+            if (!string.IsNullOrWhiteSpace(cloudName) &&
+                !string.IsNullOrWhiteSpace(apiKey) &&
+                !string.IsNullOrWhiteSpace(apiSecret))
+            {
+                try
+                {
+                    _account = new Account(cloudName, apiKey, apiSecret);
+                    _cloudinary = new Cloudinary(_account);
+                    _isConfigured = true;
+                }
+                catch
+                {
+                    _account = null;
+                    _cloudinary = null;
+                    _isConfigured = false;
+                }
+            }
+            else
+            {
+                _account = null;
+                _cloudinary = null;
+                _isConfigured = false;
+            }
         }
 
         _defaultFolder = Environment.GetEnvironmentVariable("CLOUDINARY_DEFAULT_FOLDER") ?? "techstore";
@@ -67,23 +94,32 @@ public partial class CloudinaryService : ICloudinaryService
             parameters.Add("public_id", request.PublicId.Trim());
         }
 
-        var signature = _cloudinary.Api.SignParameters(parameters);
+        var signature = _cloudinary!.Api.SignParameters(parameters);
 
         return new CloudinarySignatureResponseDto
         {
             Signature = signature,
             Timestamp = timestamp,
-            ApiKey = _account.ApiKey,
-            CloudName = _account.Cloud,
+            ApiKey = _account!.ApiKey,
+            CloudName = _account!.Cloud,
             Folder = folder,
             PublicId = request?.PublicId?.Trim(),
-            UploadUrl = $"https://api.cloudinary.com/v1_1/{_account.Cloud}/auto/upload"
+            UploadUrl = $"https://api.cloudinary.com/v1_1/{_account!.Cloud}/auto/upload"
         };
     }
 
     public async Task<DeleteMediaResponseDto> DeleteMediaAsync(string publicIdOrUrl)
     {
-        EnsureConfigured();
+        if (!_isConfigured || _cloudinary == null)
+        {
+            return new DeleteMediaResponseDto
+            {
+                PublicId = publicIdOrUrl,
+                Result = "ignored",
+                Success = true,
+                Message = "Cloudinary chưa được cấu hình, bỏ qua thao tác xóa tệp phương tiện."
+            };
+        }
 
         var publicId = ExtractPublicId(publicIdOrUrl);
         if (string.IsNullOrWhiteSpace(publicId))
@@ -206,7 +242,7 @@ public partial class CloudinaryService : ICloudinaryService
 
     private void EnsureConfigured()
     {
-        if (!_isConfigured)
+        if (!_isConfigured || _cloudinary == null || _account == null)
         {
             throw new BadRequestException("Hệ thống chưa được cấu hình tài khoản Cloudinary (Thiếu CloudName, ApiKey hoặc ApiSecret). Vui lòng cấu hình các biến môi trường CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (hoặc CLOUDINARY_URL) trong file .env.");
         }
