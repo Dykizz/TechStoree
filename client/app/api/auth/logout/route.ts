@@ -53,10 +53,14 @@ export async function POST(request: NextRequest) {
   }
 
   const result = NextResponse.json(
-    revoked
-      ? { message: "Đã đăng xuất." }
-      : { message: "Đã rời phiên trên trình duyệt; chưa xác nhận được với API." },
-    { status: revoked ? 200 : 503 },
+    {
+      signedOut: true,
+      backendRevoked: revoked,
+      message: revoked
+        ? "Đã đăng xuất."
+        : "Đã rời phiên trên trình duyệt; chưa xác nhận được với API.",
+    },
+    { status: 200 },
   );
   clearSessionCookies(result);
   return result;

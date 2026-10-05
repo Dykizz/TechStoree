@@ -186,6 +186,16 @@
   color: #ff3333;
 }
 
+.logoutBtn:disabled { cursor: wait; opacity: .65; }
+.logoutError {
+  margin: 0;
+  padding: 10px 20px;
+  background: #fff1f2;
+  color: #a11929;
+  text-align: center;
+  font-size: .85rem;
+}
+
 @media (max-width: 768px) {
   .inner {
     padding: 0 16px;

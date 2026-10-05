@@ -114,7 +114,14 @@ export function clearSessionCookies(response: NextResponse) {
     [REFRESH_COOKIE, "/"],
     [REMEMBER_COOKIE, "/"],
   ]) {
-    response.cookies.set(name, "", { path, maxAge: 0 });
+    response.cookies.set(name, "", {
+      path,
+      maxAge: 0,
+      expires: new Date(0),
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
   }
   clearLegacyCookies(response);
 }
@@ -123,7 +130,7 @@ function clearLegacyCookies(response: NextResponse) {
   for (const name of [REFRESH_COOKIE, REMEMBER_COOKIE]) {
     response.headers.append(
       "Set-Cookie",
-      `${name}=; Path=/api/auth; Max-Age=0; HttpOnly; SameSite=Lax`,
+      `${name}=; Path=/api/auth; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax${process.env.NODE_ENV === "production" ? "; Secure" : ""}`,
     );
   }
 }

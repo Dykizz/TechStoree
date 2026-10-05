@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
+import { logoutCustomer } from "../../lib/logout-client";
 import CartDropdown from "../cart/CartDropdown";
 import styles from "./Header.module.css";
 
@@ -20,6 +21,8 @@ export default function Header() {
   const { totalItems, openCart, isCartOpen } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [isRightHovered, setIsRightHovered] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
 
@@ -87,7 +90,7 @@ export default function Header() {
           if (!controller.signal.aborted) setUser(data?.user ?? null);
         } else if (!controller.signal.aborted) setUser(null);
       } catch {
-        // Auth session check optional
+        if (!controller.signal.aborted) setUser(null);
       }
     }
     void checkAuth();
@@ -95,12 +98,27 @@ export default function Header() {
   }, [pathname]);
 
   const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setLogoutError("");
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await logoutCustomer();
       setUser(null);
-      window.location.reload();
-    } catch {
-      // Ignore
+      const privateRoutes = ["/profile", "/orders", "/cart", "/checkout", "/surveys"];
+      const isPrivateRoute = privateRoutes.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`),
+      );
+      // A full navigation discards cached private pages and client cart state.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- Logout must discard the in-memory private-page/session cache.
+      if (isPrivateRoute) window.location.href = "/";
+      else window.location.reload();
+    } catch (error) {
+      setLogoutError(
+        error instanceof Error
+          ? error.message
+          : "Không thể đăng xuất. Vui lòng thử lại.",
+      );
+      setLoggingOut(false);
     }
   };
 
@@ -217,9 +235,10 @@ export default function Header() {
               <button
                 type="button"
                 className={styles.logoutBtn}
+                disabled={loggingOut}
                 onClick={() => void handleLogout()}
               >
-                Đăng xuất
+                {loggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
               </button>
             </div>
           ) : (
@@ -229,6 +248,7 @@ export default function Header() {
           )}
         </div>
       </div>
+      {logoutError && <p className={styles.logoutError} role="alert">{logoutError}</p>}
     </header>
   );
 }
