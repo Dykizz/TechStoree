@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "WebBanHang DB",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "web_ban_hang",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
