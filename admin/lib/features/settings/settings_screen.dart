@@ -3,6 +3,10 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/status_badge.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -39,112 +43,108 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Cài Đặt Hệ Thống Administrator',
-            style: TextStyle(color: textPrimary, fontSize: 18, fontWeight: FontWeight.bold),
+          // Page Header
+          const PageHeader(
+            title: 'Cài Đặt Hệ Thống Administrator',
+            subtitle: 'Cấu hình địa chỉ API Backend, trạng thái kết nối và giao diện ứng dụng',
           ),
-          const SizedBox(height: 20),
 
           // API Connection Card
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.api_rounded, color: AppColors.primary, size: 24),
-                    const SizedBox(width: 12),
                     Text(
-                      'Cấu hình kết nối Backend ASP.NET Core REST API',
-                      style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
+                      'Kết Nối Máy Chủ API Web',
+                      style: TextStyle(color: textPrimary, fontSize: 15, fontWeight: FontWeight.bold),
+                    ),
+                    StatusBadge(
+                      label: apiService.isConnected ? 'ĐÃ KẾT NỐI SERVER' : 'CHƯA KẾT NỐI SERVER',
+                      isSuccess: apiService.isConnected,
+                      isWarning: !apiService.isConnected,
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
                 Text(
-                  'Cấu hình địa chỉ RESTful API endpoint (.NET 10 Web API)',
-                  style: TextStyle(color: textSecondary, fontSize: 13),
+                  'Thay đổi đường dẫn API khi chuyển đổi giữa môi trường Localhost Docker hoặc Server Cloud.',
+                  style: TextStyle(color: textSecondary, fontSize: 12),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                AppTextField(
+                  controller: _urlCtrl,
+                  labelText: 'Base URL Endpoint Web API',
+                  hintText: 'http://localhost:5000/api',
+                  prefixIcon: Icons.dns_outlined,
+                ),
+                const SizedBox(height: 14),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _urlCtrl,
-                        style: TextStyle(color: textPrimary, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'http://localhost:5000/api',
-                          filled: true,
-                          fillColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () {
-                        apiService.setBaseUrl(_urlCtrl.text);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Đã cập nhật URL Backend API thành công!')),
-                        );
+                    AppButton(
+                      label: 'Lưu & Kiểm Tra Kết Nối',
+                      icon: Icons.check_circle_outline_rounded,
+                      isLoading: apiService.isLoading,
+                      onPressed: () async {
+                        final url = _urlCtrl.text.trim();
+                        if (url.isNotEmpty) {
+                          apiService.setBaseUrl(url);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã cập nhật Base URL API. Đang kiểm tra kết nối...'),
+                              backgroundColor: AppColors.primary,
+                            ),
+                          );
+                        }
                       },
-                      icon: const Icon(Icons.save_rounded, size: 18),
-                      label: const Text('Lưu & Kết Nối'),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
 
-          // Theme Settings Card
+          const SizedBox(height: 16),
+
+          // Interface & Appearance Card
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: backgroundColor,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: borderColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.palette_rounded, color: AppColors.accent, size: 24),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Giao Diện & Chuẩn Hiển Thị',
-                      style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ],
+                Text(
+                  'Giao Diện Ứng Dụng',
+                  style: TextStyle(color: textPrimary, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 16),
-                Material(
-                  color: Colors.transparent,
-                  child: SwitchListTile(
-                    title: Text('Chế độ Tối (Dark Mode)', style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold)),
-                    subtitle: Text('Tối ưu mắt cho quản trị viên khi làm việc vào ban đêm', style: TextStyle(color: textSecondary)),
-                    value: themeProvider.isDarkMode,
-                    activeTrackColor: AppColors.primary,
-                    onChanged: (val) => themeProvider.toggleTheme(),
-                  ),
+                const SizedBox(height: 6),
+                Text(
+                  'Tùy chỉnh chế độ hiển thị giao diện Sáng / Tối phù hợp làm việc.',
+                  style: TextStyle(color: textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                SwitchListTile(
+                  title: const Text('Chế độ Tối (Dark Theme)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Tối ưu mắt khi sử dụng trong môi trường thiếu sáng', style: TextStyle(fontSize: 12)),
+                  value: isDark,
+                  activeThumbColor: AppColors.primary,
+                  onChanged: (val) => themeProvider.toggleTheme(),
                 ),
               ],
             ),

@@ -429,6 +429,93 @@
           "createdAt": "2026-09-21T17:11:35.000Z",
           "updatedAt": "2026-09-21T17:11:50.000Z",
           "uid": "37058152-ddef2316-3e15-4b51-81b6-8f4deb181266"
+        },
+        {
+          "name": "6. Lấy danh mục sở thích công nghệ chuẩn hóa (GET /api/users/tech-interests)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/tech-interests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "tech-interests"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Tech interests list is not empty\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.length).to.be.above(0);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. [Admin] Báo cáo phân tích nhân khẩu học khách hàng (GET /api/users/demographics)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/demographics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "demographics"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Demographics report contains ageGroups and interests\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data).to.have.property(\"totalCustomers\");",
+                  "    pm.expect(res.data).to.have.property(\"ageGroups\");",
+                  "    pm.expect(res.data).to.have.property(\"interests\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         }
       ],
       "id": "7ce77fe1-736f-42d8-8361-ae5f2c84e585",
@@ -5671,6 +5758,950 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Surveys",
+      "description": "Bộ API & Automated Tests đầy đủ cho Module Khảo sát thị trường (CRM Survey Module) bao gồm Quản trị viên và Khách hàng.",
+      "item": [
+        {
+          "name": "1. [Admin] Lấy danh sách khảo sát (GET /api/surveys/admin - Phân trang & Filter)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/admin?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "admin"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Response returns PagedResult with items array\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.meta).to.have.property(\"totalItems\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. [Admin] Khởi tạo bài khảo sát mới (POST /api/surveys - Động nhiều câu hỏi & đáp án)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe chống ồn Sony WH-1000XM6 - {{$timestamp}}\",\n  \"description\": \"Thu thập ý kiến khách hàng về màu sắc và tầm giá dự kiến cho thế hệ tai nghe chống ồn mới từ Sony.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 2\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn tính năng nào được nâng cấp nhất?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Response has surveyId and questions\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.surveyId).to.be.a(\"number\");",
+                  "    pm.expect(json.data.questions).to.be.an(\"array\").with.lengthOf(2);",
+                  "    ",
+                  "    pm.collectionVariables.set(\"createdSurveyId\", json.data.surveyId.toString());",
+                  "    var q1 = json.data.questions[0];",
+                  "    pm.collectionVariables.set(\"surveyQuestionId1\", q1.questionId.toString());",
+                  "    if (q1.options && q1.options.length > 0) {",
+                  "        pm.collectionVariables.set(\"surveyOptionId1\", q1.options[0].optionId.toString());",
+                  "    }",
+                  "    var q2 = json.data.questions[1];",
+                  "    pm.collectionVariables.set(\"surveyQuestionId2\", q2.questionId.toString());",
+                  "    console.log(\"Đã lưu createdSurveyId:\", json.data.surveyId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. [Admin] Lấy chi tiết bài khảo sát theo ID (GET /api/surveys/:id)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Survey details match created survey\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.surveyId).to.eql(parseInt(pm.collectionVariables.get(\"createdSurveyId\")));",
+                  "    pm.expect(json.data.questions).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. [Admin] Cập nhật bài khảo sát khi chưa có ai làm (PATCH /api/surveys/:id)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe Sony WH-1000XM6 (Đã cập nhật)\",\n  \"description\": \"Cập nhật mô tả nội dung chương trình khảo sát phụ kiện âm thanh.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Dưới 8 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 2\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 3\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn màu sắc nào nhất cho dòng tai nghe này?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Title and questions updated successfully\", function () {",
+                  "    pm.expect(json.data.title).to.include(\"(Đã cập nhật)\");",
+                  "    pm.expect(json.data.questions[0].options).to.have.lengthOf(3);",
+                  "    var q1 = json.data.questions[0];",
+                  "    pm.collectionVariables.set(\"surveyQuestionId1\", q1.questionId.toString());",
+                  "    pm.collectionVariables.set(\"surveyOptionId1\", q1.options[0].optionId.toString());",
+                  "    var q2 = json.data.questions[1];",
+                  "    pm.collectionVariables.set(\"surveyQuestionId2\", q2.questionId.toString());",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. [Admin] Bật / Tắt kích hoạt nhận phản hồi (PATCH /api/surveys/:id/toggle-active)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/toggle-active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "toggle-active"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Toggle active returns boolean\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.a(\"boolean\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. [Admin] Bật lại kích hoạt để tiếp tục test (PATCH /api/surveys/:id/toggle-active)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/toggle-active",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "toggle-active"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Survey is re-activated\", function () {",
+                  "    pm.expect(json.data).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. [Admin] Nhân bản bài khảo sát (POST /api/surveys/:id/clone)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/clone",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "clone"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Cloned survey created with new ID and inactive draft state\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.surveyId).to.not.eql(parseInt(pm.collectionVariables.get(\"createdSurveyId\")));",
+                  "    pm.expect(json.data.title).to.include(\"(Phiên bản mới)\");",
+                  "    pm.expect(json.data.isActive).to.be.false;",
+                  "    pm.collectionVariables.set(\"clonedSurveyId\", json.data.surveyId.toString());",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. [Admin] Xóa bài khảo sát nháp / chưa có người làm (DELETE /api/surveys/:id)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{clonedSurveyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{clonedSurveyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Delete cloned survey successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. [Admin] Phát bài khảo sát tới tất cả khách hàng (POST /api/surveys/:id/assign)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetType\": \"ALL\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "assign"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Assigned to customers successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.a(\"number\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. [Khách hàng] Lấy danh sách khảo sát của tôi (GET /api/surveys/my-surveys)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/my-surveys",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "my-surveys"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"My surveys contains assigned survey\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.an(\"array\");",
+                  "    var found = json.data.find(s => s.surveyId == pm.collectionVariables.get(\"createdSurveyId\"));",
+                  "    pm.expect(found).to.not.be.undefined;",
+                  "    pm.expect(found.isCompleted).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. [Khách hàng] Lấy biểu mẫu câu hỏi để làm bài (GET /api/surveys/:id/take)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/take",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "take"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Survey form loaded with questions\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.questions).to.be.an(\"array\").with.lengthOf(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. [Khách hàng] Nộp bài khảo sát (POST /api/surveys/:id/submit)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": {{surveyQuestionId1}},\n      \"selectedOptionId\": {{surveyOptionId1}},\n      \"textAnswer\": null\n    },\n    {\n      \"questionId\": {{surveyQuestionId2}},\n      \"selectedOptionId\": null,\n      \"textAnswer\": \"Tôi mong muốn pin tai nghe dùng được trên 30 tiếng liên tục khi bật ANC và đệm tai thoáng khí hơn.\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "submit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Survey submitted successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.success).to.be.true;",
+                  "    pm.expect(json.data.completedAt).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. [Test Lỗi] Khách hàng nộp bài lần 2 bị chặn (POST /api/surveys/:id/submit - 400 Bad Request)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": {{surveyQuestionId1}},\n      \"selectedOptionId\": {{surveyOptionId1}},\n      \"textAnswer\": null\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "submit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Error message indicates one-time submission rule\", function () {",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.message).to.include(\"Mỗi khách hàng chỉ được làm bài 1 lần\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. [Test Lỗi] Sửa câu hỏi khi đã có người nộp bài bị chặn (PATCH /api/surveys/:id - 400 Bad Request)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Thử sửa cấu trúc câu hỏi sau khi có người nộp\",\n  \"description\": \"Hệ thống phải chặn hành động này để bảo vệ dữ liệu thống kê\",\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Câu hỏi mới thêm vào trái phép?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"options\": [\n        {\n          \"optionText\": \"Đáp án A\"\n        },\n        {\n          \"optionText\": \"Đáp án B\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Integrity rule locks survey structure\", function () {",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.message).to.include(\"khóa cấu trúc câu hỏi\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "15. [Test Lỗi] Xóa bài khảo sát đã có người làm bị chặn (DELETE /api/surveys/:id - 400 Bad Request)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Survey with responses cannot be deleted\", function () {",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.message).to.include(\"Không thể xóa bài khảo sát đã có dữ liệu phản hồi\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16. [Admin] Xem báo cáo thống kê kết quả khảo sát (GET /api/surveys/:id/statistics)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/surveys/{{createdSurveyId}}/statistics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "surveys",
+                "{{createdSurveyId}}",
+                "statistics"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Statistics has response rate and question results\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.totalCompleted).to.be.at.least(1);",
+                  "    pm.expect(json.data.responseRatePercent).to.be.above(0);",
+                  "    pm.expect(json.data.questions).to.be.an(\"array\").with.lengthOf(2);",
+                  "    var q1 = json.data.questions[0];",
+                  "    pm.expect(q1.optionStats).to.be.an(\"array\");",
+                  "    pm.expect(q1.optionStats.some(o => o.voteCount > 0)).to.be.true;",
+                  "    var q2 = json.data.questions[1];",
+                  "    pm.expect(q2.textAnswers).to.be.an(\"array\");",
+                  "    pm.expect(q2.textAnswers.length).to.be.at.least(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "id": "f8c09d3b-1e24-4f81-a90a-112233445566",
+      "description": "Lấy chữ ký số Cloudinary (Direct Signed Upload) cho Frontend (Web/Flutter)",
+      "item": [
+        {
+          "name": "1. Lấy chữ ký tải ảnh trực tiếp (POST /api/media/signature)",
+          "id": "99aa88bb-1122-3344-5566-778899aabbcc",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"folder\": \"techstore/products\",\n  \"publicId\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/media/signature",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "media",
+                "signature"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Has valid signature and uploadUrl\", function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data).to.have.property(\"signature\");",
+                  "    pm.expect(res.data).to.have.property(\"uploadUrl\");",
+                  "    pm.expect(res.data).to.have.property(\"apiKey\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -5788,6 +6819,31 @@
     {
       "key": "orderToCancelId",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdSurveyId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "clonedSurveyId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "surveyQuestionId1",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "surveyOptionId1",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "surveyQuestionId2",
+      "value": "2",
       "type": "string"
     }
   ],

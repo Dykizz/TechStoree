@@ -12,6 +12,8 @@ import '../../features/categories/categories_screen.dart';
 import '../../features/suppliers/suppliers_screen.dart';
 import '../../features/purchase_orders/purchase_orders_screen.dart';
 import '../../features/promotions/promotions_screen.dart';
+import '../../features/vouchers/vouchers_screen.dart';
+import '../../features/surveys/surveys_screen.dart';
 import '../../features/users/users_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
@@ -24,15 +26,17 @@ class MainLayout extends StatelessWidget {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final titles = [
-      'Tổng Quan Báo Cáo',
-      'Quản Lý Sản Phẩm',
-      'Quản Lý Đơn Hàng',
-      'Danh Mục Sản Phẩm',
-      'Quản Lý Nhà Cung Cấp',
-      'Quản Lý Phiếu Nhập Hàng',
-      'Khuyến Mãi & Giảm Giá',
-      'Quản Lý Người Dùng',
-      'Cài Đặt Hệ Thống',
+      'Tổng quan',
+      'Sản phẩm',
+      'Đơn hàng',
+      'Danh mục',
+      'Nhà cung cấp',
+      'Phiếu nhập hàng',
+      'Khuyến mãi & Giảm giá',
+      'Mã giảm giá Voucher',
+      'Khảo sát thị trường',
+      'Khách hàng / User',
+      'Cài đặt hệ thống',
     ];
 
     final screens = const [
@@ -43,6 +47,8 @@ class MainLayout extends StatelessWidget {
       SuppliersScreen(),
       PurchaseOrdersScreen(),
       PromotionsScreen(),
+      VouchersScreen(),
+      SurveysScreen(),
       UsersScreen(),
       SettingsScreen(),
     ];
@@ -59,14 +65,14 @@ class MainLayout extends StatelessWidget {
           // Sidebar Navigation (Desktop / Wide Window)
           if (!isCompact) const AppSidebar(),
 
-          // Main Screen Area
+          // Main Content Region
           Expanded(
             child: Column(
               children: [
                 // Top App Bar
                 AppTopbar(title: titles[currentIndex]),
 
-                // Content View
+                // Screen View Body
                 Expanded(
                   child: IndexedStack(
                     index: currentIndex,

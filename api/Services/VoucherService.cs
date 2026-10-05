@@ -418,5 +418,43 @@ public class VoucherService(AppDbContext dbContext) : IVoucherService
         userVoucher.Voucher = voucher;
         return userVoucher.ToUserVoucherItemDto(now);
     }
+
+    public async Task<UserVoucherItemDto?> AwardVoucherAsync(int voucherId, int userId, VoucherAssignedType assignedType = VoucherAssignedType.SURVEY_REWARD)
+    {
+        var voucher = await dbContext.Vouchers.FindAsync(voucherId);
+        if (voucher == null) return null;
+
+        var now = DateTime.UtcNow;
+
+        // Kiểm tra hiệu lực của Voucher và giới hạn số lượt phát hành của toàn sàn
+        if (!voucher.IsCurrentlyValid(now) || voucher.HasReachedUsageLimit())
+        {
+            return null;
+        }
+
+        // Kiểm tra số lượt khách hàng này đã nhận voucher này (để không vượt quá limitPerUser)
+        var currentClaims = await dbContext.UserVouchers
+            .CountAsync(uv => uv.UserId == userId && uv.VoucherId == voucherId);
+
+        if (currentClaims >= voucher.LimitPerUser)
+        {
+            return null;
+        }
+
+        var userVoucher = new UserVoucher
+        {
+            UserId = userId,
+            VoucherId = voucherId,
+            AssignedType = assignedType,
+            AssignedAt = now,
+            IsUsed = false
+        };
+
+        dbContext.UserVouchers.Add(userVoucher);
+        await dbContext.SaveChangesAsync();
+
+        userVoucher.Voucher = voucher;
+        return userVoucher.ToUserVoucherItemDto(now);
+    }
 }
 

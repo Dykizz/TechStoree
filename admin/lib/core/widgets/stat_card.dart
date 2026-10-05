@@ -34,15 +34,8 @@ class StatCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: borderColor, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,23 +50,23 @@ class StatCard extends StatelessWidget {
                   style: TextStyle(
                     color: textSecondary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: Icon(icon, color: iconColor, size: 20),
+                child: Icon(icon, color: iconColor, size: 16),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
@@ -82,35 +75,35 @@ class StatCard extends StatelessWidget {
               style: TextStyle(
                 color: textPrimary,
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Row(
             children: [
               Icon(
                 isTrendPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                 color: isTrendPositive ? AppColors.success : AppColors.danger,
-                size: 15,
+                size: 14,
               ),
               const SizedBox(width: 4),
               Text(
                 trendText,
                 style: TextStyle(
                   color: isTrendPositive ? AppColors.success : AppColors.danger,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'vs tháng trước',
+                  'vs kỳ trước',
                   style: TextStyle(
                     color: textSecondary,
-                    fontSize: 10,
+                    fontSize: 11,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),

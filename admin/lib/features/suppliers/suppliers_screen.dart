@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_tokens.dart';
 import '../../core/models/supplier.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_pagination.dart';
+import '../../core/widgets/app_search_field.dart';
+import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/empty_state.dart';
+import '../../core/widgets/filter_bar.dart';
+import '../../core/widgets/page_header.dart';
+import '../../core/widgets/status_badge.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -16,6 +26,8 @@ class SuppliersScreen extends StatefulWidget {
 class _SuppliersScreenState extends State<SuppliersScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  int _currentPage = 1;
+  int _itemsPerPage = 8;
   late Future<List<Supplier>> _suppliersFuture;
 
   @override
@@ -42,8 +54,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
@@ -58,194 +68,171 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
         if (_searchQuery.isNotEmpty) {
           suppliers = suppliers.where((s) =>
             s.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            s.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            s.contactName.toLowerCase().contains(_searchQuery.toLowerCase())
+            s.phone.contains(_searchQuery) ||
+            s.email.toLowerCase().contains(_searchQuery.toLowerCase())
           ).toList();
         }
 
+        final totalItems = suppliers.length;
+        final totalPages = (totalItems / _itemsPerPage).ceil();
+        final safePage = _currentPage > totalPages ? (totalPages > 0 ? totalPages : 1) : _currentPage;
+        final startIndex = (safePage - 1) * _itemsPerPage;
+        final paginatedSuppliers = totalItems == 0
+            ? <Supplier>[]
+            : suppliers.skip(startIndex).take(_itemsPerPage).toList();
+
         return Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppTokens.space16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header & Actions
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 240, maxWidth: 450),
-                    child: SizedBox(
-                      height: 42,
-                      child: TextField(
-                        controller: _searchCtrl,
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        style: TextStyle(color: textPrimary, fontSize: 13),
-                        decoration: InputDecoration(
-                          hintText: 'Tìm kiếm nhà cung cấp theo tên, mã hoặc người liên hệ...',
-                          hintStyle: TextStyle(color: textSecondary, fontSize: 13),
-                          prefixIcon: Icon(Icons.search_rounded, color: textSecondary, size: 20),
-                          suffixIcon: _searchCtrl.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear_rounded, size: 18),
-                                  onPressed: () {
-                                    _searchCtrl.clear();
-                                    setState(() => _searchQuery = '');
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: backgroundColor,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: borderColor),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: AppColors.primary),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => _showSupplierDialog(context, apiService, authProvider.token),
-                    icon: const Icon(Icons.add_business_rounded, size: 20),
-                    label: const Text('Thêm Nhà Cung Cấp', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Data Table
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: backgroundColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(
-                          isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                        ),
-                        dataRowMinHeight: 65,
-                        dataRowMaxHeight: 65,
-                        columns: const [
-                          DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Mã NCC', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Người liên hệ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Số điện thoại', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Địa chỉ', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: suppliers.map((supplier) {
-                          return DataRow(
-                            cells: [
-                              DataCell(
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primary.withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(Icons.domain_rounded, color: AppColors.primary, size: 20),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            supplier.name,
-                                            style: TextStyle(
-                                              color: textPrimary,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 13,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          if (supplier.description.isNotEmpty)
-                                            Text(
-                                              supplier.description,
-                                              style: TextStyle(color: textSecondary, fontSize: 11),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    supplier.code,
-                                    style: const TextStyle(color: AppColors.primary, fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ),
-                              DataCell(Text(supplier.contactName, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13))),
-                              DataCell(Text(supplier.phone, style: TextStyle(color: textSecondary, fontSize: 12))),
-                              DataCell(Text(supplier.email, style: TextStyle(color: textSecondary, fontSize: 12))),
-                              DataCell(
-                                SizedBox(
-                                  width: 180,
-                                  child: Text(
-                                    supplier.address,
-                                    style: TextStyle(color: textSecondary, fontSize: 12),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, size: 18, color: AppColors.info),
-                                      onPressed: () => _showSupplierDialog(context, apiService, authProvider.token, supplier: supplier),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                                      onPressed: () => _showDeleteSupplierConfirm(context, apiService, authProvider.token, supplier),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  ),
+              PageHeader(
+                title: 'Quản Lý Nhà Cung Cấp',
+                subtitle: 'Quản lý thông tin các nhà đối tác phân phối thiết bị và linh kiện',
+                action: AppButton(
+                  label: 'Tạo Nhà Cung Cấp Mới',
+                  icon: Icons.add_rounded,
+                  onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
                 ),
+              ),
+
+              FilterBar(
+                searchField: AppSearchField<Supplier>(
+                  controller: _searchCtrl,
+                  hintText: 'Tìm theo tên nhà cung cấp, sđt, email...',
+                  items: snapshot.data ?? [],
+                  searchFilter: (s, q) => s.name.toLowerCase().contains(q.toLowerCase()) ||
+                      s.phone.contains(q) ||
+                      s.email.toLowerCase().contains(q.toLowerCase()),
+                  itemLabel: (s) => s.name,
+                  itemSubtitle: (s) => 'SĐT: ${s.phone} • Email: ${s.email}',
+                  onSelected: (s) => setState(() => _searchQuery = s.name),
+                  onSubmitted: (val) => setState(() => _searchQuery = val.trim()),
+                  onCleared: () => setState(() => _searchQuery = ''),
+                ),
+              ),
+
+              Flexible(
+                fit: FlexFit.loose,
+                child: DataTableContainer(
+                  child: suppliers.isEmpty
+                      ? const EmptyState(
+                          icon: Icons.domain_outlined,
+                          title: 'Không tìm thấy nhà cung cấp nào',
+                          message: 'Thử tìm kiếm từ khóa khác hoặc thêm nhà cung cấp mới.',
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.vertical,
+                                  child: SizedBox(
+                                    width: constraints.maxWidth,
+                                    child: DataTable(
+                                      headingRowHeight: 38,
+                                      dataRowMinHeight: 42,
+                                      dataRowMaxHeight: 42,
+                                      columnSpacing: 16,
+                                      horizontalMargin: 16,
+                                      headingRowColor: WidgetStateProperty.all(
+                                        isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                      ),
+                                      columns: [
+                                        DataColumn(label: Text('MÃ NCC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('TÊN NHÀ CUNG CẤP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('NGƯỜI LIÊN HỆ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('SỐ ĐIỆN THOẠI / EMAIL', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('ĐỊA CHỈ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                      ],
+                                      rows: paginatedSuppliers.map((sup) {
+                                        return DataRow(
+                                          color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                                            if (states.contains(WidgetState.hovered)) {
+                                              return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+                                            }
+                                            return null;
+                                          }),
+                                          cells: [
+                                            DataCell(Text(sup.code, style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold, fontSize: 11))),
+                                            DataCell(
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.domain_rounded, size: 15, color: AppColors.primary),
+                                                  const SizedBox(width: 6),
+                                                  Text(sup.name, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                                                ],
+                                              ),
+                                            ),
+                                            DataCell(Text(sup.contactName, style: TextStyle(color: textPrimary, fontSize: 12))),
+                                            DataCell(
+                                              Text('${sup.phone.isNotEmpty ? sup.phone : '—'} / ${sup.email.isNotEmpty ? sup.email : '—'}', style: TextStyle(color: textSecondary, fontSize: 11)),
+                                            ),
+                                            DataCell(
+                                              Text(
+                                                sup.address.isNotEmpty ? sup.address : '—',
+                                                style: TextStyle(color: textSecondary, fontSize: 11),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              const StatusBadge(
+                                                label: 'ĐANG ĐỐI TÁC',
+                                                isSuccess: true,
+                                              ),
+                                            ),
+                                            DataCell(
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  IconButton(
+                                                    icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                    tooltip: 'Chỉnh sửa',
+                                                    onPressed: () => _showFormDialog(context, apiService, authProvider.token, sup),
+                                                  ),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
+                                                    padding: EdgeInsets.zero,
+                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                    tooltip: 'Xóa nhà cung cấp',
+                                                    onPressed: () => _confirmDelete(context, apiService, authProvider.token, sup),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (totalItems > 0)
+                              AppPagination(
+                                currentPage: safePage,
+                                totalPages: totalPages,
+                                totalItems: totalItems,
+                                itemsPerPage: _itemsPerPage,
+                                onPageChanged: (page) => setState(() => _currentPage = page),
+                                onItemsPerPageChanged: (items) {
+                                  setState(() {
+                                    _itemsPerPage = items;
+                                    _currentPage = 1;
+                                  });
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
               ),
             ],
           ),
@@ -254,122 +241,110 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
     );
   }
 
-  void _showSupplierDialog(BuildContext context, ApiService apiService, String? token, {Supplier? supplier}) {
-    final isEditing = supplier != null;
-    final nameCtrl = TextEditingController(text: isEditing ? supplier.name : '');
-    final phoneCtrl = TextEditingController(text: isEditing ? supplier.phone : '');
-    final emailCtrl = TextEditingController(text: isEditing ? supplier.email : '');
-    final addressCtrl = TextEditingController(text: isEditing ? supplier.address : '');
+  void _showFormDialog(BuildContext context, ApiService apiService, String? token, Supplier? existing) {
+    final isEditing = existing != null;
+    final nameCtrl = TextEditingController(text: isEditing ? existing.name : '');
+    final contactCtrl = TextEditingController(text: isEditing ? existing.contactName : '');
+    final phoneCtrl = TextEditingController(text: isEditing ? existing.phone : '');
+    final emailCtrl = TextEditingController(text: isEditing ? existing.email : '');
+    final addressCtrl = TextEditingController(text: isEditing ? existing.address : '');
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(isEditing ? 'Chỉnh Sửa Nhà Cung Cấp' : 'Thêm Nhà Cung Cấp Mới', style: const TextStyle(fontWeight: FontWeight.bold)),
-        content: SizedBox(
-          width: 480,
-          child: SingleChildScrollView(
+      builder: (ctx) {
+        final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+        final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+        final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+
+        return AlertDialog(
+          backgroundColor: cardBg,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          title: Text(
+            isEditing ? 'Sửa Nhà Cung Cấp: ${existing.name}' : 'Tạo Nhà Cung Cấp Mới',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
+          ),
+          content: SizedBox(
+            width: 500,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên Nhà cung cấp', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
+                AppTextField(controller: nameCtrl, labelText: 'Tên nhà cung cấp (*)'),
+                const SizedBox(height: 10),
+                AppTextField(controller: contactCtrl, labelText: 'Tên người đại diện / liên hệ'),
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    Expanded(
-                      child: TextField(
-                        controller: phoneCtrl,
-                        decoration: const InputDecoration(labelText: 'Số điện thoại', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: emailCtrl,
-                        decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                      ),
-                    ),
+                    Expanded(child: AppTextField(controller: phoneCtrl, labelText: 'Số điện thoại')),
+                    const SizedBox(width: 8),
+                    Expanded(child: AppTextField(controller: emailCtrl, labelText: 'Email liên hệ')),
                   ],
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: addressCtrl,
-                  decoration: const InputDecoration(labelText: 'Địa chỉ trụ sở', border: OutlineInputBorder()),
-                ),
+                const SizedBox(height: 10),
+                AppTextField(controller: addressCtrl, maxLines: 2, labelText: 'Địa chỉ trụ sở / kho hàng'),
               ],
             ),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty) return;
+          actions: [
+            AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
+            AppButton(
+              label: isEditing ? 'Cập Nhật' : 'Tạo Mới',
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
 
-              final s = Supplier(
-                id: isEditing ? supplier.id : '0',
-                name: nameCtrl.text.trim(),
-                code: isEditing ? supplier.code : 'SUP-${DateTime.now().millisecondsSinceEpoch}',
-                contactName: isEditing ? supplier.contactName : 'N/A',
-                phone: phoneCtrl.text.trim(),
-                email: emailCtrl.text.trim(),
-                address: addressCtrl.text.trim(),
-              );
-
-              bool success;
-              if (isEditing) {
-                success = await apiService.updateSupplier(s, token: token);
-              } else {
-                success = await apiService.createSupplier(s, token: token);
-              }
-
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _loadSuppliers();
-                });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? (isEditing ? 'Cập nhật nhà cung cấp thành công!' : 'Thêm nhà cung cấp thành công!') : 'Thao tác thất bại')),
+                final sup = Supplier(
+                  id: isEditing ? existing.id : '0',
+                  name: nameCtrl.text.trim(),
+                  code: isEditing ? existing.code : 'SUP-${DateTime.now().millisecondsSinceEpoch}',
+                  contactName: contactCtrl.text.trim(),
+                  phone: phoneCtrl.text.trim(),
+                  email: emailCtrl.text.trim(),
+                  address: addressCtrl.text.trim(),
                 );
-              }
-            },
-            child: Text(isEditing ? 'Cập Nhật' : 'Lưu Nhà Cung Cấp', style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
+
+                final res = isEditing
+                    ? await apiService.updateSupplier(sup, token: token)
+                    : await apiService.createSupplier(sup, token: token);
+
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                  setState(() => _loadSuppliers());
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(res ? 'Thao tác thành công!' : 'Thao tác thất bại!'), backgroundColor: res ? AppColors.success : AppColors.danger),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
-  void _showDeleteSupplierConfirm(BuildContext context, ApiService apiService, String? token, Supplier supplier) {
+  void _confirmDelete(BuildContext context, ApiService apiService, String? token, Supplier sup) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Xác nhận xóa nhà cung cấp', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('Bạn có chắc chắn muốn xóa nhà cung cấp "${supplier.name}" không?'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        title: const Text('Xác nhận xóa nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+        content: Text('Bạn có chắc muốn xóa nhà cung cấp "${sup.name}" không?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+          AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
+          AppButton(
+            label: 'Xóa Nhà Cung Cấp',
+            variant: AppButtonVariant.danger,
             onPressed: () async {
-              final success = await apiService.deleteSupplier(supplier.id, token: token);
+              Navigator.pop(ctx);
+              final res = await apiService.deleteSupplier(sup.id, token: token);
               if (context.mounted) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _loadSuppliers();
-                });
+                setState(() => _loadSuppliers());
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? 'Xóa nhà cung cấp thành công!' : 'Không thể xóa nhà cung cấp')),
+                  SnackBar(content: Text(res ? 'Xóa thành công!' : 'Xóa thất bại!'), backgroundColor: res ? AppColors.success : AppColors.danger),
                 );
               }
             },
-            child: const Text('Xóa', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 }
-
