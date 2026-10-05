@@ -16,6 +16,10 @@ export interface CartItem {
 
 export interface CartContextType {
   items: CartItem[];
+  busy: boolean;
+  error: string;
+  refreshCart: () => Promise<void>;
+  dismissError: () => void;
   totalItems: number;
   totalPrice: number;
   appliedVoucher: Voucher | null;
@@ -28,11 +32,13 @@ export interface CartContextType {
   addItem: (
     item: Omit<CartItem, "cartItemId" | "quantity">,
     quantity?: number,
-    openDrawer?: boolean
-  ) => void;
-  updateQuantity: (cartItemId: string, quantity: number) => void;
-  removeItem: (cartItemId: string) => void;
-  clearCart: () => void;
-  applyVoucher: (code: string) => { success: boolean; message: string };
+    openDrawer?: boolean,
+  ) => Promise<boolean>;
+  updateQuantity: (cartItemId: string, quantity: number) => Promise<boolean>;
+  removeItem: (cartItemId: string) => Promise<boolean>;
+  clearCart: () => Promise<boolean>;
+  applyVoucher: (
+    code: string,
+  ) => Promise<{ success: boolean; message: string }>;
   removeVoucher: () => void;
 }

@@ -4,7 +4,9 @@
   width: 380px;
   background-color: #ffffff;
   border-radius: 16px;
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.16), 0 4px 12px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 16px 40px -8px rgba(0, 0, 0, 0.16),
+    0 4px 12px rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.09);
   z-index: 1000;
   display: flex;
@@ -99,7 +101,7 @@
 }
 
 .countBadge {
-  background-color: #284cff;
+  background-color: var(--brand);
   color: #ffffff;
   font-size: 0.72rem;
   font-weight: 700;
@@ -193,7 +195,7 @@
 }
 
 .shopNowBtn:hover {
-  background-color: #284cff;
+  background-color: var(--brand);
 }
 
 /* Item List */
@@ -272,7 +274,7 @@
 }
 
 .itemName:hover {
-  color: #284cff;
+  color: var(--brand);
 }
 
 .itemVariant {
@@ -398,7 +400,7 @@
 }
 
 .checkoutBtn:hover {
-  background-color: #284cff;
+  background-color: var(--brand);
 }
 
 .shippingNote {

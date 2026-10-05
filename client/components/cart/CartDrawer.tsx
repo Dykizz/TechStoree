@@ -3,12 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCart } from "../../lib/context/CartContext";
 import { formatPrice } from "../../lib/products-client";
 import styles from "./CartDrawer.module.css";
 
 export default function CartDrawer() {
+  const drawer = useRef<HTMLElement>(null);
   const router = useRouter();
   const pathname = usePathname();
   const {
@@ -51,6 +52,35 @@ export default function CartDrawer() {
     };
   }, [isCartOpen]);
 
+  useEffect(() => {
+    if (!isCartOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const panel = drawer.current;
+    panel?.querySelector<HTMLButtonElement>("button")?.focus();
+    function trap(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !panel) return;
+      const controls = [
+        ...panel.querySelectorAll<HTMLElement>(
+          "button:not(:disabled), a[href], input:not(:disabled)",
+        ),
+      ];
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
+    panel?.addEventListener("keydown", trap);
+    return () => {
+      panel?.removeEventListener("keydown", trap);
+      previous?.focus();
+    };
+  }, [isCartOpen]);
+
   return (
     <>
       <div
@@ -60,9 +90,12 @@ export default function CartDrawer() {
       />
 
       <aside
+        ref={drawer}
+        aria-hidden={!isCartOpen}
+        inert={!isCartOpen}
         className={`${styles.drawer} ${isCartOpen ? styles.drawerOpen : ""}`}
         role="dialog"
-        aria-modal="true"
+        aria-modal={isCartOpen ? "true" : undefined}
         aria-label="Giỏ hàng mua sắm"
       >
         <div className={styles.header}>

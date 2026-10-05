@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
-import { saveOrder } from "../../lib/order-client";
+import { useProtectedSession } from "../../lib/use-protected-session";
+import { mapOrder, type BackendOrder } from "../../lib/orders-api";
 import { formatPrice } from "../../lib/products-client";
-import { Order, OrderItem, PaymentMethod } from "../../lib/types/order";
+import { Order, PaymentMethod } from "../../lib/types/order";
 import styles from "./checkout.module.css";
 
 const PROVINCES = [
@@ -24,8 +25,17 @@ const PROVINCES = [
 ];
 
 export default function CheckoutPage() {
-  const { items, totalPrice, appliedVoucher, discountAmount, finalPrice, clearCart } =
-    useCart();
+  const session = useProtectedSession();
+  const {
+    items,
+    totalPrice,
+    appliedVoucher,
+    discountAmount,
+    finalPrice,
+    refreshCart,
+    busy,
+    error: cartError,
+  } = useCart();
 
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -38,12 +48,7 @@ export default function CheckoutPage() {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
 
   // Dynamic shipping fee calculation
-  const shippingFee =
-    totalPrice >= 1000000
-      ? 0
-      : province.includes("Hồ Chí Minh") || province.includes("Hà Nội")
-      ? 30000
-      : 45000;
+  const shippingFee = 0; // Backend does not currently calculate delivery fees.
 
   const grandTotal = finalPrice + shippingFee;
 
@@ -55,7 +60,9 @@ export default function CheckoutPage() {
         if (res.ok) {
           const data = await res.json();
           if (data && data.user) {
-            setRecipientName((prev) => prev || data.user.fullName || data.user.username);
+            setRecipientName(
+              (prev) => prev || data.user.fullName || data.user.username,
+            );
           }
         }
       } catch {
@@ -86,86 +93,80 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || items.length === 0) return;
+    if (
+      isSubmitting ||
+      busy ||
+      !!cartError ||
+      session.status !== "ready" ||
+      !validate() ||
+      items.length === 0
+    )
+      return;
 
     setIsSubmitting(true);
 
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-    let orderCode = `TECH-${Date.now().toString().slice(-6)}-${randomSuffix}`;
     const fullAddress = `${shippingAddress.trim()}, ${province}`;
-
-    const orderItems: OrderItem[] = items.map((it) => ({
-      orderItemId: `item-${Date.now()}-${it.variantId}`,
-      variantId: it.variantId,
-      productId: it.productId,
-      productName: it.productName,
-      variantName: it.variantName,
-      unitPrice: it.price,
-      quantity: it.quantity,
-      imageUrl: it.imageUrl,
-    }));
-
-    // Try calling backend checkout API first
     try {
       const backendCartIds = items
         .map((it) => it.backendCartItemId)
         .filter((id): id is number => typeof id === "number" && id > 0);
-
-      const backendPayload = {
-        receiverName: recipientName.trim(),
-        receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
-        shippingAddress: fullAddress,
-        notes: note.trim() || undefined,
-        paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : paymentMethod,
-        voucherCode: appliedVoucher?.code || undefined,
-        cartItemIds: backendCartIds.length > 0 ? backendCartIds : undefined,
-      };
-
-      const res = await fetch("/api/orders/checkout", {
+      if (backendCartIds.length !== items.length)
+        throw new Error("Giỏ hàng chưa đồng bộ. Vui lòng tải lại.");
+      const response = await fetch("/api/orders/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(backendPayload),
+        body: JSON.stringify({
+          receiverName: recipientName.trim(),
+          receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
+          shippingAddress: fullAddress,
+          notes: note.trim() || undefined,
+          paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : "COD",
+          voucherCode: appliedVoucher?.code || undefined,
+          cartItemIds: backendCartIds,
+        }),
       });
-
-      if (res.ok) {
-        const result = await res.json();
-        if (result && result.data && result.data.orderCode) {
-          orderCode = result.data.orderCode;
-        }
-      }
-    } catch {
-      // Backend offline or guest mode: continue with generated order code
+      const result = (await response.json()) as {
+        success: boolean;
+        message: string;
+        data: BackendOrder;
+      };
+      if (!response.ok || !result.success || !result.data?.orderId)
+        throw new Error(result.message || "Không thể đặt hàng.");
+      setCreatedOrder(mapOrder(result.data));
+      await refreshCart();
+    } catch (error) {
+      setErrors({
+        submit:
+          error instanceof Error
+            ? error.message
+            : "Không thể kết nối đến máy chủ.",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const newOrder: Order = {
-      orderId: `ord-${Date.now()}`,
-      orderCode,
-      voucherCode: appliedVoucher?.code,
-      subtotalAmount: totalPrice,
-      discountAmount,
-      totalAmount: grandTotal,
-      status: "PENDING",
-      paymentMethod,
-      paymentStatus: paymentMethod === "BANKING" ? "PAID" : "UNPAID",
-      shippingAddress: fullAddress,
-      recipientName: recipientName.trim(),
-      recipientPhone: recipientPhone.trim(),
-      note: note.trim() || undefined,
-      createdAt: new Date().toISOString(),
-      items: orderItems,
-    };
-
-    saveOrder(newOrder);
-    setCreatedOrder(newOrder);
-    clearCart();
-    setIsSubmitting(false);
   };
+
+  if (session.status !== "ready")
+    return (
+      <main className={styles.main}>
+        <div className={styles.container} role="status">
+          {session.status === "error" ? (
+            <>
+              <p>{session.message}</p>
+              <button onClick={session.retry}>Thử lại</button>
+            </>
+          ) : (
+            "Đang kiểm tra phiên đăng nhập…"
+          )}
+        </div>
+      </main>
+    );
 
   if (createdOrder) {
     const isBanking = createdOrder.paymentMethod === "BANKING";
-    const qrUrl = `https://img.vietqr.io/image/VCB-999988882026-compact2.png?amount=${createdOrder.totalAmount}&addInfo=${encodeURIComponent(
-      createdOrder.orderCode
-    )}&accountName=TECHSTOREE%20VIETNAM`;
+    const qrUrl = `https://img.vietqr.io/image/${process.env.NEXT_PUBLIC_BANK_BIN}-${process.env.NEXT_PUBLIC_BANK_ACCOUNT}-compact2.png?amount=${createdOrder.totalAmount}&addInfo=${encodeURIComponent(
+      createdOrder.orderCode,
+    )}&accountName=${encodeURIComponent(process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "")}`;
 
     return (
       <main className={styles.main}>
@@ -185,7 +186,8 @@ export default function CheckoutPage() {
               Đặt Hàng Thành Công!
             </h1>
             <p style={{ color: "#666", fontSize: "0.95rem" }}>
-              Cảm ơn bạn đã tin tưởng TechStoree. Đơn hàng của bạn đang được xử lý.
+              Cảm ơn bạn đã tin tưởng TechStoree. Đơn hàng của bạn đang được xử
+              lý.
             </p>
 
             <div>
@@ -206,27 +208,76 @@ export default function CheckoutPage() {
                   textAlign: "center",
                 }}
               >
-                <h3 style={{ color: "#166534", marginBottom: "6px", fontSize: "1.15rem" }}>
-                  Quét Mã VietQR Để Thanh Toán Đơn Hàng
+                <h3
+                  style={{
+                    color: "#166534",
+                    marginBottom: "6px",
+                    fontSize: "1.15rem",
+                  }}
+                >
+                  Chuyển khoản · Đang chờ xác nhận
                 </h3>
-                <p style={{ color: "#15803d", fontSize: "0.88rem", marginBottom: "16px" }}>
-                  Mở ứng dụng ngân hàng bất kỳ để quét mã QR với thông tin chuyển khoản đã điền sẵn:
+                <p
+                  style={{
+                    color: "#15803d",
+                    fontSize: "0.88rem",
+                    marginBottom: "16px",
+                  }}
+                >
+                  Mở ứng dụng ngân hàng bất kỳ để quét mã QR với thông tin
+                  chuyển khoản đã điền sẵn:
                 </p>
 
-                <div style={{ display: "inline-block", background: "#fff", padding: "12px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
-                  <img
+                <div
+                  style={{
+                    display: "inline-block",
+                    background: "#fff",
+                    padding: "12px",
+                    borderRadius: "12px",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                  }}
+                >
+                  <Image
+                    width={240}
+                    height={300}
+                    unoptimized
                     src={qrUrl}
                     alt={`VietQR ${createdOrder.orderCode}`}
                     style={{ width: "240px", height: "auto", display: "block" }}
                   />
                 </div>
 
-                <div style={{ marginTop: "16px", fontSize: "0.9rem", color: "#374151" }}>
-                  <p>Ngân hàng: <strong>Vietcombank (VCB)</strong></p>
-                  <p>Số tài khoản: <strong>999988882026</strong></p>
-                  <p>Chủ tài khoản: <strong>TECHSTOREE VIETNAM</strong></p>
-                  <p>Số tiền: <strong style={{ color: "#16a34a", fontSize: "1.1rem" }}>{formatPrice(createdOrder.totalAmount)}</strong></p>
-                  <p>Nội dung chuyển khoản: <strong style={{ color: "#dc2626" }}>{createdOrder.orderCode}</strong></p>
+                <div
+                  style={{
+                    marginTop: "16px",
+                    fontSize: "0.9rem",
+                    color: "#374151",
+                  }}
+                >
+                  <p>
+                    Ngân hàng:{" "}
+                    <strong>{process.env.NEXT_PUBLIC_BANK_BIN}</strong>
+                  </p>
+                  <p>
+                    Số tài khoản:{" "}
+                    <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong>
+                  </p>
+                  <p>
+                    Chủ tài khoản:{" "}
+                    <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong>
+                  </p>
+                  <p>
+                    Số tiền:{" "}
+                    <strong style={{ color: "#16a34a", fontSize: "1.1rem" }}>
+                      {formatPrice(createdOrder.totalAmount)}
+                    </strong>
+                  </p>
+                  <p>
+                    Nội dung chuyển khoản:{" "}
+                    <strong style={{ color: "#dc2626" }}>
+                      {createdOrder.orderCode}
+                    </strong>
+                  </p>
                 </div>
               </div>
             )}
@@ -243,7 +294,7 @@ export default function CheckoutPage() {
                 <strong>Hình thức thanh toán:</strong>{" "}
                 {createdOrder.paymentMethod === "COD"
                   ? "Thanh toán khi nhận hàng (COD)"
-                  : "Chuyển khoản VietQR"}
+                  : "Chuyển khoản (cần cấu hình VietQR)"}
               </p>
               <p>
                 <strong>Tổng thanh toán:</strong>{" "}
@@ -252,8 +303,8 @@ export default function CheckoutPage() {
                 </span>
                 {createdOrder.discountAmount > 0 && (
                   <span style={{ color: "#dc2626", marginLeft: "8px" }}>
-                    (Đã giảm {formatPrice(createdOrder.discountAmount)} qua voucher{" "}
-                    {createdOrder.voucherCode})
+                    (Đã giảm {formatPrice(createdOrder.discountAmount)} qua
+                    voucher {createdOrder.voucherCode})
                   </span>
                 )}
               </p>
@@ -308,6 +359,19 @@ export default function CheckoutPage() {
   return (
     <main className={styles.main}>
       <div className={styles.container}>
+        {errors.submit && (
+          <p
+            role="alert"
+            style={{
+              padding: 16,
+              background: "#fff0f1",
+              color: "#8b1926",
+              marginBottom: 20,
+            }}
+          >
+            {errors.submit}
+          </p>
+        )}
         <div className={styles.heading}>
           <h1 className={styles.title}>Thanh Toán Đơn Hàng</h1>
           <p className={styles.subtitle}>
@@ -367,7 +431,10 @@ export default function CheckoutPage() {
                       onChange={(e) => {
                         setRecipientPhone(e.target.value);
                         if (errors.recipientPhone) {
-                          setErrors((prev) => ({ ...prev, recipientPhone: "" }));
+                          setErrors((prev) => ({
+                            ...prev,
+                            recipientPhone: "",
+                          }));
                         }
                       }}
                       required
@@ -383,7 +450,8 @@ export default function CheckoutPage() {
                 <div className={styles.fieldRow}>
                   <div className={styles.field}>
                     <label htmlFor="provinceSelect" className={styles.label}>
-                      Tỉnh / Thành phố <span className={styles.required}>*</span>
+                      Tỉnh / Thành phố{" "}
+                      <span className={styles.required}>*</span>
                     </label>
                     <select
                       id="provinceSelect"
@@ -415,7 +483,10 @@ export default function CheckoutPage() {
                       onChange={(e) => {
                         setShippingAddress(e.target.value);
                         if (errors.shippingAddress) {
-                          setErrors((prev) => ({ ...prev, shippingAddress: "" }));
+                          setErrors((prev) => ({
+                            ...prev,
+                            shippingAddress: "",
+                          }));
                         }
                       }}
                       required
@@ -467,7 +538,8 @@ export default function CheckoutPage() {
                       Thanh toán khi nhận hàng (COD)
                     </div>
                     <div className={styles.paymentDesc}>
-                      Kiểm tra hàng trước khi nhận, thanh toán tiền mặt trực tiếp cho shipper.
+                      Kiểm tra hàng trước khi nhận, thanh toán tiền mặt trực
+                      tiếp cho shipper.
                     </div>
                   </div>
                 </label>
@@ -481,6 +553,11 @@ export default function CheckoutPage() {
                     type="radio"
                     name="paymentMethod"
                     value="BANKING"
+                    disabled={
+                      !process.env.NEXT_PUBLIC_BANK_BIN ||
+                      !process.env.NEXT_PUBLIC_BANK_ACCOUNT ||
+                      !process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME
+                    }
                     checked={paymentMethod === "BANKING"}
                     onChange={() => setPaymentMethod("BANKING")}
                     className={styles.radioInput}
@@ -490,21 +567,27 @@ export default function CheckoutPage() {
                       Chuyển khoản ngân hàng qua mã QR (VietQR 24/7)
                     </div>
                     <div className={styles.paymentDesc}>
-                      Tự động điền số tài khoản, số tiền và nội dung chuyển khoản. Quét bằng mọi App Ngân hàng hoặc Ví MoMo/ZaloPay.
+                      {process.env.NEXT_PUBLIC_BANK_ACCOUNT
+                        ? "Mã QR hiển thị thông tin chuyển khoản. Trạng thái thanh toán chỉ cập nhật khi hệ thống xác nhận."
+                        : "Chưa cấu hình tài khoản nhận tiền. Vui lòng chọn COD."}
                     </div>
                     {paymentMethod === "BANKING" && (
                       <div className={styles.bankQrBox}>
                         <p>
-                          <strong>Ngân hàng thụ hưởng:</strong> Vietcombank (VCB)
+                          <strong>Ngân hàng thụ hưởng:</strong> Ngân hàng đã cấu
+                          hình
                         </p>
                         <p>
-                          <strong>Số tài khoản:</strong> 999988882026
+                          <strong>Số tài khoản:</strong>{" "}
+                          {process.env.NEXT_PUBLIC_BANK_ACCOUNT}
                         </p>
                         <p>
-                          <strong>Chủ tài khoản:</strong> TECHSTOREE VIETNAM
+                          <strong>Chủ tài khoản:</strong>{" "}
+                          {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}
                         </p>
                         <p style={{ marginTop: "8px", color: "#166534" }}>
-                          ✓ Mã QR chính thức sẽ hiển thị ngay sau khi bạn bấm Xác Nhận Đặt Hàng.
+                          Mã QR sẽ hiển thị ngay sau khi bạn bấm Xác Nhận Đặt
+                          Hàng.
                         </p>
                       </div>
                     )}
@@ -515,7 +598,9 @@ export default function CheckoutPage() {
 
             <aside className={styles.summarySection}>
               <div className={styles.summaryHeader}>
-                <h2 className={styles.summaryTitle}>Đơn hàng ({items.length})</h2>
+                <h2 className={styles.summaryTitle}>
+                  Đơn hàng ({items.length})
+                </h2>
                 <Link href="/cart" className={styles.editCartLink}>
                   Chỉnh sửa giỏ
                 </Link>
@@ -536,18 +621,12 @@ export default function CheckoutPage() {
                       ) : (
                         <div className={styles.orderItemPlaceholder} />
                       )}
-                      <span className={styles.itemQtyBadge}>
-                        {it.quantity}
-                      </span>
+                      <span className={styles.itemQtyBadge}>{it.quantity}</span>
                     </div>
 
                     <div className={styles.itemDetails}>
-                      <div className={styles.itemName}>
-                        {it.productName}
-                      </div>
-                      <div className={styles.itemVariant}>
-                        {it.variantName}
-                      </div>
+                      <div className={styles.itemName}>{it.productName}</div>
+                      <div className={styles.itemVariant}>{it.variantName}</div>
                     </div>
 
                     <div className={styles.itemPrice}>
@@ -564,10 +643,7 @@ export default function CheckoutPage() {
                 </div>
 
                 {discountAmount > 0 && (
-                  <div
-                    className={styles.calcRow}
-                    style={{ color: "#dc2626" }}
-                  >
+                  <div className={styles.calcRow} style={{ color: "#dc2626" }}>
                     <span>Voucher ({appliedVoucher?.code})</span>
                     <span>-{formatPrice(discountAmount)}</span>
                   </div>
@@ -577,7 +653,9 @@ export default function CheckoutPage() {
                   <span>Phí vận chuyển ({province})</span>
                   <span>
                     {shippingFee === 0 ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600 }}>Miễn phí</span>
+                      <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                        Chưa tính phí
+                      </span>
                     ) : (
                       formatPrice(shippingFee)
                     )}
@@ -594,7 +672,7 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || busy || !!cartError}
                 className={styles.submitBtn}
                 onClick={handlePlaceOrder}
               >
