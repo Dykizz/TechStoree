@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
+import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -64,295 +66,117 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 36),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: cardBg,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.4 : 0.06),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Branding Panel Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          gradient: AppColors.primaryGradient,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 28),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'TechStoree',
-                              style: TextStyle(
-                                color: textPrimary,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            Text(
-                              'Enterprise Management System',
-                              style: TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(height: 1),
-                  const SizedBox(height: 24),
-
-                  // Form Title & Subtitle
-                  Text(
-                    'Đăng Nhập Quản Trị',
-                    style: TextStyle(
-                      color: textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Nhập thông tin tài khoản Administrator để truy cập',
-                    style: TextStyle(color: textSecondary, fontSize: 13),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Error Alert Box if any
-                  if (authProvider.errorMessage != null) ...[
+          padding: const EdgeInsets.all(24),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header Logo Branding
+                Row(
+                  children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 20),
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
-                        color: AppColors.dangerBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.danger.withOpacity(0.3)),
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              authProvider.errorMessage!,
-                              style: const TextStyle(
-                                color: AppColors.danger,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'TechStoree Admin',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: textPrimary,
+                        letterSpacing: -0.3,
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 24),
 
-                  // Email Field
-                  Text(
-                    'Email / Tên đăng nhập',
-                    style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
+                Text(
+                  'Đăng nhập tài khoản',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: textPrimary,
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _emailCtrl,
-                    style: TextStyle(color: textPrimary, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: 'admin@techstoree.vn',
-                      prefixIcon: Icon(Icons.email_outlined, color: textSecondary, size: 20),
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Nhập thông tin quản trị viên để truy cập hệ thống dashboard.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: textSecondary,
                   ),
-                  const SizedBox(height: 18),
+                ),
+                const SizedBox(height: 24),
 
-                  // Password Field
-                  Text(
-                    'Mật khẩu',
-                    style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _passwordCtrl,
-                    obscureText: _isObscure,
-                    style: TextStyle(color: textPrimary, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: '••••••••',
-                      prefixIcon: Icon(Icons.lock_outline_rounded, color: textSecondary, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _isObscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          color: textSecondary,
-                          size: 20,
-                        ),
-                        onPressed: () => setState(() => _isObscure = !_isObscure),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: borderColor),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.primary, width: 2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
+                // Form Fields
+                AppTextField(
+                  controller: _emailCtrl,
+                  labelText: 'Địa chỉ Email (*)',
+                  hintText: 'admin@techstoree.vn',
+                  prefixIcon: Icons.email_outlined,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 16),
 
-                  // Remember Me Checkbox & Forgot Password
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: Checkbox(
-                                value: _rememberMe,
-                                activeColor: AppColors.primary,
-                                onChanged: (val) => setState(() => _rememberMe = val ?? true),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Ghi nhớ đăng nhập',
-                                style: TextStyle(color: textSecondary, fontSize: 13),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 30)),
-                        child: const Text('Quên mật khẩu?', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
+                AppTextField(
+                  controller: _passwordCtrl,
+                  labelText: 'Mật khẩu (*)',
+                  hintText: '••••••••',
+                  prefixIcon: Icons.lock_outline_rounded,
+                  obscureText: _isObscure,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isObscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      color: textSecondary,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(() => _isObscure = !_isObscure),
                   ),
-                  const SizedBox(height: 24),
+                ),
+                const SizedBox(height: 12),
 
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        elevation: 2,
-                      ),
-                      onPressed: authProvider.isLoading ? null : _handleLogin,
-                      child: authProvider.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Text(
-                              'Đăng Nhập Quản Trị',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
+                // Remember me Checkbox
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _rememberMe,
+                      activeColor: AppColors.primary,
+                      onChanged: (val) => setState(() => _rememberMe = val ?? true),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    Text(
+                      'Ghi nhớ phiên đăng nhập',
+                      style: TextStyle(color: textPrimary, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
 
-                  // Preset Admin Quick Login Shortcut
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Tài khoản dùng thử:', style: TextStyle(color: textSecondary, fontSize: 11)),
-                              const SizedBox(height: 2),
-                              Text(
-                                'admin@techstoree.vn / admin123',
-                                style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.bold),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              _emailCtrl.text = 'admin@techstoree.vn';
-                              _passwordCtrl.text = 'admin123';
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'Điền sẵn',
-                              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                // Submit Button
+                SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    label: 'Đăng Nhập Quản Trị',
+                    icon: Icons.login_rounded,
+                    isLoading: authProvider.isLoading,
+                    onPressed: _handleLogin,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),
