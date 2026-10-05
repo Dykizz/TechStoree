@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useProtectedSession } from "../../lib/use-protected-session";
+import { publishNotification } from "../../lib/customer-notifications";
 import type { ProfileData } from "../../lib/auth-server";
 import styles from "./profile.module.css";
 
@@ -206,6 +207,13 @@ export default function ProfileClient({
       setForm(toForm(result.profile));
       setEditing(false);
       setNotice("Đã lưu thông tin cá nhân.");
+      publishNotification(result.profile.userId, {
+        id: `profile:${crypto.randomUUID()}`,
+        kind: "profile",
+        title: "Hồ sơ đã được cập nhật",
+        message: "Thông tin cá nhân của bạn đã được lưu thành công.",
+        href: "/profile",
+      });
     } catch {
       setSaveError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
     } finally {

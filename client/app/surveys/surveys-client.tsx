@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { useProtectedSession } from "../../lib/use-protected-session";
+import { publishNotification } from "../../lib/customer-notifications";
 import type {
   CustomerSurvey,
   SurveyForm,
@@ -109,6 +110,15 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
             "Chưa nộp được khảo sát. Câu trả lời của bạn vẫn được giữ lại.",
         );
       setResult(body.data);
+      if (session.status === "ready") {
+        publishNotification(session.user.userId, {
+          id: `survey:${form.surveyId}`,
+          kind: "survey",
+          title: "Đã hoàn thành khảo sát",
+          message: `Câu trả lời của bạn đã được ghi nhận.${body.data.rewardVoucher ? " Phần thưởng đã được hệ thống cấp; xem tại khảo sát." : ""}`,
+          href: "/surveys",
+        });
+      }
     } catch (e) {
       setError(
         e instanceof Error

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
 import { logoutCustomer } from "../../lib/logout-client";
 import CartDropdown from "../cart/CartDropdown";
+import NotificationBell from "./NotificationBell";
 import styles from "./Header.module.css";
 
 type SessionUser = {
@@ -223,6 +224,7 @@ export default function Header() {
             )}
           </div>
 
+          {user && <NotificationBell key={user.userId} userId={user.userId} />}
           {user ? (
             <div className={styles.userInfo}>
               <Link

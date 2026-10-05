@@ -320,3 +320,8 @@
     max-width: 75px;
   }
 }
+@media (max-width: 360px) {
+  .brand > span:last-child {
+    display: none;
+  }
+}

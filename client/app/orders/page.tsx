@@ -7,6 +7,10 @@ import { useProtectedSession } from "../../lib/use-protected-session";
 import { useCart } from "../../lib/context/CartContext";
 import { mapOrder, type BackendOrder } from "../../lib/orders-api";
 import {
+  notifyPaymentConfirmed,
+  publishNotification,
+} from "../../lib/customer-notifications";
+import {
   fetchProducts,
   fetchProductById,
   formatPrice,
@@ -37,6 +41,7 @@ function OrdersContent() {
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (session.status !== "ready") return;
+    const userId = session.user.userId;
     let active = true;
     async function load() {
       setLoading(true);
@@ -68,6 +73,9 @@ function OrdersContent() {
         if (active) {
           setOrders(details);
           setTotalPages(Math.max(1, result.data.meta.totalPages));
+          details.forEach((order: Order) =>
+            notifyPaymentConfirmed(userId, order),
+          );
         }
       } catch (e) {
         if (active)
@@ -82,7 +90,7 @@ function OrdersContent() {
     return () => {
       active = false;
     };
-  }, [session.status, page, status, search, attempt]);
+  }, [session.status, session.user, page, status, search, attempt]);
   async function cancel(order: Order) {
     if (actionId || !confirm(`Hủy đơn ${order.orderCode}?`)) return;
     setActionId(order.orderId);
@@ -98,6 +106,15 @@ function OrdersContent() {
       if (!response.ok || !result.success)
         throw new Error(result.message || "Không thể hủy đơn.");
       setNotice(result.message);
+      if (session.status === "ready") {
+        publishNotification(session.user.userId, {
+          id: `cancel:${order.orderId}`,
+          kind: "order",
+          title: "Đã hủy đơn hàng",
+          message: `Hệ thống đã xác nhận hủy đơn ${order.orderCode}.`,
+          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+        });
+      }
       setAttempt((a) => a + 1);
     } catch (e) {
       setError(

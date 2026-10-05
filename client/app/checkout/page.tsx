@@ -6,6 +6,10 @@ import { useEffect, useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
 import { useProtectedSession } from "../../lib/use-protected-session";
 import { mapOrder, type BackendOrder } from "../../lib/orders-api";
+import {
+  notifyPaymentConfirmed,
+  publishNotification,
+} from "../../lib/customer-notifications";
 import { formatPrice } from "../../lib/products-client";
 import { Order, PaymentMethod } from "../../lib/types/order";
 import styles from "./checkout.module.css";
@@ -132,7 +136,23 @@ export default function CheckoutPage() {
       };
       if (!response.ok || !result.success || !result.data?.orderId)
         throw new Error(result.message || "Không thể đặt hàng.");
-      setCreatedOrder(mapOrder(result.data));
+      const order = mapOrder(result.data);
+      setCreatedOrder(order);
+      const paymentNote = order.paymentStatus === "PAID"
+        ? ""
+        : order.paymentMethod === "BANKING"
+          ? " Thanh toán chuyển khoản đang chờ xác nhận."
+          : " Bạn sẽ thanh toán khi nhận hàng.";
+      if (order.userId === session.user.userId) {
+        publishNotification(session.user.userId, {
+          id: `order:${order.orderId}`,
+          kind: "order",
+          title: "Đặt hàng thành công",
+          message: `Đơn ${order.orderCode} đã được tạo.${paymentNote}`,
+          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+        });
+      }
+      notifyPaymentConfirmed(session.user.userId, order);
       await refreshCart();
     } catch (error) {
       setErrors({
