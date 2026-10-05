@@ -261,8 +261,10 @@ const REVIEWED_STORAGE_KEY = "techstoree_reviewed_items";
 function OrdersContent() {
   const searchParams = useSearchParams();
   const initialCode = searchParams.get("code") || "";
+  const isPreview = searchParams.get("preview") === "1";
   const { addItem } = useCart();
 
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState<OrderTabKey>("ALL");
   const [searchCode, setSearchCode] = useState(initialCode);
@@ -301,6 +303,27 @@ function OrdersContent() {
   // Load orders from Backend API + local fallback
   useEffect(() => {
     async function loadData() {
+      // 1. Check session
+      let userLoggedIn = false;
+      try {
+        const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+        if (sessionRes.ok) {
+          const sess = await sessionRes.json();
+          if (sess && sess.user) {
+            userLoggedIn = true;
+          }
+        }
+      } catch {
+        // Ignore
+      }
+      setIsLoggedIn(userLoggedIn);
+
+      // If not logged in and not in preview mode, clear orders
+      if (!userLoggedIn && !isPreview) {
+        setOrders([]);
+        return;
+      }
+
       const localList = getOrders();
       let merged = [...localList];
 
@@ -389,19 +412,21 @@ function OrdersContent() {
         // Use localList
       }
 
-      // If there is no completed order in the list, include sample completed order so user can immediately test "Hoàn thành" & "Đánh giá"
-      const hasCompleted = merged.some(
-        (o) => o.status === "COMPLETED" || o.status === "DELIVERED"
-      );
-      if (!hasCompleted) {
-        merged.push(SAMPLE_COMPLETED_ORDER);
+      // Only in preview mode, if there is no completed order, include sample completed order
+      if (isPreview) {
+        const hasCompleted = merged.some(
+          (o) => o.status === "COMPLETED" || o.status === "DELIVERED"
+        );
+        if (!hasCompleted) {
+          merged.push(SAMPLE_COMPLETED_ORDER);
+        }
       }
 
       setOrders(merged);
     }
 
     void loadData();
-  }, [initialCode]);
+  }, [initialCode, isPreview]);
 
   // Tab counts
   const tabCounts = useMemo(() => {
@@ -623,7 +648,34 @@ function OrdersContent() {
           </p>
         </div>
 
-        {/* Status Tabs Bar */}
+        {isLoggedIn === null && !isPreview ? (
+          <div className={styles.emptyState}>
+            <p className={styles.emptyStateTitle}>Đang tải dữ liệu…</p>
+            <p className={styles.emptyStateDesc}>Vui lòng chờ trong giây lát.</p>
+          </div>
+        ) : isLoggedIn === false && !isPreview ? (
+          <div className={styles.emptyState}>
+            <div style={{ fontSize: "2.8rem", marginBottom: "1rem" }}>🔒</div>
+            <p className={styles.emptyStateTitle}>Bạn chưa đăng nhập</p>
+            <p className={styles.emptyStateDesc}>
+              Vui lòng đăng nhập tài khoản để xem lịch sử và theo dõi trạng thái các đơn hàng của bạn.
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "center", marginTop: "1.5rem" }}>
+              <Link href="/login" className={styles.continueBtn}>
+                Đăng nhập ngay
+              </Link>
+              <Link
+                href="/"
+                className={styles.continueBtn}
+                style={{ background: "#ffffff", color: "#0f172a", border: "1px solid #cbd5e1" }}
+              >
+                Về trang chủ
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Status Tabs Bar */}
         <div className={styles.tabsWrapper}>
           <div className={styles.tabsList} role="tablist">
             {ORDER_TABS.map((tab) => {
@@ -954,7 +1006,9 @@ function OrdersContent() {
             })}
           </div>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
       {/* Review Modal */}
       {reviewTarget && (

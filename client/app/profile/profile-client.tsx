@@ -145,12 +145,16 @@ export default function ProfileClient({ preview = false }: { preview?: boolean }
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {
-      setSaveError("Không thể kết nối để đăng xuất. Vui lòng thử lại.");
-      setLoggingOut(false);
-      return;
+      // Ignore
+    } finally {
+      try {
+        localStorage.removeItem("techstoree_cart");
+        localStorage.removeItem("techstoree_voucher");
+      } catch {
+        // Ignore
+      }
+      window.location.href = "/";
     }
-    router.replace("/");
-    router.refresh();
   }
 
   const initials = profile?.fullName.trim().split(/\s+/).slice(-2).map((part) => part[0]?.toUpperCase()).join("") || "T";

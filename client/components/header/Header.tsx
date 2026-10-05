@@ -79,10 +79,12 @@ export default function Header() {
           const data = await res.json();
           if (data && data.user) {
             setUser(data.user);
+            return;
           }
         }
+        setUser(null);
       } catch {
-        // Auth session check optional
+        setUser(null);
       }
     }
     void checkAuth();
@@ -91,10 +93,27 @@ export default function Header() {
   const handleLogout = async () => {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      setUser(null);
-      window.location.reload();
     } catch {
       // Ignore
+    } finally {
+      try {
+        localStorage.removeItem("techstoree_cart");
+        localStorage.removeItem("techstoree_voucher");
+      } catch {
+        // Ignore
+      }
+      setUser(null);
+
+      const privateRoutes = ["/profile", "/orders", "/checkout"];
+      const isPrivateRoute = privateRoutes.some((route) =>
+        pathname.startsWith(route)
+      );
+
+      if (isPrivateRoute) {
+        window.location.href = "/";
+      } else {
+        window.location.reload();
+      }
     }
   };
 

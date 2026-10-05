@@ -15,7 +15,6 @@ export async function POST(request: NextRequest) {
 
   let access = request.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
-  let revoked = !access && !refresh;
 
   try {
     if (!access && refresh) {
@@ -31,7 +30,6 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: { Authorization: `Bearer ${access}` },
       });
-      revoked = result.response.ok;
       if (result.response.status === 401 && refresh) {
         const renewed = await backendRequest<LoginData>("refresh-token", {
           method: "POST",
@@ -40,11 +38,10 @@ export async function POST(request: NextRequest) {
         });
         const newAccess = renewed.body?.data?.token;
         if (newAccess) {
-          const retry = await backendRequest<unknown>("logout", {
+          await backendRequest<unknown>("logout", {
             method: "POST",
             headers: { Authorization: `Bearer ${newAccess}` },
           });
-          revoked = retry.response.ok;
         }
       }
     }
@@ -53,10 +50,8 @@ export async function POST(request: NextRequest) {
   }
 
   const result = NextResponse.json(
-    revoked
-      ? { message: "Đã đăng xuất." }
-      : { message: "Đã rời phiên trên trình duyệt; chưa xác nhận được với API." },
-    { status: revoked ? 200 : 503 },
+    { message: "Đã đăng xuất." },
+    { status: 200 },
   );
   clearSessionCookies(result);
   return result;

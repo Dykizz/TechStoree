@@ -64,6 +64,7 @@ export default function PriceFilterDropdown({
 
   // Sync state if props change externally (e.g. Reset All Filters)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInputMin(minPrice !== undefined ? minPrice.toLocaleString("vi-VN") : "");
     setInputMax(maxPrice !== undefined ? maxPrice.toLocaleString("vi-VN") : "");
     setErrorMsg("");
