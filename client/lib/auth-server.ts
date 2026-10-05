@@ -35,7 +35,10 @@ export type ProfileData = SessionUser & {
 };
 
 export function apiEndpoint(path: string) {
-  const base = (process.env.API_BASE_URL || "http://localhost:5000").replace(/\/$/, "");
+  const base = (process.env.API_BASE_URL || "http://localhost:5000").replace(
+    /\/$/,
+    "",
+  );
   return `${base}/api/${path}`;
 }
 
@@ -77,7 +80,11 @@ export function sameOrigin(request: NextRequest) {
   return !origin || origin === request.nextUrl.origin;
 }
 
-export function setSessionCookies(response: NextResponse, data: LoginData, remember: boolean) {
+export function setSessionCookies(
+  response: NextResponse,
+  data: LoginData,
+  remember: boolean,
+) {
   const common = {
     httpOnly: true,
     sameSite: "lax" as const,
@@ -90,31 +97,94 @@ export function setSessionCookies(response: NextResponse, data: LoginData, remem
   });
   response.cookies.set(REFRESH_COOKIE, data.refreshToken, {
     ...common,
-    path: "/api/auth",
+    path: "/",
     ...(remember ? { maxAge: REFRESH_AGE } : {}),
   });
   response.cookies.set(REMEMBER_COOKIE, remember ? "1" : "0", {
     ...common,
-    path: "/api/auth",
+    path: "/",
     ...(remember ? { maxAge: REFRESH_AGE } : {}),
   });
+  clearLegacyCookies(response);
 }
 
 export function clearSessionCookies(response: NextResponse) {
   for (const [name, path] of [
     [ACCESS_COOKIE, "/"],
-    [REFRESH_COOKIE, "/api/auth"],
-    [REMEMBER_COOKIE, "/api/auth"],
+    [REFRESH_COOKIE, "/"],
+    [REMEMBER_COOKIE, "/"],
   ]) {
     response.cookies.set(name, "", { path, maxAge: 0 });
+  }
+  clearLegacyCookies(response);
+}
+
+function clearLegacyCookies(response: NextResponse) {
+  for (const name of [REFRESH_COOKIE, REMEMBER_COOKIE]) {
+    response.headers.append(
+      "Set-Cookie",
+      `${name}=; Path=/api/auth; Max-Age=0; HttpOnly; SameSite=Lax`,
+    );
+  }
+}
+
+// Concurrent session/cart/profile requests must not rotate the same token twice.
+type RenewalEntry = { expires: number; promise: Promise<LoginData | null> };
+const serverState = globalThis as typeof globalThis & {
+  techstoreeRenewals?: Map<string, RenewalEntry>;
+};
+const renewals = (serverState.techstoreeRenewals ??= new Map<
+  string,
+  RenewalEntry
+>());
+
+export async function renewSession(refresh: string): Promise<LoginData | null> {
+  const now = Date.now();
+  for (const [key, entry] of renewals)
+    if (entry.expires <= now) renewals.delete(key);
+  const existing = renewals.get(refresh);
+  if (existing) return existing.promise;
+  const promise = backendRequest<LoginData>("refresh-token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken: refresh }),
+  }).then(({ response, body }) => {
+    if (response.status >= 500) throw new Error("Session service unavailable");
+    return response.ok &&
+      body?.success &&
+      body.data?.token &&
+      body.data.refreshToken
+      ? body.data
+      : null;
+  });
+  if (renewals.size >= 256) renewals.delete(renewals.keys().next().value!);
+  renewals.set(refresh, { expires: now + 5000, promise });
+  try {
+    return await promise;
+  } catch (error) {
+    renewals.delete(refresh);
+    throw error;
   }
 }
 
 export async function callBackendWithSession(
   request: NextRequest,
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
 ): Promise<{ response: Response; renewed: LoginData | null }> {
+  if (
+    init.method &&
+    !["GET", "HEAD"].includes(init.method.toUpperCase()) &&
+    !sameOrigin(request)
+  ) {
+    return {
+      response: Response.json(
+        { success: false, message: "Yêu cầu không hợp lệ." },
+        { status: 403 },
+      ),
+      renewed: null,
+    };
+  }
   let access = request.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
   let renewed: LoginData | null = null;
@@ -133,22 +203,18 @@ export async function callBackendWithSession(
       ...init,
       headers: makeHeaders(access),
       cache: "no-store",
+      signal: AbortSignal.timeout(8000),
     });
 
     if (response.status === 401 && refresh) {
-      const renewal = await backendRequest<LoginData>("refresh-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: refresh }),
-      });
-
-      if (renewal.response.ok && renewal.body?.success && renewal.body.data?.token) {
-        renewed = renewal.body.data;
+      renewed = await renewSession(refresh);
+      if (renewed) {
         access = renewed.token;
         response = await fetch(apiEndpoint(path), {
           ...init,
           headers: makeHeaders(access),
           cache: "no-store",
+          signal: AbortSignal.timeout(8000),
         });
       }
     }
@@ -156,6 +222,23 @@ export async function callBackendWithSession(
     throw err;
   }
 
+  if (
+    !response.ok &&
+    !(await response
+      .clone()
+      .json()
+      .catch(() => null))
+  ) {
+    response = Response.json(
+      {
+        success: false,
+        message:
+          response.status === 401
+            ? "Vui lòng đăng nhập để tiếp tục."
+            : "Máy chủ chưa xử lý được yêu cầu.",
+      },
+      { status: response.status },
+    );
+  }
   return { response, renewed };
 }
-
