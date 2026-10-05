@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
 import { useProtectedSession } from "../../lib/use-protected-session";
 import { mapOrder, type BackendOrder } from "../../lib/orders-api";
@@ -12,6 +12,7 @@ import {
 } from "../../lib/customer-notifications";
 import { formatPrice } from "../../lib/products-client";
 import { Order, PaymentMethod } from "../../lib/types/order";
+import OrderConfirmation from "./OrderConfirmation";
 import styles from "./checkout.module.css";
 
 const PROVINCES = [
@@ -50,6 +51,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const submitting = useRef(false);
 
   // Dynamic shipping fee calculation
   const shippingFee = 0; // Backend does not currently calculate delivery fees.
@@ -98,6 +100,7 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
+      submitting.current ||
       isSubmitting ||
       busy ||
       !!cartError ||
@@ -107,6 +110,7 @@ export default function CheckoutPage() {
     )
       return;
 
+    submitting.current = true;
     setIsSubmitting(true);
 
     const fullAddress = `${shippingAddress.trim()}, ${province}`;
@@ -162,6 +166,7 @@ export default function CheckoutPage() {
             : "Không thể kết nối đến máy chủ.",
       });
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -183,165 +188,10 @@ export default function CheckoutPage() {
     );
 
   if (createdOrder) {
-    const isBanking = createdOrder.paymentMethod === "BANKING";
-    const qrUrl = `https://img.vietqr.io/image/${process.env.NEXT_PUBLIC_BANK_BIN}-${process.env.NEXT_PUBLIC_BANK_ACCOUNT}-compact2.png?amount=${createdOrder.totalAmount}&addInfo=${encodeURIComponent(
-      createdOrder.orderCode,
-    )}&accountName=${encodeURIComponent(process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "")}`;
-
     return (
       <main className={styles.main}>
         <div className={styles.container}>
-          <div className={styles.successCard}>
-            <svg
-              className={styles.successIcon}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-              <polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <h1 style={{ fontSize: "1.8rem", marginBottom: "8px" }}>
-              Đặt Hàng Thành Công!
-            </h1>
-            <p style={{ color: "#666", fontSize: "0.95rem" }}>
-              Cảm ơn bạn đã tin tưởng TechStoree. Đơn hàng của bạn đang được xử
-              lý.
-            </p>
-
-            <div>
-              <span className={styles.orderCodeBadge}>
-                MÃ ĐƠN HÀNG: {createdOrder.orderCode}
-              </span>
-            </div>
-
-            {/* If Banking, display VietQR immediately */}
-            {isBanking && (
-              <div
-                style={{
-                  background: "#f0fdf4",
-                  border: "1px solid #bbf7d0",
-                  borderRadius: "16px",
-                  padding: "24px",
-                  margin: "24px 0",
-                  textAlign: "center",
-                }}
-              >
-                <h3
-                  style={{
-                    color: "#166534",
-                    marginBottom: "6px",
-                    fontSize: "1.15rem",
-                  }}
-                >
-                  Chuyển khoản · Đang chờ xác nhận
-                </h3>
-                <p
-                  style={{
-                    color: "#15803d",
-                    fontSize: "0.88rem",
-                    marginBottom: "16px",
-                  }}
-                >
-                  Mở ứng dụng ngân hàng bất kỳ để quét mã QR với thông tin
-                  chuyển khoản đã điền sẵn:
-                </p>
-
-                <div
-                  style={{
-                    display: "inline-block",
-                    background: "#fff",
-                    padding: "12px",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <Image
-                    width={240}
-                    height={300}
-                    unoptimized
-                    src={qrUrl}
-                    alt={`VietQR ${createdOrder.orderCode}`}
-                    style={{ width: "240px", height: "auto", display: "block" }}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    marginTop: "16px",
-                    fontSize: "0.9rem",
-                    color: "#374151",
-                  }}
-                >
-                  <p>
-                    Ngân hàng:{" "}
-                    <strong>{process.env.NEXT_PUBLIC_BANK_BIN}</strong>
-                  </p>
-                  <p>
-                    Số tài khoản:{" "}
-                    <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT}</strong>
-                  </p>
-                  <p>
-                    Chủ tài khoản:{" "}
-                    <strong>{process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}</strong>
-                  </p>
-                  <p>
-                    Số tiền:{" "}
-                    <strong style={{ color: "#16a34a", fontSize: "1.1rem" }}>
-                      {formatPrice(createdOrder.totalAmount)}
-                    </strong>
-                  </p>
-                  <p>
-                    Nội dung chuyển khoản:{" "}
-                    <strong style={{ color: "#dc2626" }}>
-                      {createdOrder.orderCode}
-                    </strong>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className={styles.orderDetailsBox}>
-              <p>
-                <strong>Người nhận:</strong> {createdOrder.recipientName} (
-                {createdOrder.recipientPhone})
-              </p>
-              <p>
-                <strong>Địa chỉ giao:</strong> {createdOrder.shippingAddress}
-              </p>
-              <p>
-                <strong>Hình thức thanh toán:</strong>{" "}
-                {createdOrder.paymentMethod === "COD"
-                  ? "Thanh toán khi nhận hàng (COD)"
-                  : "Chuyển khoản (cần cấu hình VietQR)"}
-              </p>
-              <p>
-                <strong>Tổng thanh toán:</strong>{" "}
-                <span style={{ color: "#111", fontWeight: 700 }}>
-                  {formatPrice(createdOrder.totalAmount)}
-                </span>
-                {createdOrder.discountAmount > 0 && (
-                  <span style={{ color: "#dc2626", marginLeft: "8px" }}>
-                    (Đã giảm {formatPrice(createdOrder.discountAmount)} qua
-                    voucher {createdOrder.voucherCode})
-                  </span>
-                )}
-              </p>
-            </div>
-
-            <div className={styles.successActions}>
-              <Link
-                href={`/orders?code=${encodeURIComponent(createdOrder.orderCode)}`}
-                className={styles.trackOrderBtn}
-              >
-                Tra cứu đơn hàng
-              </Link>
-              <Link href="/products" className={styles.continueShoppingBtn}>
-                Tiếp tục mua sắm
-              </Link>
-            </div>
-          </div>
+          <OrderConfirmation order={createdOrder} />
         </div>
       </main>
     );
@@ -382,29 +232,26 @@ export default function CheckoutPage() {
         {errors.submit && (
           <p
             role="alert"
-            style={{
-              padding: 16,
-              background: "#fff0f1",
-              color: "#8b1926",
-              marginBottom: 20,
-            }}
+            className={styles.submitError}
           >
             {errors.submit}
           </p>
         )}
         <div className={styles.heading}>
-          <h1 className={styles.title}>Thanh Toán Đơn Hàng</h1>
+          <Link href="/cart" className={styles.backLink}>← Quay lại giỏ hàng</Link>
+          <p className={styles.eyebrow}>HOÀN TẤT ĐƠN HÀNG</p>
+          <h1 className={styles.title}>Một bước nữa là hoàn tất.</h1>
           <p className={styles.subtitle}>
-            Vui lòng điền thông tin người nhận và chọn phương thức thanh toán.
+            Kiểm tra thông tin nhận hàng và chọn phương thức thanh toán phù hợp.
           </p>
         </div>
 
-        <form onSubmit={handlePlaceOrder} noValidate>
-          <div className={styles.layout}>
-            <div className={styles.formSection}>
+        <form onSubmit={handlePlaceOrder} noValidate aria-busy={isSubmitting}>
+          <div className={`${styles.layout} ${isSubmitting ? styles.submittingLayout : ""}`}>
+            <fieldset className={styles.formSection} disabled={isSubmitting}>
               <h2 className={styles.sectionTitle}>
                 <span className={styles.stepNumber}>1</span>
-                Thông tin người nhận & Địa chỉ giao hàng
+                Thông tin nhận hàng
               </h2>
 
               <div className={styles.fieldsGrid}>
@@ -421,6 +268,9 @@ export default function CheckoutPage() {
                       }`}
                       placeholder="Nguyễn Văn A"
                       value={recipientName}
+                      autoComplete="shipping name"
+                      aria-invalid={!!errors.recipientName}
+                      aria-describedby={errors.recipientName ? "recipient-name-error" : undefined}
                       onChange={(e) => {
                         setRecipientName(e.target.value);
                         if (errors.recipientName) {
@@ -430,7 +280,7 @@ export default function CheckoutPage() {
                       required
                     />
                     {errors.recipientName && (
-                      <span className={styles.errorText}>
+                      <span id="recipient-name-error" className={styles.errorText}>
                         {errors.recipientName}
                       </span>
                     )}
@@ -448,6 +298,9 @@ export default function CheckoutPage() {
                       }`}
                       placeholder="0987654321"
                       value={recipientPhone}
+                      autoComplete="shipping tel"
+                      aria-invalid={!!errors.recipientPhone}
+                      aria-describedby={errors.recipientPhone ? "recipient-phone-error" : undefined}
                       onChange={(e) => {
                         setRecipientPhone(e.target.value);
                         if (errors.recipientPhone) {
@@ -460,7 +313,7 @@ export default function CheckoutPage() {
                       required
                     />
                     {errors.recipientPhone && (
-                      <span className={styles.errorText}>
+                      <span id="recipient-phone-error" className={styles.errorText}>
                         {errors.recipientPhone}
                       </span>
                     )}
@@ -477,6 +330,7 @@ export default function CheckoutPage() {
                       id="provinceSelect"
                       className={styles.input}
                       value={province}
+                      autoComplete="shipping address-level1"
                       onChange={(e) => setProvince(e.target.value)}
                     >
                       {PROVINCES.map((p) => (
@@ -489,7 +343,7 @@ export default function CheckoutPage() {
 
                   <div className={styles.field}>
                     <label htmlFor="shippingAddress" className={styles.label}>
-                      Địa chỉ cụ thể (Số nhà, Tên đường, Phường/Xã){" "}
+                      Địa chỉ cụ thể{" "}
                       <span className={styles.required}>*</span>
                     </label>
                     <input
@@ -500,6 +354,9 @@ export default function CheckoutPage() {
                       }`}
                       placeholder="Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé"
                       value={shippingAddress}
+                      autoComplete="shipping street-address"
+                      aria-invalid={!!errors.shippingAddress}
+                      aria-describedby={errors.shippingAddress ? "shipping-address-error" : "shipping-address-help"}
                       onChange={(e) => {
                         setShippingAddress(e.target.value);
                         if (errors.shippingAddress) {
@@ -512,10 +369,11 @@ export default function CheckoutPage() {
                       required
                     />
                     {errors.shippingAddress && (
-                      <span className={styles.errorText}>
+                      <span id="shipping-address-error" className={styles.errorText}>
                         {errors.shippingAddress}
                       </span>
                     )}
+                    <span id="shipping-address-help" className={styles.fieldHint}>Số nhà, tên đường và phường/xã.</span>
                   </div>
                 </div>
 
@@ -558,8 +416,7 @@ export default function CheckoutPage() {
                       Thanh toán khi nhận hàng (COD)
                     </div>
                     <div className={styles.paymentDesc}>
-                      Kiểm tra hàng trước khi nhận, thanh toán tiền mặt trực
-                      tiếp cho shipper.
+                      Thanh toán cho đơn vị giao hàng khi bạn nhận được hàng.
                     </div>
                   </div>
                 </label>
@@ -614,12 +471,12 @@ export default function CheckoutPage() {
                   </div>
                 </label>
               </div>
-            </div>
+            </fieldset>
 
             <aside className={styles.summarySection}>
               <div className={styles.summaryHeader}>
                 <h2 className={styles.summaryTitle}>
-                  Đơn hàng ({items.length})
+                  Tóm tắt đơn hàng
                 </h2>
                 <Link href="/cart" className={styles.editCartLink}>
                   Chỉnh sửa giỏ
@@ -670,10 +527,10 @@ export default function CheckoutPage() {
                 )}
 
                 <div className={styles.calcRow}>
-                  <span>Phí vận chuyển ({province})</span>
+                  <span>Phí vận chuyển</span>
                   <span>
                     {shippingFee === 0 ? (
-                      <span style={{ color: "#16a34a", fontWeight: 600 }}>
+                      <span className={styles.shippingPending}>
                         Chưa tính phí
                       </span>
                     ) : (
@@ -690,14 +547,19 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              <p className={styles.feeNotice}>Phí vận chuyển chưa được hệ thống tính trong tổng tiền này.</p>
               <button
                 type="submit"
                 disabled={isSubmitting || busy || !!cartError}
                 className={styles.submitBtn}
-                onClick={handlePlaceOrder}
               >
-                {isSubmitting ? "Đang xử lý…" : "Xác Nhận Đặt Hàng"}
+                {isSubmitting && <span className={styles.spinner} aria-hidden="true" />}
+                {isSubmitting ? "Đang xác nhận đơn…" : "Xác nhận đặt hàng"}
               </button>
+
+              <p className={styles.processingStatus} role="status" aria-live="polite">
+                {isSubmitting ? "Đang gửi đơn đến hệ thống. Vui lòng chờ và không đóng trang." : ""}
+              </p>
 
               <p className={styles.policyNotice}>
                 Bằng việc bấm xác nhận, bạn đồng ý với Điều khoản mua hàng &
