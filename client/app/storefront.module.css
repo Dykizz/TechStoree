@@ -7,45 +7,12 @@
   margin: auto;
   padding: 0 32px;
 }
-.hero {
-  background: #f5f5f7;
-  padding: 64px 0;
-}
-.heroContent {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 56px;
-  align-items: center;
-}
 .eyebrow {
   color: var(--brand);
   font-size: 10px;
   font-weight: 750;
   letter-spacing: 0.14em;
   line-height: 1.7;
-}
-.heroCopy h1 {
-  margin: 22px 0 26px;
-  font-size: clamp(42px, 4.3vw, 64px);
-  font-weight: 650;
-  letter-spacing: -0.055em;
-  line-height: 1.12;
-}
-.heroCopy h1 span {
-  color: #6e6e73;
-}
-.subtitle {
-  color: #6e6e73;
-  font-size: 16px;
-  line-height: 1.75;
-  max-width: 420px;
-}
-.heroActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 22px;
-  align-items: center;
-  margin-top: 32px;
 }
 .primaryButton {
   display: inline-flex;
@@ -76,41 +43,6 @@
 .textLink:hover {
   color: var(--brand);
 }
-.heroVisual {
-  background: white;
-  border: 1px solid #e9e9eb;
-  border-radius: 24px;
-  overflow: hidden;
-  text-decoration: none;
-  color: var(--ink);
-  box-shadow: 0 20px 50px #1d1d1f06;
-}
-.heroImage {
-  position: relative;
-  aspect-ratio: 1.5;
-}
-.heroImage img {
-  object-fit: contain;
-  padding: 24px;
-}
-.heroCaption {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px;
-  padding: 22px 28px;
-  border-top: 1px solid #eee;
-}
-.heroCaption > span:first-child {
-  color: #6e6e73;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  grid-column: 1 / -1;
-}
-.heroCaption strong {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.025em;
-}
 .benefits {
   border-bottom: 1px solid var(--border);
   padding: 26px 0;
@@ -131,8 +63,38 @@
   font-size: 13px;
   color: #4d4d53;
 }
+.benefitLink {
+  position: relative;
+  display: block;
+  padding: 12px 38px 12px 14px;
+  margin: -12px -14px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+.benefitLink i {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  font-style: normal;
+  color: var(--muted);
+}
+.benefitLink:hover {
+  background: #f5f5f7;
+}
+.benefitLink:hover span,
+.benefitLink:hover i {
+  color: var(--brand);
+}
+.benefitLink:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+}
 .section {
   padding: 64px 0;
+  scroll-margin-top: 100px;
 }
 .sectionHeading {
   display: flex;
@@ -193,9 +155,6 @@
   margin-top: 16px;
 }
 @media (max-width: 1000px) {
-  .heroContent {
-    gap: 32px;
-  }
   .productGrid,
   .categories {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -204,19 +163,6 @@
 @media (max-width: 760px) {
   .container {
     padding: 0 20px;
-  }
-  .hero {
-    padding: 44px 0;
-  }
-  .heroContent {
-    grid-template-columns: 1fr;
-  }
-  .heroCopy h1 {
-    max-width: 540px;
-  }
-  .heroVisual {
-    max-width: 540px;
-    width: 100%;
   }
   .benefitGrid {
     grid-template-columns: 1fr;

@@ -1,7 +1,7 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import HomeHero from "../components/home/HomeHero";
 import ProductCard from "../components/products/ProductCard";
 import { fetchCategories, fetchProducts } from "../lib/products-client";
 import type { CategoryDto, ProductBaseDto } from "../lib/types/product";
@@ -44,79 +44,31 @@ export default function HomePage() {
       active = false;
     };
   }, [attempt]);
-  const featured = products.find((p) => p.imageUrl && p.totalStock > 0);
   return (
     <main className={styles.main}>
-      <section className={styles.hero}>
+      <HomeHero />
+      <section className={styles.benefits} aria-label="Trải nghiệm mua sắm">
         <div className={styles.container}>
-          <div className={styles.heroContent}>
-            <div className={styles.heroCopy}>
-              <p className={styles.eyebrow}>
-                TECHSTOREE · CÔNG NGHỆ CHO MỖI NGÀY
-              </p>
-              <h1>
-                Nguyên bản.
-                <br />
-                <span>Tinh tế trong từng lựa chọn.</span>
-              </h1>
-              <p className={styles.subtitle}>
-                Khám phá thiết bị phù hợp với cách bạn làm việc, sáng tạo và tận
-                hưởng cuộc sống.
-              </p>
-              <div className={styles.heroActions}>
-                <Link href="/products" className={styles.primaryButton}>
-                  Khám phá sản phẩm ↗
-                </Link>
-                <Link href="/products?onSale=true" className={styles.textLink}>
-                  Xem ưu đãi hiện có →
-                </Link>
-              </div>
-            </div>
-            <Link
-              href={featured ? `/products/${featured.productId}` : "/products"}
-              className={styles.heroVisual}
-            >
-              <div className={styles.heroImage}>
-                <Image
-                  src={featured?.imageUrl || "/images/editorial-laptop.png"}
-                  alt={featured?.productName || "Thiết kế thiết bị công nghệ"}
-                  fill
-                  sizes="(max-width: 760px) 90vw, 45vw"
-                  priority
-                />
-              </div>
-              <div className={styles.heroCaption}>
-                <span>
-                  {featured ? featured.categoryName : "DESIGN / TECHNOLOGY"}
-                </span>
-                <strong>
-                  {featured?.productName || "Ít hơn. Nhưng tốt hơn."}
-                </strong>
-                <span aria-hidden="true">↗</span>
-              </div>
+          <div className={styles.benefitGrid}>
+            <Link href="#explore" className={styles.benefitLink}>
+              <span>01 / KHÁM PHÁ</span>
+              <p>Chọn phiên bản phù hợp</p>
+              <i aria-hidden="true">↗</i>
+            </Link>
+            <Link href="/products" className={styles.benefitLink}>
+              <span>02 / MINH BẠCH</span>
+              <p>Giá & tồn kho từ hệ thống</p>
+              <i aria-hidden="true">↗</i>
+            </Link>
+            <Link href="/profile" className={styles.benefitLink}>
+              <span>03 / CÁ NHÂN</span>
+              <p>Hồ sơ và đơn hàng của bạn</p>
+              <i aria-hidden="true">↗</i>
             </Link>
           </div>
         </div>
       </section>
-      <section className={styles.benefits} aria-label="Trải nghiệm mua sắm">
-        <div className={styles.container}>
-          <div className={styles.benefitGrid}>
-            <div>
-              <span>01 / KHÁM PHÁ</span>
-              <p>Chọn phiên bản phù hợp</p>
-            </div>
-            <div>
-              <span>02 / MINH BẠCH</span>
-              <p>Giá & tồn kho từ hệ thống</p>
-            </div>
-            <div>
-              <span>03 / CÁ NHÂN</span>
-              <p>Hồ sơ và đơn hàng của bạn</p>
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className={styles.section}>
+      <section id="explore" className={styles.section}>
         <div className={styles.container}>
           <div className={styles.sectionHeading}>
             <div>
