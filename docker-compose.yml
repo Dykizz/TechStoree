@@ -46,9 +46,13 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
     ports:
       - "${PGADMIN_PORT:-5051}:80"
+    volumes:
+      - ./servers.json:/pgadmin4/servers.json
+      - webbanhang_pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   webbanhang_pgdata:
+  webbanhang_pgadmin_data:

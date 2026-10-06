@@ -1,0 +1,110 @@
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: clamp(590px, 46vw, 740px);
+  background: #000;
+}
+.scene {
+  --canvas: #000;
+  --foreground: #f5f5f7;
+  --muted: #b8b8bf;
+  --accent: #ff7d88;
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background: var(--canvas);
+  color: var(--foreground);
+}
+.duo {
+  --canvas: #f6f5f8;
+  --foreground: #1d1d1f;
+  --muted: #64646b;
+  --accent: #ba2030;
+}
+.airpods {
+  --canvas: #fdfdfb;
+  --foreground: #1d1d1f;
+  --muted: #64646b;
+  --accent: #ba2030;
+}
+.galaxy {
+  --canvas: #514971;
+  --muted: #e0daef;
+  --accent: #ffadb5;
+}
+.active { visibility: visible; pointer-events: auto; z-index: 2; }
+.outgoing { visibility: visible; z-index: 1; }
+.entering { animation: reveal 800ms cubic-bezier(.22, .68, .16, 1) both; }
+/* Reveal complete opaque scenes: no double-exposed products or black gaps. */
+@keyframes reveal { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0); } }
+.media {
+  position: absolute;
+  inset: 4% -4% 0 28%;
+  mask-image: linear-gradient(to right, transparent, #000 18%);
+}
+.media img { object-fit: contain; object-position: center 70%; }
+.galaxy .media {
+  mask-image: linear-gradient(to right, transparent, #000 22%), linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+  mask-composite: intersect;
+}
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 94%, transparent) 25%, color-mix(in srgb, var(--canvas) 65%, transparent) 43%, transparent 65%);
+  pointer-events: none;
+}
+.inner {
+  position: relative;
+  max-width: 1280px;
+  min-height: clamp(590px, 46vw, 740px);
+  margin: auto;
+  padding: 78px 32px 108px;
+  display: flex;
+  align-items: center;
+}
+.copy { max-width: 530px; width: 44%; }
+.eyebrow { color: var(--accent); font-size: 10px; font-weight: 750; letter-spacing: .14em; line-height: 1.7; }
+.copy h1 { margin: 22px 0 26px; font-size: clamp(42px, 4.25vw, 64px); font-weight: 650; letter-spacing: -.055em; line-height: 1.12; text-wrap: balance; }
+.copy h1 span { color: var(--muted); }
+.subtitle { max-width: 400px; color: var(--muted); font-size: 15px; line-height: 1.75; }
+.actions { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; margin-top: 30px; }
+.primary { display: inline-flex; align-items: center; gap: 16px; padding: 15px 20px; border-radius: 9px; background: var(--foreground); color: var(--canvas); font-size: 13px; font-weight: 650; text-decoration: none; transition: background .2s, color .2s; }
+.primary:hover { background: var(--brand); color: #fff; }
+.secondary { color: var(--foreground); text-decoration: none; font-size: 13px; font-weight: 600; }
+.secondary:hover { text-decoration: underline; text-underline-offset: 5px; }
+.caption { position: absolute; right: 32px; bottom: 35px; display: grid; gap: 5px; font-size: 13px; font-weight: 650; text-align: right; }
+.caption span { color: var(--muted); font-size: 9px; font-weight: 500; letter-spacing: .08em; }
+.hero a:focus-visible { outline: 2px solid var(--brand); outline-offset: 4px; }
+@media (min-width: 1800px) { .media { inset-inline-start: 34%; inset-inline-end: 2%; } }
+@media (max-width: 1000px) {
+  .copy { width: 49%; }
+  .inner { padding-top: 60px; }
+  .actions { gap: 18px; }
+}
+@media (max-width: 760px) {
+  .hero, .inner { min-height: 840px; }
+  .inner { padding: 42px 20px 360px; align-items: flex-start; }
+  .copy { width: 100%; max-width: 520px; }
+  .copy h1 { font-size: clamp(38px, 7.5vw, 52px); max-width: 510px; margin: 18px 0 20px; }
+  .subtitle { font-size: 14px; max-width: 420px; }
+  .media { inset: auto 0 85px; height: 360px; mask-image: none; }
+  .media img { object-position: center; }
+  .galaxy .media { mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent); }
+  .scrim { background: linear-gradient(to bottom, var(--canvas) 0%, var(--canvas) 44%, transparent 63%); }
+  .caption { right: 20px; bottom: 30px; max-width: 135px; }
+}
+@media (max-width: 390px) {
+  .hero, .inner { min-height: 870px; }
+  .inner { padding-bottom: 365px; }
+  .caption { font-size: 11px; max-width: 105px; }
+}
+@media (max-width: 340px) {
+  .hero, .inner { min-height: 920px; }
+  .caption span { letter-spacing: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .entering { animation: none; }
+  .primary { transition: none; }
+}
