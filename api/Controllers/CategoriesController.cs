@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Categories;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -42,7 +43,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// </summary>
     /// <param name="dto">Dữ liệu tạo danh mục</param>
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<CategoryDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -59,7 +60,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// <param name="id">Mã ID danh mục cần sửa</param>
     /// <param name="dto">Dữ liệu cập nhật danh mục</param>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<CategoryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -76,7 +77,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// </summary>
     /// <param name="id">Mã ID danh mục cần xóa</param>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

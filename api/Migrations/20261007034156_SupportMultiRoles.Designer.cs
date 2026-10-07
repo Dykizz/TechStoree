@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using WebBanHang.Api.Data;
@@ -11,9 +12,11 @@ using WebBanHang.Api.Data;
 namespace WebBanHang.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261007034156_SupportMultiRoles")]
+    partial class SupportMultiRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -244,10 +247,6 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<int?>("UpdatedByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("updated_by_user_id");
-
                     b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
@@ -279,8 +278,6 @@ namespace WebBanHang.Api.Migrations
                         .IsUnique();
 
                     b.HasIndex("OrderStatus");
-
-                    b.HasIndex("UpdatedByUserId");
 
                     b.HasIndex("UserId");
 
@@ -1136,10 +1133,6 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<int?>("CreatedByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("created_by_user_id");
-
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("date_of_birth");
@@ -1193,8 +1186,6 @@ namespace WebBanHang.Api.Migrations
 
                     b.HasKey("UserId");
 
-                    b.HasIndex("CreatedByUserId");
-
                     b.HasIndex("Email")
                         .IsUnique();
 
@@ -1221,13 +1212,7 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnName("assigned_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<int?>("AssignedByUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("assigned_by_user_id");
-
                     b.HasKey("UserId", "RoleId");
-
-                    b.HasIndex("AssignedByUserId");
 
                     b.HasIndex("RoleId");
 
@@ -1438,11 +1423,6 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.Order", b =>
                 {
-                    b.HasOne("WebBanHang.Api.Models.User", "UpdatedByUser")
-                        .WithMany()
-                        .HasForeignKey("UpdatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("WebBanHang.Api.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1453,8 +1433,6 @@ namespace WebBanHang.Api.Migrations
                         .WithMany()
                         .HasForeignKey("VoucherId")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("UpdatedByUser");
 
                     b.Navigation("User");
 
@@ -1624,23 +1602,8 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Survey");
                 });
 
-            modelBuilder.Entity("WebBanHang.Api.Models.User", b =>
-                {
-                    b.HasOne("WebBanHang.Api.Models.User", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("CreatedByUser");
-                });
-
             modelBuilder.Entity("WebBanHang.Api.Models.UserRole", b =>
                 {
-                    b.HasOne("WebBanHang.Api.Models.User", "AssignedByUser")
-                        .WithMany()
-                        .HasForeignKey("AssignedByUserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("WebBanHang.Api.Models.Role", "Role")
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
@@ -1652,8 +1615,6 @@ namespace WebBanHang.Api.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("AssignedByUser");
 
                     b.Navigation("Role");
 

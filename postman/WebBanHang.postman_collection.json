@@ -240,7 +240,7 @@
       "name": "Users",
       "item": [
         {
-          "name": "1. Danh sách người dùng (Phân trang items + meta)",
+          "name": "1. Danh sách người dùng (Phân trang, lọc Role & StaffOnly)",
           "id": "ba8eb557-7f4b-4bab-af0a-e0da17dbda8c",
           "request": {
             "auth": {
@@ -268,11 +268,19 @@
                 },
                 {
                   "key": "role",
-                  "value": "USER"
+                  "value": "WAREHOUSE_STAFF",
+                  "description": "Lọc vai trò: ADMIN, WAREHOUSE_STAFF, SALES_STAFF, SURVEY_STAFF, USER",
+                  "disabled": true
                 },
                 {
                   "key": "search",
                   "value": ""
+                },
+                {
+                  "key": "isStaffOnly",
+                  "value": "true",
+                  "disabled": true,
+                  "description": "Lọc nhân sự nội bộ (true: chỉ nhân viên/admin, false: chỉ khách hàng, null: tất cả)"
                 }
               ]
             }
@@ -283,7 +291,64 @@
           "uid": "37058152-ba8eb557-7f4b-4bab-af0a-e0da17dbda8c"
         },
         {
-          "name": "2. Chi tiết người dùng theo ID",
+          "name": "2. Tạo mới tài khoản nhân viên / người dùng (POST /api/users)",
+          "id": "d4fd159c-c90e-4f03-9d1c-bca5f6a8beae",
+          "request": {
+            "auth": {
+              "type": "bearer"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"kho_{{$timestamp}}\",\n  \"email\": \"kho_{{$timestamp}}@techstoree.vn\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Trần Văn Kho\",\n  \"phone\": \"0987654321\",\n  \"dateOfBirth\": \"1998-05-20T00:00:00Z\",\n  \"techInterest\": \"Laptop\",\n  \"address\": \"Kho Tổng, TP.HCM\",\n  \"roles\": [\n    \"WAREHOUSE_STAFF\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users"
+              ]
+            },
+            "description": "Quản trị viên (ADMIN) tạo mới tài khoản nhân viên hoặc khách hàng với danh sách vai trò tùy chọn (roles). Tự động ghi nhận Admin khởi tạo vào `createdByUserId`."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"User created with multi-role and audit tracking\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.roles).to.be.an(\"array\").that.includes(\"WAREHOUSE_STAFF\");",
+                  "    pm.expect(json.data.createdByUserId).to.be.a(\"number\");",
+                  "    pm.environment.set(\"createdStaffId\", json.data.userId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Chi tiết người dùng theo ID (GET /api/users/:id)",
           "id": "e2d69534-c4b1-491c-a6b4-4b89d28e882f",
           "request": {
             "auth": {
@@ -309,7 +374,7 @@
           "uid": "37058152-e2d69534-c4b1-491c-a6b4-4b89d28e882f"
         },
         {
-          "name": "3. Khóa / Mở khóa tài khoản (Toggle Lock)",
+          "name": "4. Khóa / Mở khóa tài khoản (PATCH /api/users/:id/toggle-lock)",
           "id": "0c63dda4-b4e8-486e-aaa2-f6a3da980c3d",
           "request": {
             "auth": {
@@ -350,7 +415,7 @@
           "uid": "37058152-0c63dda4-b4e8-486e-aaa2-f6a3da980c3d"
         },
         {
-          "name": "4. Đổi vai trò tài khoản (Update Role)",
+          "name": "5. Cập nhật nhiều vai trò cho tài khoản (PATCH /api/users/:id/role - Multi-role RBAC)",
           "id": "8f99cd1d-9621-4e13-aac6-f15d95ab4f79",
           "request": {
             "auth": {
@@ -365,7 +430,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"roleId\": \"ADMIN\"\n}",
+              "raw": "{\n  \"roles\": [\n    \"WAREHOUSE_STAFF\",\n    \"SALES_STAFF\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -383,7 +448,8 @@
                 "3",
                 "role"
               ]
-            }
+            },
+            "description": "Quản trị viên (ADMIN) cập nhật danh sách nhiều vai trò cho tài khoản. Tự động lưu `assignedByUserId`."
           },
           "response": [],
           "createdAt": "2026-09-21T17:11:35.000Z",
@@ -391,7 +457,7 @@
           "uid": "37058152-8f99cd1d-9621-4e13-aac6-f15d95ab4f79"
         },
         {
-          "name": "5. Cập nhật hồ sơ cá nhân (Update Profile)",
+          "name": "6. Cập nhật hồ sơ cá nhân (PUT /api/users/profile)",
           "id": "ddef2316-3e15-4b51-81b6-8f4deb181266",
           "request": {
             "auth": {
@@ -431,7 +497,7 @@
           "uid": "37058152-ddef2316-3e15-4b51-81b6-8f4deb181266"
         },
         {
-          "name": "6. Lấy danh mục sở thích công nghệ chuẩn hóa (GET /api/users/tech-interests)",
+          "name": "7. Lấy danh mục sở thích công nghệ chuẩn hóa (GET /api/users/tech-interests)",
           "request": {
             "auth": {
               "type": "noauth"
@@ -470,7 +536,7 @@
           ]
         },
         {
-          "name": "7. [Admin] Báo cáo phân tích nhân khẩu học khách hàng (GET /api/users/demographics)",
+          "name": "8. [Admin] Báo cáo phân tích nhân khẩu học khách hàng (GET /api/users/demographics)",
           "request": {
             "auth": {
               "type": "bearer",
@@ -5152,7 +5218,7 @@
           ]
         },
         {
-          "name": "7. [ADMIN] Quản lý danh sách toàn bộ đơn hàng (GET /api/orders/admin/all)",
+          "name": "7. [ADMIN / BÁN HÀNG] Quản lý danh sách toàn bộ đơn hàng (GET /api/orders/admin/all)",
           "id": "27288346-7c7f-4359-8585-c5bd967a989c",
           "request": {
             "auth": {
@@ -5194,7 +5260,7 @@
                 }
               ]
             },
-            "description": "Dành cho Quản trị viên: Lọc, tra cứu và phân trang danh sách toàn bộ đơn hàng trên sàn."
+            "description": "[ADMIN / SALES_STAFF] Tra cứu và quản lý toàn bộ đơn hàng trong hệ thống (Hỗ trợ phân quyền ADMIN và SALES_STAFF)."
           },
           "event": [
             {
@@ -5216,7 +5282,7 @@
           ]
         },
         {
-          "name": "8. [ADMIN] Cập nhật trạng thái sang CONFIRMED (PATCH /api/orders/:id/status)",
+          "name": "8. [ADMIN / BÁN HÀNG] Cập nhật trạng thái sang CONFIRMED (PATCH /api/orders/:id/status)",
           "id": "d8fab3b6-4a97-4cd4-9d56-6337cac1a1eb",
           "request": {
             "auth": {
@@ -5261,7 +5327,7 @@
                 "status"
               ]
             },
-            "description": "Quản trị viên chuyển trạng thái đơn hàng sang Đã xác nhận (CONFIRMED)."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang CONFIRMED. Tự động ghi nhận nhân viên thao tác vào `updatedByUserId` và `updatedByUsername`."
           },
           "event": [
             {
@@ -5272,10 +5338,11 @@
                   "pm.test(\"Status code is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test(\"Status updated to CONFIRMED\", function () {",
+                  "pm.test(\"Status updated to CONFIRMED and staff audit tracked\", function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.orderStatus).to.eql(\"CONFIRMED\");",
+                  "    pm.expect(json.data.updatedByUserId).to.be.a(\"number\");",
                   "});"
                 ]
               }
@@ -5283,7 +5350,7 @@
           ]
         },
         {
-          "name": "9. [ADMIN] Cập nhật trạng thái sang SHIPPING (PATCH /api/orders/:id/status)",
+          "name": "9. [ADMIN / BÁN HÀNG] Cập nhật trạng thái sang SHIPPING (PATCH /api/orders/:id/status)",
           "id": "246bfc61-0715-4842-81bb-bb7e07502630",
           "request": {
             "auth": {
@@ -5328,7 +5395,7 @@
                 "status"
               ]
             },
-            "description": "Quản trị viên chuyển trạng thái đơn hàng sang Đang vận chuyển (SHIPPING)."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang SHIPPING."
           },
           "event": [
             {
@@ -5350,7 +5417,7 @@
           ]
         },
         {
-          "name": "10. [ADMIN] Cập nhật trạng thái sang DELIVERED (PATCH /api/orders/:id/status)",
+          "name": "10. [ADMIN / BÁN HÀNG] Cập nhật trạng thái sang DELIVERED (PATCH /api/orders/:id/status)",
           "id": "9e39b7d5-c312-46ca-8c73-72df7a764798",
           "request": {
             "auth": {
@@ -5395,7 +5462,7 @@
                 "status"
               ]
             },
-            "description": "Giao hàng thành công (DELIVERED): Tự động đánh dấu PaymentStatus = PAID cho đơn thanh toán COD."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang DELIVERED."
           },
           "event": [
             {

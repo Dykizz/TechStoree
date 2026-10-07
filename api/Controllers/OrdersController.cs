@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Orders;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Services.Interfaces;
 
@@ -108,15 +109,15 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderRequestDto request)
     {
-        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin);
+        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || HasRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SalesStaff));
         return Success(result, "Hủy đơn hàng thành công. Tồn kho và Voucher (nếu có) đã được hoàn lại.");
     }
 
     /// <summary>
-    /// [ADMIN] Tra cứu và quản lý toàn bộ đơn hàng trong hệ thống
+    /// [ADMIN / BÁN HÀNG] Tra cứu và quản lý toàn bộ đơn hàng trong hệ thống
     /// </summary>
     [HttpGet("admin/all")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<OrderBaseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllOrders([FromQuery] OrderQueryFilter filter)
@@ -126,17 +127,17 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     }
 
     /// <summary>
-    /// [ADMIN] Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, CANCELLED)
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, CANCELLED)
     /// </summary>
     [HttpPatch("{id:int}/status")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<OrderDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateOrderStatus(int id, [FromBody] UpdateOrderStatusDto request)
     {
-        var result = await orderService.UpdateOrderStatusAsync(id, request);
+        var result = await orderService.UpdateOrderStatusAsync(id, request, CurrentUserId);
         return Success(result, "Cập nhật trạng thái đơn hàng thành công.");
     }
 }

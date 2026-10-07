@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
+using WebBanHang.Api.Enums;
 
 namespace WebBanHang.Api.Models;
 
@@ -10,7 +11,7 @@ public class Role
     [Key]
     [Column("role_id")]
     [MaxLength(20)]
-    public string RoleId { get; set; } = string.Empty; // "ADMIN", "USER"
+    public UserRoleType RoleId { get; set; }
 
     [Required]
     [Column("role_name")]
@@ -18,5 +19,5 @@ public class Role
     public string RoleName { get; set; } = string.Empty;
 
     [JsonIgnore]
-    public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

@@ -43,10 +43,16 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
             DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
             TechInterest = dto.TechInterest?.Trim(),
             Address = dto.Address?.Trim(),
-            RoleId = UserRoleTypeExtensions.User, // Mặc định tài khoản đăng ký là USER
             IsLocked = false,
             CreatedAt = DateTime.UtcNow
         };
+
+        // 5. Gán mặc định vai trò USER (Khách hàng) vào bảng trung gian user_roles
+        newUser.UserRoles.Add(new UserRole
+        {
+            RoleId = UserRoleType.USER,
+            AssignedAt = DateTime.UtcNow
+        });
 
         context.Users.Add(newUser);
         await context.SaveChangesAsync();
@@ -56,9 +62,10 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
     {
-        // 1. Tìm tài khoản theo email
+        // 1. Tìm tài khoản theo email kèm danh sách các vai trò
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.Trim().ToLower());
 
         // 2. Kiểm tra tài khoản tồn tại và khớp mật khẩu
@@ -97,9 +104,10 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
             throw new BadRequestException("Refresh token không được để trống.");
         }
 
-        // 1. Tìm tài khoản sở hữu refresh token này
+        // 1. Tìm tài khoản sở hữu refresh token này kèm danh sách vai trò
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
 
         // 2. Kiểm tra tính hợp lệ và thời hạn của token
@@ -144,7 +152,8 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
     public async Task<UserInfoDto> GetCurrentUserProfileAsync(int userId)
     {
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == userId);
 
         if (user == null)

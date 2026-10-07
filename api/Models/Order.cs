@@ -112,6 +112,12 @@ public class Order
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    [Column("updated_by_user_id")]
+    public int? UpdatedByUserId { get; set; }
+
+    [ForeignKey("UpdatedByUserId")]
+    public User? UpdatedByUser { get; set; }
+
     [Column("paid_at")]
     public DateTime? PaidAt { get; set; }
 
