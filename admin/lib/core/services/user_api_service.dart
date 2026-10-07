@@ -118,8 +118,12 @@ mixin UserApiService on BaseApiService {
     }
 
     try {
-      // 1. Cập nhật role qua backend API nếu role thay đổi
-      await updateUserRole(user.id, user.role, token: token);
+      // 1. Cập nhật các roles qua backend API
+      if (user.roles.isNotEmpty) {
+        await updateUserRoles(user.id, user.roles, token: token);
+      } else {
+        await updateUserRole(user.id, user.role, token: token);
+      }
 
       // 2. Cập nhật profile qua API /users/profile (nếu khớp với user token)
       await httpPut(
@@ -165,6 +169,7 @@ mixin UserApiService on BaseApiService {
         fullName: old.fullName,
         email: old.email,
         role: old.role,
+        roles: old.roles,
         status: old.isLocked ? 'Hoạt động' : 'Tạm khóa',
         isLocked: !old.isLocked,
         phone: old.phone,
@@ -181,11 +186,20 @@ mixin UserApiService on BaseApiService {
   }
 
   Future<bool> updateUserRole(String userId, String roleId, {String? token}) async {
+    return updateUserRoles(userId, [roleId], token: token);
+  }
+
+  Future<bool> updateUserRoles(String userId, List<String> roles, {String? token}) async {
+    final primaryRole = roles.isNotEmpty ? roles.first : 'USER';
     try {
       final response = await httpPatch(
-        Uri.parse('$baseUrl/users/$userId/role'),
+        Uri.parse('$baseUrl/users/$userId/roles'),
         token: token,
-        body: json.encode({'roleId': roleId}),
+        body: json.encode({
+          'roles': roles,
+          'roleId': primaryRole,
+          'role': primaryRole,
+        }),
       );
 
       final data = parseApiResponse(response);
@@ -194,8 +208,9 @@ mixin UserApiService on BaseApiService {
         return true;
       }
     } catch (e) {
-      debugPrint('API Error updateUserRole: $e');
+      debugPrint('API Error updateUserRoles: $e');
     }
+
     final idx = mockUsers.indexWhere((u) => u.id == userId);
     if (idx != -1) {
       final old = mockUsers[idx];
@@ -204,7 +219,8 @@ mixin UserApiService on BaseApiService {
         userName: old.userName,
         fullName: old.fullName,
         email: old.email,
-        role: roleId,
+        role: primaryRole,
+        roles: roles,
         status: old.status,
         isLocked: old.isLocked,
         phone: old.phone,

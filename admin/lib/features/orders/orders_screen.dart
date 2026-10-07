@@ -12,6 +12,7 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -543,15 +544,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.vertical,
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: ConstrainedBox(
-                                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                      child: DataTable(
+                            ScrollableTableWrapper(
+                              child: DataTable(
                                         headingRowHeight: 40,
                                         dataRowMinHeight: 48,
                                         dataRowMaxHeight: 52,
@@ -660,10 +654,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                           );
                                         }).toList(),
                                       ),
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
                             if (_totalItems > 0)
                               AppPagination(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../providers/auth_provider.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/theme_provider.dart';
 import 'app_sidebar.dart';
@@ -20,9 +21,35 @@ import '../../features/settings/settings_screen.dart';
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
 
+  bool _hasPermissionForRoute(int index, AuthProvider authProvider) {
+    final roles = authProvider.userRoles;
+    final isAdmin = roles.contains('ADMIN') || authProvider.userRole == 'ADMIN';
+    if (isAdmin) return true;
+
+    final isWarehouse = roles.contains('WAREHOUSE_STAFF') || authProvider.userRole == 'WAREHOUSE_STAFF';
+    final isSales = roles.contains('SALES_STAFF') || authProvider.userRole == 'SALES_STAFF';
+    final isSurvey = roles.contains('SURVEY_STAFF') || authProvider.userRole == 'SURVEY_STAFF';
+
+    switch (index) {
+      case 0: return true; // Tổng quan
+      case 1: return isWarehouse || isSales; // Sản phẩm
+      case 2: return isSales; // Đơn hàng
+      case 3: return isWarehouse; // Danh mục
+      case 4: return isWarehouse; // Nhà cung cấp
+      case 5: return isWarehouse; // Phiếu nhập hàng
+      case 6: return isSales; // Khuyến mãi
+      case 7: return isSales; // Vouchers
+      case 8: return isSurvey; // Khảo sát
+      case 9: return isSales || isSurvey; // Khách hàng / Users
+      case 10: return false; // Cài đặt (Admin only)
+      default: return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final navProvider = Provider.of<NavigationProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final titles = [
@@ -53,7 +80,16 @@ class MainLayout extends StatelessWidget {
       SettingsScreen(),
     ];
 
-    final currentIndex = navProvider.currentIndex < screens.length ? navProvider.currentIndex : 0;
+    final rawIndex = navProvider.currentIndex;
+    final hasPermission = _hasPermissionForRoute(rawIndex, authProvider);
+
+    if (!hasPermission) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navProvider.setIndex(0);
+      });
+    }
+
+    final currentIndex = (hasPermission && rawIndex < screens.length) ? rawIndex : 0;
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 850;
 
@@ -87,3 +123,4 @@ class MainLayout extends StatelessWidget {
     );
   }
 }
+

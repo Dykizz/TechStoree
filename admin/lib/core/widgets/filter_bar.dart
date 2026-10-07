@@ -27,14 +27,38 @@ class FilterBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: borderColor, width: 1),
       ),
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: searchField),
-          for (final filter in filters) ...[
-            const SizedBox(width: 8),
-            Expanded(flex: 2, child: filter),
-          ],
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final realFilters = filters.where((f) => f is! SizedBox).toList();
+          
+          if (constraints.maxWidth < 800) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                SizedBox(
+                  width: constraints.maxWidth,
+                  child: searchField,
+                ),
+                for (final filter in realFilters)
+                  SizedBox(
+                    width: constraints.maxWidth > 500 ? (constraints.maxWidth / 2) - 4 : constraints.maxWidth,
+                    child: filter,
+                  ),
+              ],
+            );
+          }
+          
+          return Row(
+            children: [
+              Expanded(flex: 3, child: searchField),
+              for (final filter in realFilters) ...[
+                const SizedBox(width: 8),
+                Expanded(flex: 2, child: filter),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

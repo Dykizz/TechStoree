@@ -1,7 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/theme_provider.dart';
+
+/// Formatter tự động phân cách hàng nghìn bằng dấu phẩy (VD: 10,000,000) khi nhập giá
+class CurrencyInputFormatter extends TextInputFormatter {
+  final NumberFormat _formatter = NumberFormat('#,###', 'en_US');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    final digitsOnly = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (digitsOnly.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    final number = int.tryParse(digitsOnly);
+    if (number == null) return oldValue;
+
+    final formatted = _formatter.format(number);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class AppTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -13,6 +45,7 @@ class AppTextField extends StatelessWidget {
   final FormFieldValidator<String>? validator;
   final bool obscureText;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
   final int maxLines;
   final bool readOnly;
   final TextCapitalization textCapitalization;
@@ -30,6 +63,7 @@ class AppTextField extends StatelessWidget {
     this.validator,
     this.obscureText = false,
     this.keyboardType,
+    this.inputFormatters,
     this.maxLines = 1,
     this.readOnly = false,
     this.textCapitalization = TextCapitalization.none,
@@ -53,6 +87,7 @@ class AppTextField extends StatelessWidget {
       validator: validator,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       maxLines: maxLines,
       readOnly: readOnly,
       textCapitalization: textCapitalization,
@@ -93,3 +128,4 @@ class AppTextField extends StatelessWidget {
     return textField;
   }
 }
+

@@ -12,6 +12,7 @@ import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -187,11 +188,8 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                               )
                             : SingleChildScrollView(
                                 scrollDirection: Axis.vertical,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 300),
-                                    child: DataTable(
+                                child: ScrollableTableWrapper(
+                                  child: DataTable(
                                       headingRowColor: WidgetStateProperty.all(
                                         isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                       ),
@@ -301,7 +299,6 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                     ),
                                   ),
                                 ),
-                              ),
                       ),
                       if (totalItems > 0)
                         AppPagination(

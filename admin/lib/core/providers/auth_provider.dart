@@ -10,6 +10,7 @@ class AuthProvider extends ChangeNotifier {
   String _userEmail = 'admin@techstoree.vn';
   String _userName = 'Quản Trị Viên';
   String _userRole = 'ADMIN';
+  List<String> _userRoles = ['ADMIN'];
   String? _token;
   String? _refreshToken;
   Future<bool>? _refreshFuture;
@@ -20,9 +21,15 @@ class AuthProvider extends ChangeNotifier {
   String get userEmail => _userEmail;
   String get userName => _userName;
   String get userRole => _userRole;
+  List<String> get userRoles => _userRoles;
   String? get token => _token;
   String? get refreshToken => _refreshToken;
   bool get hasRefreshToken => _refreshToken != null && _refreshToken!.isNotEmpty;
+
+  bool get isAdmin => _userRoles.contains('ADMIN') || _userRole == 'ADMIN';
+  bool get isSalesStaff => _userRoles.contains('SALES_STAFF') || _userRole == 'SALES_STAFF';
+  bool get isWarehouseStaff => _userRoles.contains('WAREHOUSE_STAFF') || _userRole == 'WAREHOUSE_STAFF';
+  bool get isSurveyStaff => _userRoles.contains('SURVEY_STAFF') || _userRole == 'SURVEY_STAFF';
 
   Future<bool> login(String email, String password, {String baseUrl = 'http://localhost:5000/api'}) async {
     _isLoading = true;
@@ -48,7 +55,12 @@ class AuthProvider extends ChangeNotifier {
         if (user != null) {
           _userEmail = user['email'] ?? email;
           _userName = user['fullName'] ?? user['username'] ?? 'Quản Trị Viên';
-          _userRole = user['role'] ?? 'ADMIN';
+          if (user['roles'] != null && user['roles'] is List) {
+            _userRoles = List<String>.from(user['roles']);
+          } else {
+            _userRoles = [];
+          }
+          _userRole = user['primaryRole'] ?? user['role'] ?? (_userRoles.isNotEmpty ? _userRoles.first : 'ADMIN');
         }
         _isLoggedIn = true;
         _isLoading = false;
@@ -67,6 +79,7 @@ class AuthProvider extends ChangeNotifier {
       _userEmail = 'admin@techstoree.vn';
       _userName = 'Quản Trị Viên';
       _userRole = 'ADMIN';
+      _userRoles = ['ADMIN'];
       _token = 'demo-jwt-token-techstoree-2026';
       _refreshToken = 'demo-refresh-token-techstoree-2026';
       BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
@@ -77,7 +90,19 @@ class AuthProvider extends ChangeNotifier {
       _isLoggedIn = true;
       _userEmail = email;
       _userName = email.split('@').first.toUpperCase();
-      _userRole = 'ADMIN';
+      if (email.contains('kho')) {
+        _userRole = 'WAREHOUSE_STAFF';
+        _userRoles = ['WAREHOUSE_STAFF'];
+      } else if (email.contains('sales')) {
+        _userRole = 'SALES_STAFF';
+        _userRoles = ['SALES_STAFF'];
+      } else if (email.contains('survey') || email.contains('crm')) {
+        _userRole = 'SURVEY_STAFF';
+        _userRoles = ['SURVEY_STAFF'];
+      } else {
+        _userRole = 'ADMIN';
+        _userRoles = ['ADMIN'];
+      }
       _token = 'demo-jwt-token';
       _refreshToken = 'demo-refresh-token';
       BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
@@ -136,7 +161,10 @@ class AuthProvider extends ChangeNotifier {
           if (user != null) {
             _userEmail = user['email'] ?? _userEmail;
             _userName = user['fullName'] ?? user['username'] ?? _userName;
-            _userRole = user['role'] ?? _userRole;
+            if (user['roles'] != null && user['roles'] is List) {
+              _userRoles = List<String>.from(user['roles']);
+            }
+            _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
           }
           debugPrint('[AuthProvider] Access token successfully refreshed!');
           notifyListeners();
@@ -166,7 +194,10 @@ class AuthProvider extends ChangeNotifier {
     if (user != null && user is Map<String, dynamic>) {
       _userEmail = user['email'] ?? _userEmail;
       _userName = user['fullName'] ?? user['username'] ?? _userName;
-      _userRole = user['role'] ?? _userRole;
+      if (user['roles'] != null && user['roles'] is List) {
+        _userRoles = List<String>.from(user['roles']);
+      }
+      _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
     }
     notifyListeners();
   }

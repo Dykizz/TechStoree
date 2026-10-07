@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -12,6 +13,7 @@ import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -230,11 +232,8 @@ class _VouchersScreenState extends State<VouchersScreen> {
                               )
                             : SingleChildScrollView(
                                 scrollDirection: Axis.vertical,
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 300),
-                                    child: DataTable(
+                                child: ScrollableTableWrapper(
+                                  child: DataTable(
                                       headingRowHeight: 40,
                                       dataRowMinHeight: 56,
                                       dataRowMaxHeight: 64,
@@ -286,8 +285,25 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                                           ),
                                                         ),
                                                       ),
+                                                      const SizedBox(width: 4),
+                                                      InkWell(
+                                                        onTap: () {
+                                                          Clipboard.setData(ClipboardData(text: voucher.code));
+                                                          ScaffoldMessenger.of(context).showSnackBar(
+                                                            SnackBar(
+                                                              content: Text('Đã sao chép mã: ${voucher.code}'),
+                                                              duration: const Duration(seconds: 2),
+                                                              backgroundColor: AppColors.success,
+                                                            ),
+                                                          );
+                                                        },
+                                                        child: const Padding(
+                                                          padding: EdgeInsets.all(4.0),
+                                                          child: Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
+                                                        ),
+                                                      ),
                                                       if (!voucher.isPublic) ...[
-                                                        const SizedBox(width: 6),
+                                                        const SizedBox(width: 4),
                                                         Tooltip(
                                                           message: 'Voucher ẩn / Quà tặng riêng',
                                                           child: Icon(Icons.lock_rounded, size: 14, color: textSecondary),
@@ -424,7 +440,6 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                     ),
                                   ),
                                 ),
-                              ),
                       ),
 
                       // Pagination Controls

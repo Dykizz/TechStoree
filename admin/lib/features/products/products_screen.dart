@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
 import '../../core/models/product.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/cloudinary_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -270,12 +273,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
               PageHeader(
                 title: 'Quản lý Sản phẩm',
                 subtitle: 'Quản lý thông tin dòng sản phẩm, khoảng giá và các biến thể hệ thống TechStoree',
-                action: AppButton(
+                action: !authProvider.isSalesStaff ? AppButton(
                   label: 'Thêm sản phẩm mới',
                   icon: Icons.add_rounded,
                   variant: AppButtonVariant.primary,
                   onPressed: () => _showProductDialog(context, apiService, authProvider.token),
-                ),
+                ) : null,
               ),
               const SizedBox(height: AppTokens.space12),
 
@@ -476,6 +479,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       ? _buildTableProductsView(
                           paginatedProducts,
                           apiService,
+                          authProvider,
                           authProvider.token,
                           surfaceColor,
                           borderColor,
@@ -517,6 +521,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
   Widget _buildTableProductsView(
     List<Product> products,
     ApiService apiService,
+    AuthProvider authProvider,
     String? token,
     Color surfaceColor,
     Color borderColor,
@@ -532,13 +537,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: DataTable(
+          ScrollableTableWrapper(
+            child: DataTable(
                     columnSpacing: 14,
                     horizontalMargin: 12,
                     headingRowHeight: 40,
@@ -664,47 +664,59 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Tooltip(
-                                  message: 'Xem & Chỉnh sửa',
-                                  child: IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                    icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
-                                    onPressed: () => _openProductDetail(product, 0),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Tooltip(
-                                  message: 'Xóa sản phẩm',
-                                  child: IconButton(
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                    icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
-                                    onPressed: () => _confirmDeleteProduct(context, apiService, token, product),
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                Tooltip(
-                                  message: product.isActive ? 'Ngừng kinh doanh' : 'Kích hoạt kinh doanh',
-                                  child: Transform.scale(
-                                    scale: 0.7,
-                                    child: Switch(
-                                      value: product.isActive,
-                                      onChanged: (_) async {
-                                        final res = await apiService.toggleProductStatus(product.id, token: token);
-                                        if (context.mounted) {
-                                          if (res.success) _loadProducts();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(res.message),
-                                              backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                                            ),
-                                          );
-                                        }
-                                      },
+                                if (!authProvider.isSalesStaff) ...[
+                                  Tooltip(
+                                    message: 'Xem & Chỉnh sửa',
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                                      onPressed: () => _openProductDetail(product, 0),
                                     ),
                                   ),
-                                ),
+                                  const SizedBox(width: 2),
+                                  Tooltip(
+                                    message: 'Xóa sản phẩm',
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                                      onPressed: () => _confirmDeleteProduct(context, apiService, token, product),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Tooltip(
+                                    message: product.isActive ? 'Ngừng kinh doanh' : 'Kích hoạt kinh doanh',
+                                    child: Transform.scale(
+                                      scale: 0.7,
+                                      child: Switch(
+                                        value: product.isActive,
+                                        onChanged: (_) async {
+                                          final res = await apiService.toggleProductStatus(product.id, token: token);
+                                          if (context.mounted) {
+                                            if (res.success) _loadProducts();
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text(res.message),
+                                                backgroundColor: res.success ? AppColors.success : AppColors.danger,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                ] else ...[
+                                  Tooltip(
+                                    message: 'Xem chi tiết',
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.visibility_outlined, size: 16, color: AppColors.primary),
+                                      onPressed: () => _openProductDetail(product, 0),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -712,9 +724,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       );
                     }).toList(),
                   ),
-                ),
-              );
-            },
           ),
           if (totalItems > 0)
             AppPagination(
@@ -882,84 +891,189 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final descCtrl = TextEditingController();
     final imageCtrl = TextEditingController();
     int selectedCategoryId = categories.isNotEmpty ? (int.tryParse(categories.first.id) ?? 1) : 1;
+    bool isUploadingImage = false;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-          title: const Row(
-            children: [
-              Icon(Icons.add_box_outlined, color: AppColors.primary, size: 20),
-              SizedBox(width: AppTokens.space8),
-              Text('Thêm sản phẩm mới vào kho', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            ],
-          ),
-          content: SizedBox(
-            width: 550,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppTextField(controller: nameCtrl, labelText: 'Tên sản phẩm (*)'),
-                  const SizedBox(height: AppTokens.space12),
-                  if (categories.isNotEmpty) ...[
-                    AppDropdown<int>(
-                      value: selectedCategoryId,
-                      items: categories.map((cat) {
-                        return DropdownMenuItem<int>(
-                          value: int.tryParse(cat.id) ?? 1,
-                          child: Text(cat.name),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedCategoryId = val);
-                      },
+        builder: (context, setDialogState) {
+          final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+          final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+          final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+          final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
+            title: const Row(
+              children: [
+                Icon(Icons.add_box_outlined, color: AppColors.primary, size: 20),
+                SizedBox(width: AppTokens.space8),
+                Text('Thêm sản phẩm mới vào kho', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              ],
+            ),
+            content: SizedBox(
+              width: 580,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppTextField(controller: nameCtrl, labelText: 'Tên sản phẩm (*)'),
+                    const SizedBox(height: AppTokens.space12),
+                    if (categories.isNotEmpty) ...[
+                      AppDropdown<int>(
+                        value: selectedCategoryId,
+                        items: categories.map((cat) {
+                          return DropdownMenuItem<int>(
+                            value: int.tryParse(cat.id) ?? 1,
+                            child: Text(cat.name),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setDialogState(() => selectedCategoryId = val);
+                        },
+                      ),
+                      const SizedBox(height: AppTokens.space12),
+                    ],
+                    AppTextField(
+                      controller: priceCtrl,
+                      labelText: 'Giá niêm yết mặc định (VNĐ)',
+                      hintText: 'VD: 10,000,000',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [CurrencyInputFormatter()],
                     ),
                     const SizedBox(height: AppTokens.space12),
+                    AppTextField(controller: descCtrl, labelText: 'Mô tả chi tiết', maxLines: 3),
+                    const SizedBox(height: AppTokens.space16),
+
+                    // --- KHUNG DEMO ANH & CHON ANH ---
+                    Text('Ảnh đại diện sản phẩm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Demo Ảnh kế bên (100x100)
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: imageCtrl.text.trim().isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(AppTokens.radiusSm - 1),
+                                  child: Image.network(
+                                    imageCtrl.text.trim(),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (c, e, s) => const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.broken_image_outlined, color: AppColors.danger, size: 24),
+                                          SizedBox(height: 4),
+                                          Text('Lỗi ảnh', style: TextStyle(fontSize: 10, color: AppColors.danger)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.image_outlined, color: textSecondary, size: 28),
+                                      const SizedBox(height: 4),
+                                      Text('Demo ảnh', style: TextStyle(fontSize: 10, color: textSecondary)),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Nhập URL hoặc tải từ máy
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AppTextField(
+                                controller: imageCtrl,
+                                labelText: 'URL Ảnh sản phẩm',
+                                hintText: 'Dán URL hoặc tải từ máy tính...',
+                                onChanged: (_) => setDialogState(() {}),
+                              ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                icon: isUploadingImage
+                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                                    : const Icon(Icons.cloud_upload_outlined, size: 16),
+                                label: Text(
+                                  isUploadingImage ? 'Đang tải ảnh...' : 'Tải ảnh từ máy tính',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                onPressed: isUploadingImage
+                                    ? null
+                                    : () async {
+                                        final file = await FilePicker.pickFile(type: FileType.image);
+                                        if (file != null) {
+                                          setDialogState(() => isUploadingImage = true);
+                                          final bytes = await file.readAsBytes();
+                                          final url = await CloudinaryService.uploadImageBytes(
+                                            bytes: bytes,
+                                            fileName: file.name,
+                                            backendBaseUrl: apiService.baseUrl,
+                                            token: token,
+                                          );
+                                          setDialogState(() {
+                                            isUploadingImage = false;
+                                            if (url != null) imageCtrl.text = url;
+                                          });
+                                        }
+                                      },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                  AppTextField(controller: priceCtrl, labelText: 'Giá niêm yết mặc định (VNĐ)', keyboardType: TextInputType.number),
-                  const SizedBox(height: AppTokens.space12),
-                  AppTextField(controller: descCtrl, labelText: 'Mô tả chi tiết', maxLines: 3),
-                  const SizedBox(height: AppTokens.space12),
-                  AppTextField(controller: imageCtrl, labelText: 'URL Ảnh sản phẩm'),
-                ],
+                ),
               ),
             ),
-          ),
-          actions: [
-            AppButton(label: 'Hủy bỏ', variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(ctx)),
-            AppButton(
-              label: 'Tạo sản phẩm',
-              variant: AppButtonVariant.primary,
-              onPressed: () async {
-                final p = Product(
-                  id: '0',
-                  name: nameCtrl.text.trim(),
-                  sku: 'PROD-${DateTime.now().millisecondsSinceEpoch}',
-                  category: categories.where((c) => int.tryParse(c.id) == selectedCategoryId).isNotEmpty
-                      ? categories.firstWhere((c) => int.tryParse(c.id) == selectedCategoryId).name
-                      : (categories.isNotEmpty ? categories.first.name : 'Công nghệ'),
-                  categoryId: selectedCategoryId,
-                  price: double.tryParse(priceCtrl.text) ?? 0,
-                  stock: 0,
-                  status: 'In Stock',
-                  imageUrl: imageCtrl.text.trim().isNotEmpty ? imageCtrl.text.trim() : 'https://picsum.photos/200',
-                  description: descCtrl.text.trim(),
-                );
-                Navigator.pop(ctx);
-                final res = await apiService.createProduct(p, token: token);
-                if (context.mounted) {
-                  if (res.success) _loadProducts();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
+            actions: [
+              AppButton(label: 'Hủy bỏ', variant: AppButtonVariant.secondary, onPressed: () => Navigator.pop(ctx)),
+              AppButton(
+                label: 'Tạo sản phẩm',
+                variant: AppButtonVariant.primary,
+                onPressed: () async {
+                  final rawPrice = priceCtrl.text.replaceAll(RegExp(r'[^\d]'), '');
+                  final p = Product(
+                    id: '0',
+                    name: nameCtrl.text.trim(),
+                    sku: 'PROD-${DateTime.now().millisecondsSinceEpoch}',
+                    category: categories.where((c) => int.tryParse(c.id) == selectedCategoryId).isNotEmpty
+                        ? categories.firstWhere((c) => int.tryParse(c.id) == selectedCategoryId).name
+                        : (categories.isNotEmpty ? categories.first.name : 'Công nghệ'),
+                    categoryId: selectedCategoryId,
+                    price: double.tryParse(rawPrice) ?? 0,
+                    stock: 0,
+                    status: 'In Stock',
+                    imageUrl: imageCtrl.text.trim().isNotEmpty ? imageCtrl.text.trim() : 'https://picsum.photos/200',
+                    description: descCtrl.text.trim(),
                   );
-                }
-              },
-            ),
-          ],
-        ),
+                  Navigator.pop(ctx);
+                  final res = await apiService.createProduct(p, token: token);
+                  if (context.mounted) {
+                    if (res.success) _loadProducts();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
+                    );
+                  }
+                },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -1016,6 +1130,7 @@ class _AdminProductCardState extends State<AdminProductCard> {
     final textSecondary = widget.textSecondary;
     final borderColor = widget.borderColor;
     final surfaceColor = widget.surfaceColor;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     String highlightLabel = 'Hàng mới về';
     Color highlightBg = isDark ? const Color(0xFF14532D) : const Color(0xFFDCFCE7);
@@ -1213,32 +1328,34 @@ class _AdminProductCardState extends State<AdminProductCard> {
                     onPressed: () => widget.onManageVariants(p),
                   ),
                   const Spacer(),
-                  Tooltip(
-                    message: p.isActive ? 'Ngừng kinh doanh' : 'Kích hoạt',
-                    child: Transform.scale(
-                      scale: 0.75,
-                      child: Switch(
-                        value: p.isActive,
-                        onChanged: (_) async {
-                          final res = await widget.apiService.toggleProductStatus(p.id, token: widget.token);
-                          if (context.mounted) {
-                            if (res.success) widget.onLoadProducts();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                              ),
-                            );
-                          }
-                        },
+                  if (!authProvider.isSalesStaff) ...[
+                    Tooltip(
+                      message: p.isActive ? 'Ngừng kinh doanh' : 'Kích hoạt',
+                      child: Transform.scale(
+                        scale: 0.75,
+                        child: Switch(
+                          value: p.isActive,
+                          onChanged: (_) async {
+                            final res = await widget.apiService.toggleProductStatus(p.id, token: widget.token);
+                            if (context.mounted) {
+                              if (res.success) widget.onLoadProducts();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(res.message),
+                                  backgroundColor: res.success ? AppColors.success : AppColors.danger,
+                                ),
+                              );
+                            }
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
-                    tooltip: 'Xóa sản phẩm',
-                    onPressed: () => widget.onDelete(p),
-                  ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                      tooltip: 'Xóa sản phẩm',
+                      onPressed: () => widget.onDelete(p),
+                    ),
+                  ],
                 ],
               ),
             ),

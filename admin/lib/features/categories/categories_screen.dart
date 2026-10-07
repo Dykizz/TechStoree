@@ -127,9 +127,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 return SingleChildScrollView(
-                                  scrollDirection: Axis.vertical,
-                                  child: SizedBox(
-                                    width: constraints.maxWidth,
+                                  scrollDirection: Axis.horizontal,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
                                     child: DataTable(
                                       headingRowHeight: 38,
                                       dataRowMinHeight: 42,

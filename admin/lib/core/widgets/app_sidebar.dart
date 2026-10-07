@@ -19,7 +19,13 @@ class AppSidebar extends StatelessWidget {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    final navItems = [
+    final roles = authProvider.userRoles;
+    final isAdmin = roles.contains('ADMIN');
+    final isWarehouse = roles.contains('WAREHOUSE_STAFF');
+    final isSales = roles.contains('SALES_STAFF');
+    final isSurvey = roles.contains('SURVEY_STAFF');
+
+    final allNavItems = [
       _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Tổng quan', index: 0),
       _NavItem(icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2_rounded, label: 'Sản phẩm', index: 1),
       _NavItem(icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag_rounded, label: 'Đơn hàng', index: 2),
@@ -32,6 +38,24 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng / User', index: 9),
       _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 10),
     ];
+
+    final navItems = allNavItems.where((item) {
+      if (isAdmin) return true;
+      switch (item.index) {
+        case 0: return true; // Let everyone see Dashboard
+        case 1: return isWarehouse || isSales;
+        case 2: return isSales;
+        case 3: return isWarehouse;
+        case 4: return isWarehouse;
+        case 5: return isWarehouse;
+        case 6: return isSales;
+        case 7: return isSales;
+        case 8: return isSurvey;
+        case 9: return isSales || isSurvey;
+        case 10: return false; // Only ADMIN
+        default: return false;
+      }
+    }).toList();
 
     return Container(
       width: 240,
@@ -75,7 +99,7 @@ class AppSidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                   ),
                   child: Text(
-                    'ADMIN',
+                    authProvider.userRole,
                     style: TextStyle(
                       color: textSecondary,
                       fontWeight: FontWeight.w600,
@@ -223,6 +247,7 @@ class AppSidebar extends StatelessWidget {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
             onPressed: () {
               Navigator.pop(ctx);
+              Provider.of<NavigationProvider>(context, listen: false).reset();
               authProvider.logout();
             },
             child: const Text('Đăng Xuất', style: TextStyle(color: Colors.white)),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
@@ -28,6 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final navProvider = Provider.of<NavigationProvider>(context, listen: false);
     final email = _emailCtrl.text.trim();
     final password = _passwordCtrl.text;
 
@@ -42,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final success = await authProvider.login(email, password);
-    if (!success && mounted && authProvider.errorMessage != null) {
+    if (success) {
+      navProvider.reset();
+    } else if (mounted && authProvider.errorMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.errorMessage!),

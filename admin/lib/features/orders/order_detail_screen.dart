@@ -535,6 +535,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   const SizedBox(height: AppTokens.space12),
 
                                   DataTableContainer(
+                                    isScrollableTable: true,
                                     child: DataTable(
                                       headingRowHeight: 38,
                                       dataRowMinHeight: 50,
@@ -790,6 +791,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                             ],
+                            const SizedBox(height: AppTokens.space16),
+
+                            // Section H: AUDIT TRAIL
+                            Container(
+                              padding: const EdgeInsets.all(AppTokens.space16),
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.history_rounded, color: AppColors.primary, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text('Dấu vết kiểm toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
+                                    ],
+                                  ),
+                                  const Divider(height: 20),
+
+                                  _buildInfoRow('Người tạo:', _currentOrder.createdByName ?? 'Khách hàng tự đặt', textPrimary, textSecondary),
+                                  _buildInfoRow('Cập nhật lần cuối:', _currentOrder.updatedByName ?? 'Hệ thống', textPrimary, textSecondary),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),

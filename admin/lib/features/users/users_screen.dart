@@ -12,6 +12,7 @@ import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -27,6 +28,7 @@ class UsersScreen extends StatefulWidget {
 class _UsersScreenState extends State<UsersScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  String _selectedUserType = 'Tất cả';
   String _selectedRole = 'Tất cả';
   String _selectedTechInterest = 'Tất cả';
   int _currentPage = 1;
@@ -92,9 +94,18 @@ class _UsersScreenState extends State<UsersScreen> {
           ).toList();
         }
 
+        // Lọc nhóm đối tượng
+        if (_selectedUserType != 'Tất cả') {
+          if (_selectedUserType == 'staff') {
+            users = users.where((u) => u.role.toUpperCase() != 'USER' || u.roles.any((r) => r.toUpperCase() != 'USER')).toList();
+          } else if (_selectedUserType == 'customer') {
+            users = users.where((u) => u.role.toUpperCase() == 'USER' && (u.roles.isEmpty || u.roles.every((r) => r.toUpperCase() == 'USER'))).toList();
+          }
+        }
+
         // Lọc vai trò
         if (_selectedRole != 'Tất cả') {
-          users = users.where((u) => u.role.toUpperCase() == _selectedRole.toUpperCase()).toList();
+          users = users.where((u) => u.role.toUpperCase() == _selectedRole.toUpperCase() || u.roles.contains(_selectedRole.toUpperCase())).toList();
         }
 
         // Lọc sở thích công nghệ
@@ -123,11 +134,11 @@ class _UsersScreenState extends State<UsersScreen> {
               PageHeader(
                 title: 'Quản Lý Người Dùng & Khách Hàng',
                 subtitle: 'Quản lý tài khoản, thông tin cá nhân, sở thích công nghệ và phân quyền hệ thống',
-                action: AppButton(
+                action: authProvider.isAdmin ? AppButton(
                   label: 'Tạo Tài Khoản Mới',
                   icon: Icons.person_add_outlined,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                ),
+                ) : null,
               ),
 
               FilterBar(
@@ -151,13 +162,33 @@ class _UsersScreenState extends State<UsersScreen> {
                 ),
                 filters: [
                   AppDropdown<String>(
+                    value: _selectedUserType,
+                    labelText: 'Nhóm đối tượng',
+                    items: const [
+                      DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả đối tượng')),
+                      DropdownMenuItem(value: 'staff', child: Text('Nhân viên')),
+                      DropdownMenuItem(value: 'customer', child: Text('Khách hàng')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedUserType = val;
+                          _currentPage = 1;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  AppDropdown<String>(
                     value: _selectedRole,
                     labelText: 'Vai trò (Role)',
                     items: const [
                       DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả vai trò')),
-                      DropdownMenuItem(value: 'ADMIN', child: Text('Quản trị viên (ADMIN)')),
-                      DropdownMenuItem(value: 'STAFF', child: Text('Nhân viên (STAFF)')),
-                      DropdownMenuItem(value: 'USER', child: Text('Khách hàng (USER)')),
+                      DropdownMenuItem(value: 'ADMIN', child: Text('Quản trị viên')),
+                      DropdownMenuItem(value: 'WAREHOUSE_STAFF', child: Text('Thủ kho')),
+                      DropdownMenuItem(value: 'SALES_STAFF', child: Text('Nhân viên bán hàng')),
+                      DropdownMenuItem(value: 'SURVEY_STAFF', child: Text('Nhân viên khảo sát')),
+                      DropdownMenuItem(value: 'USER', child: Text('Khách hàng')),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -202,13 +233,8 @@ class _UsersScreenState extends State<UsersScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                    child: DataTable(
+                            ScrollableTableWrapper(
+                              child: DataTable(
                                       headingRowHeight: 40,
                                       dataRowMinHeight: 46,
                                       dataRowMaxHeight: 46,
@@ -293,7 +319,7 @@ class _UsersScreenState extends State<UsersScreen> {
                                                 ),
                                               ),
                                             ),
-                                            DataCell(_buildRoleBadge(u.role)),
+                                            DataCell(_buildRolesBadges(u)),
                                             DataCell(
                                               StatusBadge(
                                                 label: u.isLocked ? 'KHOÁ' : 'HOẠT ĐỘNG',
@@ -312,24 +338,26 @@ class _UsersScreenState extends State<UsersScreen> {
                                                     tooltip: 'Xem chi tiết',
                                                     onPressed: () => _showDetailDialog(context, u),
                                                   ),
-                                                  IconButton(
-                                                    icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                    tooltip: 'Chỉnh sửa tài khoản',
-                                                    onPressed: () => _showFormDialog(context, apiService, authProvider.token, u),
-                                                  ),
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      !u.isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
-                                                      size: 15,
-                                                      color: !u.isLocked ? AppColors.danger : AppColors.success,
+                                                  if (authProvider.isAdmin) ...[
+                                                    IconButton(
+                                                      icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                                      tooltip: 'Chỉnh sửa tài khoản',
+                                                      onPressed: () => _showFormDialog(context, apiService, authProvider.token, u),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                    tooltip: !u.isLocked ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
-                                                    onPressed: () => _confirmToggleActive(context, apiService, authProvider.token, u),
-                                                  ),
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        !u.isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
+                                                        size: 15,
+                                                        color: !u.isLocked ? AppColors.danger : AppColors.success,
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+                                                      tooltip: !u.isLocked ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
+                                                      onPressed: () => _confirmToggleActive(context, apiService, authProvider.token, u),
+                                                    ),
+                                                  ],
                                                 ],
                                               ),
                                             ),
@@ -337,9 +365,6 @@ class _UsersScreenState extends State<UsersScreen> {
                                         );
                                       }).toList(),
                                     ),
-                                  ),
-                                );
-                              },
                             ),
                             if (totalItems > 0)
                               AppPagination(
@@ -391,10 +416,25 @@ class _UsersScreenState extends State<UsersScreen> {
     );
   }
 
+  Widget _buildRolesBadges(AppUser user) {
+    final rolesList = user.roles.isNotEmpty ? user.roles : [user.role];
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: rolesList.map((r) => _buildRoleBadge(r)).toList(),
+    );
+  }
+
   Widget _buildRoleBadge(String role) {
     switch (role.toUpperCase()) {
       case 'ADMIN':
         return const StatusBadge(label: 'ADMIN', isDanger: true);
+      case 'WAREHOUSE_STAFF':
+        return const StatusBadge(label: 'THỦ KHO', isInfo: true);
+      case 'SALES_STAFF':
+        return const StatusBadge(label: 'BÁN HÀNG', isInfo: true);
+      case 'SURVEY_STAFF':
+        return const StatusBadge(label: 'KHẢO SÁT', isInfo: true);
       case 'STAFF':
         return const StatusBadge(label: 'STAFF', isInfo: true);
       default:
@@ -417,7 +457,7 @@ class _UsersScreenState extends State<UsersScreen> {
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: AppColors.primary.withOpacity(0.2),
+              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
               child: Text(
                 user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
                 style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16),
@@ -433,7 +473,6 @@ class _UsersScreenState extends State<UsersScreen> {
                 ],
               ),
             ),
-            _buildRoleBadge(user.role),
           ],
         ),
         content: SizedBox(
@@ -443,6 +482,16 @@ class _UsersScreenState extends State<UsersScreen> {
             children: [
               const Divider(),
               const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.admin_panel_settings_outlined, size: 18, color: textSecondary),
+                  const SizedBox(width: 10),
+                  SizedBox(width: 140, child: Text('Vai trò tài khoản', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500))),
+                  Expanded(child: _buildRolesBadges(user)),
+                ],
+              ),
+              const SizedBox(height: 10),
               _buildDetailRow(Icons.email_outlined, 'Email', user.email, textPrimary, textSecondary),
               const SizedBox(height: 10),
               _buildDetailRow(Icons.phone_outlined, 'Số điện thoại', user.phone.isNotEmpty ? user.phone : 'Chưa cập nhật', textPrimary, textSecondary),
@@ -510,8 +559,20 @@ class _UsersScreenState extends State<UsersScreen> {
     String selectedTechInterest = isEditing && existing.techInterest != null && existing.techInterest!.isNotEmpty
         ? (techInterestOptions.contains(existing.techInterest) ? existing.techInterest! : 'Chưa chọn')
         : 'Chưa chọn';
-    String role = isEditing ? existing.role : 'USER';
+
+    final List<String> selectedRoles = isEditing
+        ? (existing.roles.isNotEmpty ? List<String>.from(existing.roles) : [existing.role])
+        : ['USER'];
+
     bool isLocked = isEditing ? existing.isLocked : false;
+
+    const Map<String, String> availableRoles = {
+      'USER': 'Khách hàng (USER)',
+      'SALES_STAFF': 'Nhân viên bán hàng (SALES_STAFF)',
+      'WAREHOUSE_STAFF': 'Thủ kho (WAREHOUSE_STAFF)',
+      'SURVEY_STAFF': 'Nhân viên khảo sát (SURVEY_STAFF)',
+      'ADMIN': 'Quản trị viên (ADMIN)',
+    };
 
     showDialog(
       context: context,
@@ -529,7 +590,7 @@ class _UsersScreenState extends State<UsersScreen> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: textPrimary),
             ),
             content: SizedBox(
-              width: 540,
+              width: 580,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -566,11 +627,11 @@ class _UsersScreenState extends State<UsersScreen> {
                               }
                             },
                             child: InputDecorator(
-                              decoration: InputDecoration(
+                              decoration: const InputDecoration(
                                 labelText: 'Ngày sinh',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                suffixIcon: const Icon(Icons.calendar_today, size: 16),
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                suffixIcon: Icon(Icons.calendar_today, size: 16),
                               ),
                               child: Text(
                                 selectedDob != null
@@ -601,18 +662,66 @@ class _UsersScreenState extends State<UsersScreen> {
                     ),
                     const SizedBox(height: 10),
                     AppTextField(controller: addressCtrl, labelText: 'Địa chỉ cư trú'),
-                    const SizedBox(height: 10),
-                    AppDropdown<String>(
-                      value: role,
-                      labelText: 'Phân quyền vai trò (Role)*',
-                      items: const [
-                        DropdownMenuItem(value: 'USER', child: Text('Khách hàng (USER)')),
-                        DropdownMenuItem(value: 'STAFF', child: Text('Nhân viên (STAFF)')),
-                        DropdownMenuItem(value: 'ADMIN', child: Text('Quản trị viên (ADMIN)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) setDialogState(() => role = val);
-                      },
+                    const SizedBox(height: 12),
+
+                    // --- KHUNG CHỌN NHIỀU VAI TRÒ (MULTI-ROLE) ---
+                    Container(
+                      padding: const EdgeInsets.all(AppTokens.space12),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.admin_panel_settings_outlined, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Phân quyền vai trò tài khoản (Có thể chọn nhiều role)',
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: availableRoles.entries.map((entry) {
+                              final isSelected = selectedRoles.contains(entry.key);
+                              return FilterChip(
+                                selected: isSelected,
+                                showCheckmark: true,
+                                label: Text(
+                                  entry.value,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                    color: isSelected ? AppColors.primary : textPrimary,
+                                  ),
+                                ),
+                                selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                                checkmarkColor: AppColors.primary,
+                                onSelected: (bool checked) {
+                                  setDialogState(() {
+                                    if (checked) {
+                                      if (!selectedRoles.contains(entry.key)) {
+                                        selectedRoles.add(entry.key);
+                                      }
+                                    } else {
+                                      if (selectedRoles.length > 1) {
+                                        selectedRoles.remove(entry.key);
+                                      }
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 10),
                     SwitchListTile(
@@ -631,13 +740,15 @@ class _UsersScreenState extends State<UsersScreen> {
                 onPressed: () async {
                   if (fullNameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) return;
 
+                  final primaryRole = selectedRoles.isNotEmpty ? selectedRoles.first : 'USER';
                   final u = AppUser(
                     id: isEditing ? existing.id : '0',
                     userName: userNameCtrl.text.trim().isNotEmpty ? userNameCtrl.text.trim() : fullNameCtrl.text.trim().toLowerCase().replaceAll(' ', '_'),
                     fullName: fullNameCtrl.text.trim(),
                     email: emailCtrl.text.trim(),
                     phone: phoneCtrl.text.trim(),
-                    role: role,
+                    role: primaryRole,
+                    roles: selectedRoles,
                     status: isLocked ? 'Tạm khóa' : 'Hoạt động',
                     isLocked: isLocked,
                     techInterest: selectedTechInterest != 'Chưa chọn' ? selectedTechInterest : null,

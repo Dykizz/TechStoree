@@ -93,6 +93,8 @@ class PurchaseOrder {
   final String status; // 'DRAFT', 'COMPLETE', 'CANCLE'
   final String note;
   final DateTime createdAt;
+  final String? approvedByName;
+  final String? receivedByName;
   final List<PurchaseOrderItem> items;
 
   PurchaseOrder({
@@ -107,6 +109,8 @@ class PurchaseOrder {
     required this.status,
     this.note = '',
     required this.createdAt,
+    this.approvedByName,
+    this.receivedByName,
     List<PurchaseOrderItem>? items,
   }) : items = items ?? [];
 
@@ -157,6 +161,8 @@ class PurchaseOrder {
       status: parsedStatus,
       note: (json['note'] ?? '').toString(),
       createdAt: parsedDate,
+      approvedByName: json['approvedByName']?.toString(),
+      receivedByName: json['receivedByName']?.toString(),
       items: parsedItems,
     );
   }
