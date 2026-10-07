@@ -27,8 +27,14 @@ public class BasicUserDto
     public string Email { get; set; } = string.Empty;
 
     /// <summary>
-    /// Vai trò người dùng (ADMIN hoặc USER)
+    /// Danh sách các vai trò của người dùng (RBAC)
+    /// </summary>
+    /// <example>["ADMIN"]</example>
+    public List<string> Roles { get; set; } = new();
+
+    /// <summary>
+    /// Vai trò chính (Hỗ trợ tương thích ngược cho client cũ)
     /// </summary>
     /// <example>ADMIN</example>
-    public string Role { get; set; } = string.Empty;
+    public string Role => Roles.FirstOrDefault() ?? "USER";
 }

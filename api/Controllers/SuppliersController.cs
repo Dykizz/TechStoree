@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Suppliers;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -9,7 +10,7 @@ namespace WebBanHang.Api.Controllers;
 /// <summary>
 /// Quản lý Nhà cung cấp đối tác (Suppliers)
 /// </summary>
-[Authorize(Roles = "ADMIN")]
+[AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF)]
 [Tags("Suppliers")]
 public class SuppliersController(ISupplierService supplierService) : BaseApiController
 {

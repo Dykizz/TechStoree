@@ -39,6 +39,20 @@ public abstract class BaseApiController : ControllerBase
         User.IsInRole("ADMIN") || string.Equals(CurrentUserRole, "ADMIN", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Kiểm tra người dùng hiện tại có bất kỳ vai trò nhân viên nào hay không
+    /// </summary>
+    protected bool IsStaff =>
+        IsAdmin ||
+        User.IsInRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.WarehouseStaff) ||
+        User.IsInRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SalesStaff) ||
+        User.IsInRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SurveyStaff);
+
+    /// <summary>
+    /// Kiểm tra người dùng có sở hữu vai trò cụ thể hay không
+    /// </summary>
+    protected bool HasRole(string role) => User.IsInRole(role);
+
+    /// <summary>
     /// Trả về kết quả thành công HTTP 200 OK kèm dữ liệu được bọc trong ApiResponse
     /// </summary>
     protected IActionResult Success<T>(T data, string message = "Thao tác thành công") =>

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Users;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -16,7 +17,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// Lấy danh sách người dùng có phân trang và bộ lọc vai trò, trạng thái khóa (Yêu cầu quyền ADMIN)
     /// </summary>
     /// <param name="filter">Bộ lọc danh sách người dùng</param>
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN)]
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<UserDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -31,7 +32,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// Lấy thông tin chi tiết một tài khoản người dùng theo ID (Yêu cầu quyền ADMIN)
     /// </summary>
     /// <param name="id">Mã ID người dùng</param>
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN)]
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -44,11 +45,27 @@ public class UsersController(IUserService userService) : BaseApiController
     }
 
     /// <summary>
+    /// Tạo mới tài khoản người dùng hoặc nhân viên với vai trò cụ thể (Yêu cầu quyền ADMIN)
+    /// </summary>
+    /// <param name="dto">Thông tin tài khoản và danh sách vai trò gán</param>
+    [AuthorizeRoles(UserRoleType.ADMIN)]
+    [HttpPost]
+    [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
+    {
+        var result = await userService.CreateUserAsync(CurrentUserId, dto);
+        return CreatedSuccess(result, "Tạo mới tài khoản người dùng thành công.");
+    }
+
+    /// <summary>
     /// Khóa hoặc Mở khóa tài khoản người dùng (Yêu cầu quyền ADMIN)
     /// </summary>
     /// <param name="id">Mã ID người dùng</param>
     /// <param name="dto">Trạng thái khóa cụ thể (hoặc để trống để toggle đảo ngược)</param>
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN)]
     [HttpPatch("{id:int}/toggle-lock")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -67,7 +84,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID người dùng</param>
     /// <param name="dto">Mã vai trò mới</param>
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN)]
     [HttpPatch("{id:int}/role")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -76,7 +93,7 @@ public class UsersController(IUserService userService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequestDto dto)
     {
-        var result = await userService.UpdateRoleAsync(id, dto);
+        var result = await userService.UpdateRoleAsync(CurrentUserId, id, dto);
         return Success(result, "Cập nhật vai trò người dùng thành công.");
     }
 
@@ -110,7 +127,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// <summary>
     /// [Admin / CRM Manager] Báo cáo phân tích nhân khẩu học khách hàng (Độ tuổi và Sở thích công nghệ - Barem III.4.1)
     /// </summary>
-    [Authorize(Roles = "ADMIN,CRM_MANAGER")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
     [HttpGet("demographics")]
     [ProducesResponseType(typeof(ApiResponse<DemographicsReportDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

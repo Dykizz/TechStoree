@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Models;
 
 namespace WebBanHang.Api.Data;
@@ -13,6 +14,7 @@ public class AppDbContext : DbContext
 
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<Product> Products => Set<Product>();
@@ -40,22 +42,58 @@ public class AppDbContext : DbContext
         // 1. Cấu hình bảng Roles
         modelBuilder.Entity<Role>(entity =>
         {
+            entity.ToTable("roles");
             entity.HasKey(r => r.RoleId);
-            entity.Property(r => r.RoleId).HasMaxLength(20);
-            entity.Property(r => r.RoleName).IsRequired().HasMaxLength(50);
+            entity.Property(r => r.RoleId)
+                  .HasColumnName("role_id")
+                  .HasConversion<string>()
+                  .HasMaxLength(20);
+            entity.Property(r => r.RoleName).HasColumnName("role_name").IsRequired().HasMaxLength(50);
         });
 
         // 2. Cấu hình bảng Users
         modelBuilder.Entity<User>(entity =>
         {
+            entity.ToTable("users");
             entity.HasKey(u => u.UserId);
             entity.HasIndex(u => u.Username).IsUnique();
             entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.CreatedByUserId).HasColumnName("created_by_user_id");
 
-            entity.HasOne(u => u.Role)
-                  .WithMany(r => r.Users)
-                  .HasForeignKey(u => u.RoleId)
+            entity.HasOne(u => u.CreatedByUser)
+                  .WithMany()
+                  .HasForeignKey(u => u.CreatedByUserId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // 2.1. Cấu hình bảng trung gian UserRoles (Many-to-Many RBAC)
+        modelBuilder.Entity<UserRole>(entity =>
+        {
+            entity.ToTable("user_roles");
+            entity.HasKey(ur => new { ur.UserId, ur.RoleId });
+
+            entity.Property(ur => ur.UserId).HasColumnName("user_id");
+            entity.Property(ur => ur.RoleId)
+                  .HasColumnName("role_id")
+                  .HasConversion<string>()
+                  .HasMaxLength(20);
+            entity.Property(ur => ur.AssignedAt).HasColumnName("assigned_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(ur => ur.AssignedByUserId).HasColumnName("assigned_by_user_id");
+
+            entity.HasOne(ur => ur.User)
+                  .WithMany(u => u.UserRoles)
+                  .HasForeignKey(ur => ur.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(ur => ur.Role)
+                  .WithMany(r => r.UserRoles)
+                  .HasForeignKey(ur => ur.RoleId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(ur => ur.AssignedByUser)
+                  .WithMany()
+                  .HasForeignKey(ur => ur.AssignedByUserId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         // 3. Cấu hình bảng Suppliers
@@ -377,6 +415,7 @@ public class AppDbContext : DbContext
 
             entity.Property(o => o.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(o => o.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(o => o.UpdatedByUserId).HasColumnName("updated_by_user_id");
             entity.Property(o => o.PaidAt).HasColumnName("paid_at");
             entity.Property(o => o.CancelledAt).HasColumnName("cancelled_at");
             entity.Property(o => o.CancellationReason).HasColumnName("cancellation_reason").HasMaxLength(500);
@@ -385,6 +424,11 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(o => o.UserId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(o => o.UpdatedByUser)
+                  .WithMany()
+                  .HasForeignKey(o => o.UpdatedByUserId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(o => o.Voucher)
                   .WithMany()
@@ -541,256 +585,16 @@ public class AppDbContext : DbContext
         });
 
 
-        // 10. Seed dữ liệu mặc định cho Role (ADMIN và USER)
+        // 10. Seed dữ liệu mặc định cho Role (RBAC)
         modelBuilder.Entity<Role>().HasData(
-            new Role { RoleId = "ADMIN", RoleName = "Quản trị viên" },
-            new Role { RoleId = "USER", RoleName = "Người dùng" }
+            new Role { RoleId = UserRoleType.ADMIN, RoleName = "Quản trị viên" },
+            new Role { RoleId = UserRoleType.WAREHOUSE_STAFF, RoleName = "Nhân viên quản lý kho" },
+            new Role { RoleId = UserRoleType.SALES_STAFF, RoleName = "Nhân viên bán hàng" },
+            new Role { RoleId = UserRoleType.SURVEY_STAFF, RoleName = "Nhân viên khảo sát & CRM" },
+            new Role { RoleId = UserRoleType.USER, RoleName = "Khách hàng" }
         );
 
-        // 8. Seed dữ liệu mẫu cho Suppliers
-        modelBuilder.Entity<Supplier>().HasData(
-            new Supplier
-            {
-                SupplierId = 1,
-                SupplierName = "Công ty TNHH ASUS Việt Nam",
-                Phone = "18006588",
-                Email = "support@asus.com.vn",
-                Address = "Tầng 5, Tòa nhà Viettel, 285 Cách Mạng Tháng 8, Q.10, TP.HCM",
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Supplier
-            {
-                SupplierId = 2,
-                SupplierName = "Sony Electronics Việt Nam",
-                Phone = "1800588885",
-                Email = "contact@sony.com.vn",
-                Address = "Tầng 6, Tòa nhà President Place, 93 Nguyễn Du, Q.1, TP.HCM",
-                CreatedAt = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Supplier
-            {
-                SupplierId = 3,
-                SupplierName = "Apple Authorized Distributor (Synnex FPT)",
-                Phone = "02873001010",
-                Email = "apple-sales@synnexfpt.com.vn",
-                Address = "Tòa nhà FPT Tân Thuận, Lô L.29B-31B-33B, Tân Thuận Đông, Q.7, TP.HCM",
-                CreatedAt = new DateTime(2026, 1, 3, 0, 0, 0, DateTimeKind.Utc)
-            }
-        );
-
-        // 9. Seed dữ liệu mẫu cho Categories (Laptop, Tai nghe, Phụ kiện, SmartHome)
-        modelBuilder.Entity<Category>().HasData(
-            new Category
-            {
-                CategoryId = 1,
-                CategoryName = "Laptop",
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Category
-            {
-                CategoryId = 2,
-                CategoryName = "Tai nghe & Âm thanh",
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Category
-            {
-                CategoryId = 3,
-                CategoryName = "Phụ kiện máy tính",
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Category
-            {
-                CategoryId = 4,
-                CategoryName = "Nhà thông minh (SmartHome)",
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            }
-        );
-
-        // 10. Seed 5 Dòng Sản phẩm mẫu CellphoneS
-        modelBuilder.Entity<Product>().HasData(
-            new Product
-            {
-                ProductId = 1,
-                ProductName = "Laptop ASUS Zenbook 14 OLED UX3405",
-                CategoryId = 1,
-                Description = "Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz, chip Intel Core Ultra thế hệ mới.",
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
-                VariantAttributes = new List<string> { "Cấu hình (RAM/SSD)", "Màu sắc" },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Product
-            {
-                ProductId = 2,
-                ProductName = "Laptop Gaming Acer Nitro V 15",
-                CategoryId = 1,
-                Description = "Laptop gaming hiệu năng cao card đồ họa RTX 4050, tản nhiệt buồng hơi kép.",
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
-                VariantAttributes = new List<string> { "Cấu hình (RAM/SSD)", "Màu sắc" },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Product
-            {
-                ProductId = 3,
-                ProductName = "Tai nghe chụp tai Sony WH-1000XM5",
-                CategoryId = 2,
-                Description = "Tai nghe chống ồn chủ động đỉnh cao chống ồn tự động theo môi trường, pin 30h.",
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                VariantAttributes = new List<string> { "Màu sắc" },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Product
-            {
-                ProductId = 4,
-                ProductName = "Bàn phím cơ không dây FL-Esports GP75",
-                CategoryId = 3,
-                Description = "Bàn phím cơ 3 mode kết nối gõ êm ái, switch custom hot-swap mạch xuôi.",
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/f/l/fl-esports-gp75.png",
-                VariantAttributes = new List<string> { "Loại Switch" },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new Product
-            {
-                ProductId = 5,
-                ProductName = "Màn hình thông minh Google Nest Hub Gen 2",
-                CategoryId = 4,
-                Description = "Màn hình trợ lý ảo tích hợp loa cảm ứng theo dõi giấc ngủ Radar Soli.",
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/g/o/google-nest-hub-2.png",
-                VariantAttributes = new List<string> { "Màu sắc" },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            }
-        );
-
-        // 11. Seed các Biến thể (ProductVariants) tương ứng
-        modelBuilder.Entity<ProductVariant>().HasData(
-            new ProductVariant
-            {
-                VariantId = 1,
-                ProductId = 1,
-                VariantName = "16GB RAM / 512GB SSD - Xanh",
-                Price = 24990000,
-                StockQuantity = 15,
-                ImageUrl = null,
-                Attributes = new Dictionary<string, string> { { "Cấu hình (RAM/SSD)", "16GB RAM / 512GB SSD" }, { "Màu sắc", "Xanh" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 2,
-                ProductId = 1,
-                VariantName = "32GB RAM / 1TB SSD - Xanh",
-                Price = 28990000,
-                StockQuantity = 10,
-                ImageUrl = null,
-                Attributes = new Dictionary<string, string> { { "Cấu hình (RAM/SSD)", "32GB RAM / 1TB SSD" }, { "Màu sắc", "Xanh" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 3,
-                ProductId = 2,
-                VariantName = "16GB RAM / 512GB SSD - Đen",
-                Price = 21490000,
-                StockQuantity = 20,
-                ImageUrl = null,
-                Attributes = new Dictionary<string, string> { { "Cấu hình (RAM/SSD)", "16GB RAM / 512GB SSD" }, { "Màu sắc", "Đen" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 4,
-                ProductId = 3,
-                VariantName = "Màu Đen (Midnight Black)",
-                Price = 7490000,
-                StockQuantity = 25,
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                Attributes = new Dictionary<string, string> { { "Màu sắc", "Màu Đen (Midnight Black)" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 5,
-                ProductId = 3,
-                VariantName = "Màu Bạc (Silver Platinum)",
-                Price = 7490000,
-                StockQuantity = 15,
-                ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
-                Attributes = new Dictionary<string, string> { { "Màu sắc", "Màu Bạc (Silver Platinum)" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 6,
-                ProductId = 4,
-                VariantName = "Taro Pink Switch",
-                Price = 2190000,
-                StockQuantity = 18,
-                ImageUrl = null,
-                Attributes = new Dictionary<string, string> { { "Loại Switch", "Taro Pink Switch" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            },
-            new ProductVariant
-            {
-                VariantId = 7,
-                ProductId = 5,
-                VariantName = "Màu Than Chì (Chalk)",
-                Price = 1890000,
-                StockQuantity = 12,
-                ImageUrl = null,
-                Attributes = new Dictionary<string, string> { { "Màu sắc", "Màu Than Chì (Chalk)" } },
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
-            }
-        );
-
-        // 12. Seed dữ liệu mẫu cho Khảo sát Thăm dò Sony WH-1000XM6 (2026)
-        modelBuilder.Entity<Survey>().HasData(
-            new Survey
-            {
-                SurveyId = 1,
-                Title = "Thăm dò nhu cầu Tai nghe chống ồn Sony WH-1000XM6 (2026)",
-                Description = "Khảo sát ý kiến khách hàng về mức giá và tính năng kỳ vọng của dòng tai nghe cao cấp Sony WH-1000XM6 sắp mở bán. Nhận ngay Voucher giảm giá sau khi hoàn thành!",
-                RewardVoucherId = null,
-                IsActive = true,
-                CreatedAt = new DateTime(2026, 1, 5, 0, 0, 0, DateTimeKind.Utc)
-            }
-        );
-
-        modelBuilder.Entity<SurveyQuestion>().HasData(
-            new SurveyQuestion
-            {
-                QuestionId = 1,
-                SurveyId = 1,
-                QuestionText = "Bạn kỳ vọng mức giá niêm yết của Sony WH-1000XM6 khoảng bao nhiêu?",
-                QuestionType = Enums.SurveyQuestionType.SINGLE_CHOICE,
-                IsRequired = true,
-                OrderNum = 1
-            },
-            new SurveyQuestion
-            {
-                QuestionId = 2,
-                SurveyId = 1,
-                QuestionText = "Bạn có đóng góp ý kiến hoặc kỳ vọng tính năng gì mới ở thế hệ Sony XM6 này?",
-                QuestionType = Enums.SurveyQuestionType.TEXT,
-                IsRequired = false,
-                OrderNum = 2
-            }
-        );
-
-        modelBuilder.Entity<SurveyOption>().HasData(
-            new SurveyOption { OptionId = 1, QuestionId = 1, OptionText = "Dưới 8.000.000 VNĐ", OrderNum = 1 },
-            new SurveyOption { OptionId = 2, QuestionId = 1, OptionText = "Từ 8.000.000 - 10.000.000 VNĐ", OrderNum = 2 },
-            new SurveyOption { OptionId = 3, QuestionId = 1, OptionText = "Trên 10.000.000 VNĐ", OrderNum = 3 }
-        );
+        // 11. Tách và nạp dữ liệu mẫu (Dummy Data) từ file Data/dummy_data.json
+        modelBuilder.SeedDummyData();
     }
 }

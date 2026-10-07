@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Promotions;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Services.Interfaces;
 
@@ -45,7 +46,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// Tạo mới một chương trình khuyến mãi (Yêu cầu quyền Quản trị viên)
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<PromotionDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -62,7 +63,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// <param name="id">Mã ID khuyến mãi</param>
     /// <param name="dto">Dữ liệu cập nhật</param>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<PromotionDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -81,7 +82,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// </summary>
     /// <param name="id">Mã ID khuyến mãi</param>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -101,7 +102,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// </summary>
     /// <param name="id">Mã ID khuyến mãi</param>
     [HttpPatch("{id:int}/toggle-active")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
