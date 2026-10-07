@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/app_user.dart';
 import 'base_api_service.dart';
 
@@ -54,10 +53,10 @@ mixin UserApiService on BaseApiService {
 
   Future<List<AppUser>> getUsers({String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/users'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -82,9 +81,9 @@ mixin UserApiService on BaseApiService {
 
   Future<ApiResult> createUser(AppUser user, String password, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/auth/register'),
-        headers: headers(token),
+        token: token,
         body: json.encode({
           'username': user.userName.isNotEmpty ? user.userName : user.fullName.toLowerCase().replaceAll(' ', '_'),
           'email': user.email,
@@ -95,7 +94,7 @@ mixin UserApiService on BaseApiService {
           'dateOfBirth': user.dateOfBirth?.toIso8601String(),
           'address': user.address,
         }),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -123,9 +122,9 @@ mixin UserApiService on BaseApiService {
       await updateUserRole(user.id, user.role, token: token);
 
       // 2. Cập nhật profile qua API /users/profile (nếu khớp với user token)
-      await http.put(
+      await httpPut(
         Uri.parse('$baseUrl/users/profile'),
-        headers: headers(token),
+        token: token,
         body: json.encode({
           'fullName': user.fullName,
           'phone': user.phone,
@@ -133,7 +132,7 @@ mixin UserApiService on BaseApiService {
           'techInterest': user.techInterest,
           'address': user.address,
         }),
-      ).timeout(const Duration(seconds: 4));
+      );
     } catch (e) {
       debugPrint('API Update User (backend call warning): $e');
     }
@@ -144,10 +143,10 @@ mixin UserApiService on BaseApiService {
 
   Future<bool> toggleUserLock(String userId, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/users/$userId/toggle-lock'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -183,11 +182,11 @@ mixin UserApiService on BaseApiService {
 
   Future<bool> updateUserRole(String userId, String roleId, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/users/$userId/role'),
-        headers: headers(token),
+        token: token,
         body: json.encode({'roleId': roleId}),
-      ).timeout(const Duration(seconds: 4));
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {

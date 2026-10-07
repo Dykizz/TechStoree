@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 import '../models/order.dart';
 import 'base_api_service.dart';
 
@@ -41,7 +40,7 @@ mixin OrderApiService on BaseApiService {
       }
 
       final uri = Uri.parse('$baseUrl/Orders/admin/all').replace(queryParameters: queryParams);
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpGet(uri, token: token);
 
       final body = parseApiResponse(response);
       if (body != null && body is Map<String, dynamic>) {
@@ -121,7 +120,7 @@ mixin OrderApiService on BaseApiService {
   Future<Order?> getOrderById(int orderId, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/Orders/$orderId');
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpGet(uri, token: token);
 
       final body = parseApiResponse(response);
       if (body != null && body is Map<String, dynamic>) {
@@ -150,11 +149,12 @@ mixin OrderApiService on BaseApiService {
         if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
       };
 
-      final response = await http.patch(
+      final response = await httpPatch(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       final body = parseApiResponse(response);
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -189,11 +189,12 @@ mixin OrderApiService on BaseApiService {
       final uri = Uri.parse('$baseUrl/Orders/$orderId/cancel');
       final payload = {'reason': reason.trim()};
 
-      final response = await http.post(
+      final response = await httpPost(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 10));
+        timeout: const Duration(seconds: 10),
+      );
 
       final body = parseApiResponse(response);
       if (response.statusCode >= 200 && response.statusCode < 300) {

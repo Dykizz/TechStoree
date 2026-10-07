@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/supplier.dart';
 import 'base_api_service.dart';
 
@@ -13,10 +12,10 @@ mixin SupplierApiService on BaseApiService {
 
   Future<List<Supplier>> getSuppliers({String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/suppliers'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
@@ -30,11 +29,11 @@ mixin SupplierApiService on BaseApiService {
 
   Future<bool> createSupplier(Supplier supplier, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/suppliers'),
-        headers: headers(token),
+        token: token,
         body: json.encode(supplier.toUpsertJson()),
-      ).timeout(const Duration(seconds: 4));
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -51,11 +50,11 @@ mixin SupplierApiService on BaseApiService {
 
   Future<bool> updateSupplier(Supplier supplier, {String? token}) async {
     try {
-      final response = await http.put(
+      final response = await httpPut(
         Uri.parse('$baseUrl/suppliers/${supplier.id}'),
-        headers: headers(token),
+        token: token,
         body: json.encode(supplier.toUpsertJson()),
-      ).timeout(const Duration(seconds: 4));
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -73,10 +72,10 @@ mixin SupplierApiService on BaseApiService {
 
   Future<bool> deleteSupplier(String id, {String? token}) async {
     try {
-      final response = await http.delete(
+      final response = await httpDelete(
         Uri.parse('$baseUrl/suppliers/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' hide Category;
-import 'package:http/http.dart' as http;
 import '../models/category.dart';
 import 'base_api_service.dart';
 
@@ -14,10 +13,10 @@ mixin CategoryApiService on BaseApiService {
 
   Future<List<Category>> getCategories({String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/categories'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
@@ -31,11 +30,11 @@ mixin CategoryApiService on BaseApiService {
 
   Future<bool> createCategory(Category category, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/categories'),
-        headers: headers(token),
+        token: token,
         body: json.encode(category.toUpsertJson()),
-      ).timeout(const Duration(seconds: 4));
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -52,11 +51,11 @@ mixin CategoryApiService on BaseApiService {
 
   Future<bool> updateCategory(Category category, {String? token}) async {
     try {
-      final response = await http.put(
+      final response = await httpPut(
         Uri.parse('$baseUrl/categories/${category.id}'),
-        headers: headers(token),
+        token: token,
         body: json.encode(category.toUpsertJson()),
-      ).timeout(const Duration(seconds: 4));
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -74,10 +73,10 @@ mixin CategoryApiService on BaseApiService {
 
   Future<bool> deleteCategory(String id, {String? token}) async {
     try {
-      final response = await http.delete(
+      final response = await httpDelete(
         Uri.parse('$baseUrl/categories/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {

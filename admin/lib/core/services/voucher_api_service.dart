@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/voucher.dart';
 import 'base_api_service.dart';
 
@@ -19,7 +18,7 @@ mixin VoucherApiService on BaseApiService {
       }
 
       final uri = Uri.parse('$baseUrl/vouchers').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 5));
+      final response = await httpGet(uri, token: token);
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
@@ -34,7 +33,7 @@ mixin VoucherApiService on BaseApiService {
   Future<Voucher?> getVoucherById(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers/$id');
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 5));
+      final response = await httpGet(uri, token: token);
 
       final data = parseApiResponse(response);
       if (data != null && data is Map<String, dynamic>) {
@@ -49,11 +48,11 @@ mixin VoucherApiService on BaseApiService {
   Future<ApiResult> createVoucher(Voucher voucher, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers');
-      final response = await http.post(
+      final response = await httpPost(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(voucher.toUpsertJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -73,11 +72,11 @@ mixin VoucherApiService on BaseApiService {
   Future<ApiResult> updateVoucher(int id, Voucher voucher, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers/$id');
-      final response = await http.put(
+      final response = await httpPut(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(voucher.toUpsertJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
@@ -97,7 +96,7 @@ mixin VoucherApiService on BaseApiService {
   Future<ApiResult> toggleVoucherActive(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers/$id/toggle-active');
-      final response = await http.patch(uri, headers: headers(token)).timeout(const Duration(seconds: 5));
+      final response = await httpPatch(uri, token: token);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -113,7 +112,7 @@ mixin VoucherApiService on BaseApiService {
   Future<ApiResult> deleteVoucher(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers/$id');
-      final response = await http.delete(uri, headers: headers(token)).timeout(const Duration(seconds: 5));
+      final response = await httpDelete(uri, token: token);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
