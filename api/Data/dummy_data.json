@@ -1,0 +1,833 @@
+{
+  "accounts": [
+    {
+      "username": "admin",
+      "email": "admin@techstoree.vn",
+      "password": "admin123",
+      "fullName": "Quản Trị Viên Hệ Thống",
+      "phone": "0900000001",
+      "role": "ADMIN"
+    },
+    {
+      "username": "kho01",
+      "email": "kho@techstoree.vn",
+      "password": "staff123",
+      "fullName": "Trần Văn Kho (Thủ Kho)",
+      "phone": "0900000002",
+      "role": "WAREHOUSE_STAFF"
+    },
+    {
+      "username": "sales01",
+      "email": "sales@techstoree.vn",
+      "password": "staff123",
+      "fullName": "Lê Thị Bán Hàng (Sales)",
+      "phone": "0900000003",
+      "role": "SALES_STAFF"
+    },
+    {
+      "username": "crm01",
+      "email": "survey@techstoree.vn",
+      "password": "staff123",
+      "fullName": "Phạm Văn Chăm Sóc Khách Hàng",
+      "phone": "0900000004",
+      "role": "SURVEY_STAFF"
+    },
+    {
+      "username": "khachhang01",
+      "email": "khachhang@gmail.com",
+      "password": "customer123",
+      "fullName": "Nguyễn Văn Khách Hàng",
+      "phone": "0987654321",
+      "role": "USER"
+    }
+  ],
+  "suppliers": [
+    {
+      "supplierId": 1,
+      "supplierName": "Công ty TNHH ASUS Việt Nam",
+      "phone": "18006588",
+      "email": "support@asus.com.vn",
+      "address": "Tầng 5, Tòa nhà Viettel, 285 Cách Mạng Tháng 8, Q.10, TP.HCM",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "supplierId": 2,
+      "supplierName": "Sony Electronics Việt Nam",
+      "phone": "1800588885",
+      "email": "contact@sony.com.vn",
+      "address": "Tầng 6, Tòa nhà President Place, 93 Nguyễn Du, Q.1, TP.HCM",
+      "createdAt": "2026-01-02T00:00:00Z"
+    },
+    {
+      "supplierId": 3,
+      "supplierName": "Apple Authorized Distributor (Synnex FPT)",
+      "phone": "02873001010",
+      "email": "apple-sales@synnexfpt.com.vn",
+      "address": "Tòa nhà FPT Tân Thuận, Lô L.29B-31B-33B, Tân Thuận Đông, Q.7, TP.HCM",
+      "createdAt": "2026-01-03T00:00:00Z"
+    },
+    {
+      "supplierId": 4,
+      "supplierName": "Samsung Electronics HCMC CE Complex",
+      "phone": "1800588889",
+      "email": "b2b.support@samsung.com",
+      "address": "Khu Công Nghệ Cao, TP. Thủ Đức, TP.HCM",
+      "createdAt": "2026-01-04T00:00:00Z"
+    },
+    {
+      "supplierId": 5,
+      "supplierName": "Logitech Distribution Vietnam",
+      "phone": "02439743555",
+      "email": "partner@logitech.vn",
+      "address": "Tòa nhà Keangnam Landmark 72, Nam Từ Liêm, Hà Nội",
+      "createdAt": "2026-01-05T00:00:00Z"
+    },
+    {
+      "supplierId": 6,
+      "supplierName": "Dell Technologies Vietnam",
+      "phone": "02838240315",
+      "email": "sales@dellvietnam.vn",
+      "address": "Tòa nhà Saigon Tower, 29 Lê Duẩn, Bến Nghé, Quận 1, TP.HCM",
+      "createdAt": "2026-01-06T00:00:00Z"
+    },
+    {
+      "supplierId": 7,
+      "supplierName": "Xiaomi Smart Life Vietnam",
+      "phone": "18006888",
+      "email": "support@mi.com.vn",
+      "address": "Tầng 12, Tòa nhà Mapletree Business Centre, 1060 Nguyễn Văn Linh, Q.7, TP.HCM",
+      "createdAt": "2026-01-07T00:00:00Z"
+    },
+    {
+      "supplierId": 8,
+      "supplierName": "Anker Innovations Vietnam",
+      "phone": "0901234567",
+      "email": "support@ankervietnam.vn",
+      "address": "Tầng 3, Tòa nhà Rivera Park, 69 Vũ Trọng Phụng, Thanh Xuân, Hà Nội",
+      "createdAt": "2026-01-08T00:00:00Z"
+    }
+  ],
+  "categories": [
+    {
+      "categoryId": 1,
+      "categoryName": "Laptop & Máy tính xách tay",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "categoryId": 2,
+      "categoryName": "Tai nghe & Âm thanh",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "categoryId": 3,
+      "categoryName": "Bàn phím cơ & Chuột Gaming",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "categoryId": 4,
+      "categoryName": "Nhà thông minh (SmartHome)",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "categoryId": 5,
+      "categoryName": "Màn hình đồ họa & Gaming",
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "categoryId": 6,
+      "categoryName": "Phụ kiện Cáp sạc & Pin dự phòng",
+      "createdAt": "2026-01-01T00:00:00Z"
+    }
+  ],
+  "products": [
+    {
+      "productId": 1,
+      "productName": "Laptop ASUS Zenbook 14 OLED UX3405",
+      "categoryId": 1,
+      "description": "Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz, chip Intel Core Ultra thế hệ mới tích hợp NPU AI.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
+      "variantAttributes": [
+        "Cấu hình (RAM/SSD)",
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "productId": 2,
+      "productName": "Laptop Gaming Acer Nitro V 15",
+      "categoryId": 1,
+      "description": "Laptop gaming hiệu năng cao card đồ họa RTX 4050, tản nhiệt buồng hơi kép, tần số quét 144Hz.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
+      "variantAttributes": [
+        "Cấu hình (RAM/SSD)",
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "productId": 3,
+      "productName": "Tai nghe chụp tai Sony WH-1000XM5",
+      "categoryId": 2,
+      "description": "Tai nghe chống ồn chủ động đỉnh cao với bộ xử lý V1 và HD QN1, chất âm Hi-Res Audio, thời lượng pin 30h.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
+      "variantAttributes": [
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "productId": 4,
+      "productName": "Bàn phím cơ không dây FL-Esports GP75",
+      "categoryId": 3,
+      "description": "Bàn phím cơ layout 75% 3 chế độ kết nối (Bluetooth/2.4G/Dây), mạch xuôi, foam tiêu âm Poron cao cấp.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75.png",
+      "variantAttributes": [
+        "Màu sắc",
+        "Switch"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "productId": 5,
+      "productName": "Robot hút bụi lau nhà Xiaomi Dreame L10s Ultra",
+      "categoryId": 4,
+      "description": "Robot dọn nhà thông minh tự động giặt sấy giẻ, tự đổ rác và bơm nước lau sàn, lực hút 5300Pa với AI camera tránh chướng ngại vật.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/r/o/robot-hut-bui-dreame-l10s-ultra.png",
+      "variantAttributes": [
+        "Màu sắc",
+        "Phiên bản"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "productId": 6,
+      "productName": "Chuột công thái học không dây Logitech MX Master 3S",
+      "categoryId": 3,
+      "description": "Chuột văn phòng và lập trình đỉnh cao với công nghệ cuộn MagSpeed siêu tốc, cảm biến 8000 DPI Darkfield và Silent Click êm ái.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/x/mx-master-3s.png",
+      "variantAttributes": [
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-06T00:00:00Z"
+    },
+    {
+      "productId": 7,
+      "productName": "Tai nghe không dây Apple AirPods Pro 2 (USB-C MagSafe)",
+      "categoryId": 2,
+      "description": "Tai nghe chống ồn Apple với chip H2, âm thanh không gian cá nhân hóa và cổng sạc USB-C chống bụi kháng nước IP54.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/p/apple-airpods-pro-2-usb-c.png",
+      "variantAttributes": [
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-07T00:00:00Z"
+    },
+    {
+      "productId": 8,
+      "productName": "Màn hình đồ họa Dell UltraSharp U2724D 27 inch 2K 120Hz",
+      "categoryId": 5,
+      "description": "Màn hình chuyên nghiệp chuẩn đồ họa tấm nền IPS Black độ tương phản 2000:1, độ phân giải 2K QHD tần số quét 120Hz mượt mà.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/a/man-hinh-dell-ultrasharp-u2724d.png",
+      "variantAttributes": [
+        "Kích thước & Độ phân giải"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-08T00:00:00Z"
+    },
+    {
+      "productId": 9,
+      "productName": "Màn hình Gaming LG UltraGear 27GR75Q-B 27 inch 2K 165Hz",
+      "categoryId": 5,
+      "description": "Màn hình gaming Fast IPS 1ms G-Sync Compatible, độ phân giải QHD 2K, 165Hz cho trải nghiệm thể thao điện tử chuẩn esport.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/l/g/lg-ultragear-27gr75q.png",
+      "variantAttributes": [
+        "Tần số quét"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-09T00:00:00Z"
+    },
+    {
+      "productId": 10,
+      "productName": "Củ sạc nhanh Anker Prime 67W GaN 3 Cổng (A2669)",
+      "categoryId": 6,
+      "description": "Củ sạc công nghệ GaNPrime siêu nhỏ gọn với 2 cổng USB-C và 1 cổng USB-A, hỗ trợ sạc nhanh cho Laptop MacBook, iPhone và iPad.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/a/sac-anker-prime-67w.png",
+      "variantAttributes": [
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-10T00:00:00Z"
+    },
+    {
+      "productId": 11,
+      "productName": "Pin sạc dự phòng Anker 737 PowerCore 24000mAh 140W",
+      "categoryId": 6,
+      "description": "Pin sạc dự phòng công suất khủng 140W chuẩn PD 3.1 với màn hình hiển thị số thông minh trực quan theo thời gian thực.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/p/i/pin-anker-737-24000mah.png",
+      "variantAttributes": [
+        "Dung lượng"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-11T00:00:00Z"
+    },
+    {
+      "productId": 12,
+      "productName": "Đèn bàn bảo vệ thị lực Xiaomi Yeelight Pro Smart LED",
+      "categoryId": 4,
+      "description": "Đèn học và làm việc thông minh đạt chuẩn ánh sáng quốc gia AA, tích hợp điều khiển từ xa qua ứng dụng và trợ lý ảo Apple HomeKit.",
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/d/e/den-ban-yeelight-smart.png",
+      "variantAttributes": [
+        "Màu sắc"
+      ],
+      "isActive": true,
+      "createdAt": "2026-01-12T00:00:00Z"
+    }
+  ],
+  "productVariants": [
+    {
+      "variantId": 1,
+      "productId": 1,
+      "variantName": "Intel Core Ultra 5 / 16GB RAM / 512GB SSD / Xanh Ponder Blue",
+      "price": 24990000,
+      "stockQuantity": 25,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
+      "attributes": {
+        "Cấu hình (RAM/SSD)": "Ultra 5 - 16GB / 512GB",
+        "Màu sắc": "Xanh Ponder Blue"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 2,
+      "productId": 1,
+      "variantName": "Intel Core Ultra 7 / 32GB RAM / 1TB SSD / Bạc Foggy Silver",
+      "price": 31990000,
+      "stockQuantity": 15,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
+      "attributes": {
+        "Cấu hình (RAM/SSD)": "Ultra 7 - 32GB / 1TB",
+        "Màu sắc": "Bạc Foggy Silver"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 3,
+      "productId": 2,
+      "variantName": "Core i5-13420H / RTX 4050 6GB / 16GB / 512GB / Đen Obsidian",
+      "price": 21490000,
+      "stockQuantity": 30,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
+      "attributes": {
+        "Cấu hình (RAM/SSD)": "i5-13420H - 16GB / 512GB",
+        "Màu sắc": "Đen Obsidian"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 4,
+      "productId": 3,
+      "variantName": "Đen Nhám Midnight Black",
+      "price": 6990000,
+      "stockQuantity": 50,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
+      "attributes": {
+        "Màu sắc": "Đen Nhám Midnight Black"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 5,
+      "productId": 3,
+      "variantName": "Bạc Ánh Kim Platinum Silver",
+      "price": 6990000,
+      "stockQuantity": 35,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5-silver.png",
+      "attributes": {
+        "Màu sắc": "Bạc Ánh Kim Platinum Silver"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 6,
+      "productId": 4,
+      "variantName": "Polar White / Switch Gateron Pro Yellow / 3 Mode",
+      "price": 1850000,
+      "stockQuantity": 40,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75.png",
+      "attributes": {
+        "Màu sắc": "Polar White",
+        "Switch": "Gateron Pro Yellow"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 7,
+      "productId": 4,
+      "variantName": "Taro Purple / Switch Kailh Box Jellyfish / 3 Mode",
+      "price": 2190000,
+      "stockQuantity": 20,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75-taro.png",
+      "attributes": {
+        "Màu sắc": "Taro Purple",
+        "Switch": "Kailh Box Jellyfish"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-01T00:00:00Z"
+    },
+    {
+      "variantId": 8,
+      "productId": 5,
+      "variantName": "Trắng Tinh Khôi (Trạm Tự Động Rửa Sấy Giẻ Hút Bụi)",
+      "price": 14990000,
+      "stockQuantity": 15,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/r/o/robot-hut-bui-dreame-l10s-ultra.png",
+      "attributes": {
+        "Màu sắc": "Trắng Tinh Khôi",
+        "Phiên bản": "Quốc Tế Trạm Giặt Sấy Toàn Diện"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-05T00:00:00Z"
+    },
+    {
+      "variantId": 9,
+      "productId": 6,
+      "variantName": "Xám Nhạt Pale Grey (Silent Click / 8000 DPI)",
+      "price": 2190000,
+      "stockQuantity": 45,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/x/mx-master-3s-grey.png",
+      "attributes": {
+        "Màu sắc": "Xám Nhạt Pale Grey"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-06T00:00:00Z"
+    },
+    {
+      "variantId": 10,
+      "productId": 6,
+      "variantName": "Đen Graphite (Silent Click / 8000 DPI)",
+      "price": 2190000,
+      "stockQuantity": 60,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/x/mx-master-3s.png",
+      "attributes": {
+        "Màu sắc": "Đen Graphite"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-06T00:00:00Z"
+    },
+    {
+      "variantId": 11,
+      "productId": 7,
+      "variantName": "Trắng White (Hộp sạc MagSafe USB-C)",
+      "price": 5690000,
+      "stockQuantity": 40,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/p/apple-airpods-pro-2-usb-c.png",
+      "attributes": {
+        "Màu sắc": "Trắng White"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-07T00:00:00Z"
+    },
+    {
+      "variantId": 12,
+      "productId": 8,
+      "variantName": "27 inch 2K QHD 120Hz IPS Black / USB-C Hub 90W",
+      "price": 10990000,
+      "stockQuantity": 20,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/m/a/man-hinh-dell-ultrasharp-u2724d.png",
+      "attributes": {
+        "Kích thước & Độ phân giải": "27 inch 2K QHD (2560x1440)"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-08T00:00:00Z"
+    },
+    {
+      "variantId": 13,
+      "productId": 9,
+      "variantName": "27 inch QHD 165Hz 1ms HDR10 G-Sync Compatible",
+      "price": 6490000,
+      "stockQuantity": 30,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/l/g/lg-ultragear-27gr75q.png",
+      "attributes": {
+        "Tần số quét": "165Hz Fast IPS"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-09T00:00:00Z"
+    },
+    {
+      "variantId": 14,
+      "productId": 10,
+      "variantName": "Đen Nhám Stealth Black (2x Type-C + 1x USB-A 67W)",
+      "price": 1090000,
+      "stockQuantity": 80,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/a/sac-anker-prime-67w.png",
+      "attributes": {
+        "Màu sắc": "Đen Nhám Stealth Black"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-10T00:00:00Z"
+    },
+    {
+      "variantId": 15,
+      "productId": 10,
+      "variantName": "Bạc Titanium Silver (2x Type-C + 1x USB-A 67W)",
+      "price": 1090000,
+      "stockQuantity": 50,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/a/sac-anker-prime-67w-silver.png",
+      "attributes": {
+        "Màu sắc": "Bạc Titanium Silver"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-10T00:00:00Z"
+    },
+    {
+      "variantId": 16,
+      "productId": 11,
+      "variantName": "Đen Viền Bạc Màn Hình LCD 140W Công Suất Cao",
+      "price": 2490000,
+      "stockQuantity": 35,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/p/i/pin-anker-737-24000mah.png",
+      "attributes": {
+        "Dung lượng": "24,000mAh (140W Max)"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-11T00:00:00Z"
+    },
+    {
+      "variantId": 17,
+      "productId": 12,
+      "variantName": "Trắng White (Cảm biến điều chỉnh ánh sáng thông minh)",
+      "price": 990000,
+      "stockQuantity": 40,
+      "imageUrl": "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/d/e/den-ban-yeelight-smart.png",
+      "attributes": {
+        "Màu sắc": "Trắng White"
+      },
+      "isActive": true,
+      "createdAt": "2026-01-12T00:00:00Z"
+    }
+  ],
+  "promotions": [
+    {
+      "name": "Lễ Hội Âm Thanh Đỉnh Cao - Giảm 10%",
+      "description": "Ưu đãi giảm giá 10% trực tiếp cho các dòng tai nghe chống ồn Sony WH-1000XM5 và Apple AirPods Pro 2 chính hãng.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 10,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [4, 5, 11]
+    },
+    {
+      "name": "Siêu Sale Laptop Đồ Họa & Gaming - Giảm 1.500.000đ",
+      "description": "Khuyến mãi giảm ngay 1,500,000đ khi đặt mua Laptop Asus Zenbook 14 OLED hoặc Acer Nitro V 15.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 1500000,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [1, 2, 3]
+    },
+    {
+      "name": "Combo Phụ Kiện Lập Trình & Gear - Giảm 15%",
+      "description": "Giảm 15% khi mua Chuột công thái học Logitech MX Master 3S hoặc Bàn phím cơ FL-Esports GP75.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 15,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [6, 7, 9, 10]
+    },
+    {
+      "name": "Tuần Lễ Màn Hình Đồ Họa & Gaming - Giảm 800.000đ",
+      "description": "Giảm trực tiếp 800.000đ khi mua màn hình đồ họa chuyên nghiệp Dell UltraSharp U2724D hoặc màn hình gaming LG UltraGear 27GR75Q.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 800000,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [12, 13]
+    },
+    {
+      "name": "Bứt Phá Năng Lượng - Giảm 20% Cáp Sạc & Pin Anker",
+      "description": "Giảm sâu 20% cho các dòng củ sạc nhanh công nghệ GaN Anker Prime 67W và trạm pin dự phòng Anker 737 140W.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 20,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [14, 15, 16]
+    },
+    {
+      "name": "Đổi Mới Không Gian Sống SmartHome - Giảm 12%",
+      "description": "Ưu đãi 12% cho robot hút bụi lau nhà Xiaomi Dreame L10s Ultra và đèn học thông minh Yeelight Pro.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 12,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [8, 17]
+    },
+    {
+      "name": "Mùa Tựu Trường Back to School - Giảm 2.000.000đ Laptop",
+      "description": "Hỗ trợ học sinh, sinh viên và lập trình viên mua laptop cao cấp Asus Zenbook 14 OLED tiết kiệm ngay 2 triệu đồng.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 2000000,
+      "startDate": "2026-08-01T00:00:00Z",
+      "endDate": "2026-10-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [1, 2]
+    },
+    {
+      "name": "Giờ Vàng Thính Giác Sony - Giảm 1.000.000đ",
+      "description": "Giảm sốc 1,000,000đ trong khung giờ vàng cho tai nghe chống ồn Sony WH-1000XM5.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 1000000,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "variantIds": [4, 5]
+    }
+  ],
+  "vouchers": [
+    {
+      "code": "CHAOBANMOI50K",
+      "title": "Voucher Chào Bạn Mới - Giảm 50.000đ",
+      "description": "Giảm ngay 50.000đ cho đơn hàng đầu tiên từ 500.000đ khi đăng ký và mua sắm tại TechStoree.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 50000,
+      "minOrderValue": 500000,
+      "maxDiscountAmount": null,
+      "usageLimit": 1000,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "TECHSTORE100K",
+      "title": "Ưu Đãi Công Nghệ - Giảm 100.000đ",
+      "description": "Giảm 100.000đ áp dụng cho mọi đơn hàng thiết bị công nghệ có giá trị từ 2.000.000đ.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 100000,
+      "minOrderValue": 2000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 500,
+      "limitPerUser": 2,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "FLASHSALE10",
+      "title": "Siêu Hội Mua Sắm - Giảm 10% (Tối đa 300K)",
+      "description": "Giảm 10% tối đa 300.000đ cho đơn hàng từ 1.500.000đ trên toàn bộ sản phẩm cửa hàng.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 10,
+      "minOrderValue": 1500000,
+      "maxDiscountAmount": 300000,
+      "usageLimit": 300,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "VIPMEGA500K",
+      "title": "Đặc Quyền Khách Hàng VIP - Giảm 500.000đ",
+      "description": "Giảm ngay 500.000đ cho các đơn hàng giá trị cao từ 10.000.000đ (Laptop, Màn hình chuyên nghiệp, Robot hút bụi cao cấp).",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 500000,
+      "minOrderValue": 10000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 100,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "LAPTOPGAMING1TR",
+      "title": "Chiến Game Thả Ga - Giảm 1.000.000đ Laptop",
+      "description": "Giảm thẳng 1.000.000đ khi đặt mua bất kỳ laptop gaming hoặc đồ họa có giá trị từ 18.000.000đ.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 1000000,
+      "minOrderValue": 18000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 50,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "GEARPRO15",
+      "title": "Bàn Phím & Chuột Gear Pro - Giảm 15%",
+      "description": "Giảm 15% tối đa 250.000đ khi mua combo phím cơ FL-Esports hoặc chuột công thái học Logitech MX Master.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 15,
+      "minOrderValue": 1000000,
+      "maxDiscountAmount": 250000,
+      "usageLimit": 400,
+      "limitPerUser": 2,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "APPLEFAN200K",
+      "title": "Tín Đồ Táo Khuyết - Giảm 200.000đ",
+      "description": "Giảm ngay 200.000đ cho đơn hàng thiết bị Apple chính hãng (AirPods Pro 2) từ 5.000.000đ.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 200000,
+      "minOrderValue": 5000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 200,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "SMARTHOME12",
+      "title": "Ngôi Nhà Thông Minh - Giảm 12% (Tối đa 400K)",
+      "description": "Giảm 12% tối đa 400.000đ khi sắm thiết bị SmartHome (Robot hút bụi, Đèn bảo vệ thị lực) từ 2.000.000đ.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 12,
+      "minOrderValue": 2000000,
+      "maxDiscountAmount": 400000,
+      "usageLimit": 250,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "SINHNHATVIP20",
+      "title": "Mừng Sinh Nhật Khách Hàng - Giảm 20%",
+      "description": "Ưu đãi sinh nhật giảm 20% tối đa 500.000đ cho đơn hàng từ 1.000.000đ.",
+      "discountType": "PERCENTAGE",
+      "discountValue": 20,
+      "minOrderValue": 1000000,
+      "maxDiscountAmount": 500000,
+      "usageLimit": 150,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "WEEKENDTECH70K",
+      "title": "Cuối Tuần Công Nghệ - Giảm 70.000đ",
+      "description": "Giảm 70.000đ cho đơn hàng từ 800.000đ vào mỗi dịp thứ 7 và Chủ nhật hàng tuần.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 70000,
+      "minOrderValue": 800000,
+      "maxDiscountAmount": null,
+      "usageLimit": 600,
+      "limitPerUser": 2,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": true
+    },
+    {
+      "code": "SONYXM6REWARD",
+      "title": "Quà Tặng Khảo Sát Sony XM6 - Giảm 200.000đ",
+      "description": "Voucher độc quyền tặng thưởng cho khách hàng sau khi hoàn thành bài khảo sát thăm dò Sony WH-1000XM6.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 200000,
+      "minOrderValue": 1000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 500,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": false
+    },
+    {
+      "code": "VIPKHACHQUEN300K",
+      "title": "Tri Ân Khách Hàng Thân Thiết - Giảm 300.000đ",
+      "description": "Voucher đặc quyền dành riêng cho khách hàng VIP và thành viên trung thành, đơn từ 6.000.000đ.",
+      "discountType": "FIXED_AMOUNT",
+      "discountValue": 300000,
+      "minOrderValue": 6000000,
+      "maxDiscountAmount": null,
+      "usageLimit": 100,
+      "limitPerUser": 1,
+      "startDate": "2026-01-01T00:00:00Z",
+      "endDate": "2026-12-31T23:59:59Z",
+      "isActive": true,
+      "isPublic": false
+    }
+  ],
+  "surveys": [
+    {
+      "surveyId": 1,
+      "title": "Thăm dò nhu cầu Tai nghe chống ồn Sony WH-1000XM6 (2026)",
+      "description": "Khảo sát ý kiến khách hàng về mức giá và tính năng kỳ vọng của dòng tai nghe cao cấp Sony WH-1000XM6 sắp mở bán. Nhận ngay Voucher giảm giá sau khi hoàn thành!",
+      "rewardVoucherId": null,
+      "isActive": true,
+      "createdAt": "2026-01-05T00:00:00Z"
+    }
+  ],
+  "surveyQuestions": [
+    {
+      "questionId": 1,
+      "surveyId": 1,
+      "questionText": "Bạn kỳ vọng mức giá niêm yết của Sony WH-1000XM6 khoảng bao nhiêu?",
+      "questionType": "SINGLE_CHOICE",
+      "isRequired": true,
+      "orderNum": 1
+    },
+    {
+      "questionId": 2,
+      "surveyId": 1,
+      "questionText": "Bạn có đóng góp ý kiến hoặc kỳ vọng tính năng gì mới ở thế hệ Sony XM6 này?",
+      "questionType": "TEXT",
+      "isRequired": false,
+      "orderNum": 2
+    }
+  ],
+  "surveyOptions": [
+    {
+      "optionId": 1,
+      "questionId": 1,
+      "optionText": "Dưới 8.000.000 VNĐ",
+      "orderNum": 1
+    },
+    {
+      "optionId": 2,
+      "questionId": 1,
+      "optionText": "Từ 8.000.000 - 10.000.000 VNĐ",
+      "orderNum": 2
+    },
+    {
+      "optionId": 3,
+      "questionId": 1,
+      "optionText": "Trên 10.000.000 VNĐ",
+      "orderNum": 3
+    }
+  ]
+}

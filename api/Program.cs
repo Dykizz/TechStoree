@@ -149,13 +149,14 @@ var app = builder.Build();
 // 7. Kích hoạt Global Exception Handling Middleware đầu tiên trong pipeline
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// 8. Tự động kiểm tra và thực thi Migration CSDL khi khởi động
+// 8. Tự động kiểm tra và thực thi Migration CSDL & Khởi tạo Admin mặc định khi khởi động
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
         dbContext.Database.Migrate();
+        await DbInitializer.SeedAsync(dbContext, app.Logger);
     }
     catch (Exception ex)
     {

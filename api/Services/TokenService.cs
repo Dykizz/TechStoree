@@ -24,10 +24,21 @@ public class TokenService(IConfiguration config) : ITokenService
         {
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.RoleId), // "ADMIN", "USER"
             new Claim(ClaimTypes.Email, user.Email),
             new Claim("fullName", user.FullName)
         };
+
+        // Gán tất cả vai trò của tài khoản vào claims (ASP.NET Core RBAC hỗ trợ nhiều ClaimTypes.Role)
+        var roles = user.UserRoles?.Select(ur => ur.RoleId.ToString()).Distinct().ToList() ?? new List<string>();
+        if (roles.Count == 0)
+        {
+            roles.Add(WebBanHang.Api.Enums.UserRoleTypeExtensions.User);
+        }
+
+        foreach (var r in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, r));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

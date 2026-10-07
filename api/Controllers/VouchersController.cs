@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Vouchers;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Models;
 using WebBanHang.Api.Services.Interfaces;
@@ -20,7 +21,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// </summary>
     /// <param name="filter">Bộ lọc: status (UPCOMING, ACTIVE, EXPIRED), isActive, fromDate, toDate, search</param>
     [HttpGet]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<VoucherBaseDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllVouchers([FromQuery] VoucherQueryFilter filter)
     {
@@ -45,7 +46,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// </summary>
     /// <param name="id">Mã ID voucher</param>
     [HttpGet("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<VoucherDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetVoucherById([FromRoute] int id)
@@ -60,7 +61,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// Tạo mới một chiến dịch voucher (Yêu cầu quyền ADMIN)
     /// </summary>
     [HttpPost]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<VoucherDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateVoucher([FromBody] VoucherUpsertRequestDto request)
@@ -75,7 +76,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// <param name="id">Mã ID voucher cần sửa</param>
     /// <param name="request">Thông tin cập nhật</param>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<VoucherDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -92,7 +93,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// </summary>
     /// <param name="id">Mã ID voucher</param>
     [HttpPatch("{id:int}/toggle-active")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ToggleActive([FromRoute] int id)
@@ -109,7 +110,7 @@ public class VouchersController(IVoucherService voucherService) : BaseApiControl
     /// </summary>
     /// <param name="id">Mã ID voucher cần xóa</param>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "ADMIN")]
+    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

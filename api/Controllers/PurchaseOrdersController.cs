@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.PurchaseOrders;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -10,7 +11,7 @@ namespace WebBanHang.Api.Controllers;
 /// Quản lý Nhập hàng từ Nhà cung cấp (Purchase Orders)
 /// </summary>
 [Route("api/purchase-orders")]
-[Authorize(Roles = "ADMIN")]
+[AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF)]
 [Tags("Purchase Orders")]
 public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService) : BaseApiController
 {
