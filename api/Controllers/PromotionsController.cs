@@ -46,7 +46,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// Tạo mới một chương trình khuyến mãi (Yêu cầu quyền Quản trị viên)
     /// </summary>
     [HttpPost]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Promotions.Create)]
     [ProducesResponseType(typeof(ApiResponse<PromotionDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -63,7 +63,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// <param name="id">Mã ID khuyến mãi</param>
     /// <param name="dto">Dữ liệu cập nhật</param>
     [HttpPut("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Promotions.Update)]
     [ProducesResponseType(typeof(ApiResponse<PromotionDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -82,7 +82,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// </summary>
     /// <param name="id">Mã ID khuyến mãi</param>
     [HttpDelete("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Promotions.Delete)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -102,7 +102,7 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     /// </summary>
     /// <param name="id">Mã ID khuyến mãi</param>
     [HttpPatch("{id:int}/toggle-active")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Promotions.Update)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

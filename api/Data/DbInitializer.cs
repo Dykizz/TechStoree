@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Enums;
 using WebBanHang.Api.Models;
 
@@ -15,7 +16,8 @@ public static class DbInitializer
         public string Password { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string? Phone { get; set; }
-        public string Role { get; set; } = "USER";
+        public string? Role { get; set; }
+        public List<string>? Roles { get; set; }
     }
 
     private class PromotionSeedDto
@@ -62,8 +64,24 @@ public static class DbInitializer
     /// Tự động nạp toàn bộ dữ liệu mẫu (Dummy Data) từ Data/dummy_data.json khi hệ thống khởi động.
     /// Bao gồm: Tài khoản nhân viên/Admin, Vouchers, Khuyến mãi, và Sản phẩm mở rộng.
     /// </summary>
-    public static async Task SeedAsync(AppDbContext context, ILogger logger)
+    /// <remarks>
+    /// Danh mục quyền hạn KHÔNG còn được đọc từ file JSON. Nó được PermissionCatalogBuilder
+    /// quét trực tiếp từ alias [HasPermission] trên endpoint và đồng bộ xuống CSDL trước khi
+    /// hàm này được gọi (xem Program.cs bước 8.1 và 8.2).
+    /// </remarks>
+    /// <param name="context">DbContext đang thao tác.</param>
+    /// <param name="logger">Logger ghi nhận tiến trình seed.</param>
+    /// <param name="isFirstInstall">
+    /// True nếu đây là lần khởi động đầu tiên trên một CSDL trắng. Chỉ khi đó hệ thống mới áp
+    /// bộ quyền mặc định cho các vai trò hệ thống; những lần sau sẽ tôn trọng cấu hình mà
+    /// Quản trị viên đã thiết lập qua giao diện.
+    /// </param>
+    public static async Task SeedAsync(AppDbContext context, ILogger logger, bool isFirstInstall = false)
     {
+        // 0. Luôn luôn đồng bộ Vai trò hệ thống trước tiên
+        await SeedPermissionsAndRolesAsync(context, logger, isFirstInstall);
+        await EnsureDefaultAdminAccountAsync(context, logger);
+
         var candidatePaths = new[]
         {
             Path.Combine(AppContext.BaseDirectory, "Data", "dummy_data.json"),
@@ -104,45 +122,71 @@ public static class DbInitializer
                     .Include(u => u.UserRoles)
                     .FirstOrDefaultAsync(u => u.Email.ToLower() == emailTrimmed);
 
-                if (Enum.TryParse<UserRoleType>(acc.Role, true, out var roleType))
+                var rolesToAssign = new List<string>();
+                if (acc.Roles != null && acc.Roles.Count > 0)
                 {
-                    if (exists == null)
+                    rolesToAssign.AddRange(acc.Roles.Select(r => r.Trim().ToUpper()));
+                }
+                else if (!string.IsNullOrWhiteSpace(acc.Role))
+                {
+                    rolesToAssign.Add(acc.Role.Trim().ToUpper());
+                }
+                else
+                {
+                    rolesToAssign.Add("USER");
+                }
+                rolesToAssign = rolesToAssign.Distinct().ToList();
+
+                if (exists == null)
+                {
+                    var username = acc.Username.Trim();
+                    if (await context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower()))
                     {
-                        var username = acc.Username.Trim();
-                        if (await context.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower()))
-                        {
-                            username = $"{username}_{Guid.NewGuid().ToString("N")[..4]}";
-                        }
+                        username = $"{username}_{Guid.NewGuid().ToString("N")[..4]}";
+                    }
 
-                        var newUser = new User
-                        {
-                            Username = username,
-                            Email = emailTrimmed,
-                            FullName = acc.FullName.Trim(),
-                            PasswordHash = BCrypt.Net.BCrypt.HashPassword(acc.Password),
-                            Phone = acc.Phone?.Trim(),
-                            IsLocked = false,
-                            CreatedAt = DateTime.UtcNow
-                        };
+                    var newUser = new User
+                    {
+                        Username = username,
+                        Email = emailTrimmed,
+                        FullName = acc.FullName.Trim(),
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(acc.Password),
+                        Phone = acc.Phone?.Trim(),
+                        IsLocked = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
 
+                    foreach (var roleId in rolesToAssign)
+                    {
                         newUser.UserRoles.Add(new UserRole
                         {
-                            RoleId = roleType,
+                            RoleId = roleId,
                             AssignedAt = DateTime.UtcNow
                         });
-
-                        context.Users.Add(newUser);
-                        await context.SaveChangesAsync();
-                        logger.LogInformation("✅ [DbInitializer] Đã tạo tài khoản {Role}: {Email} (Mật khẩu: {Password})", roleType, acc.Email, acc.Password);
                     }
-                    else if (!exists.UserRoles.Any(ur => ur.RoleId == roleType))
+
+                    context.Users.Add(newUser);
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("✅ [DbInitializer] Đã tạo tài khoản [{Roles}]: {Email} (Mật khẩu: {Password})", string.Join(", ", rolesToAssign), acc.Email, acc.Password);
+                }
+                else
+                {
+                    var hasNewRole = false;
+                    foreach (var roleId in rolesToAssign)
                     {
-                        exists.UserRoles.Add(new UserRole
+                        if (!exists.UserRoles.Any(ur => ur.RoleId == roleId))
                         {
-                            UserId = exists.UserId,
-                            RoleId = roleType,
-                            AssignedAt = DateTime.UtcNow
-                        });
+                            exists.UserRoles.Add(new UserRole
+                            {
+                                UserId = exists.UserId,
+                                RoleId = roleId,
+                                AssignedAt = DateTime.UtcNow
+                            });
+                            hasNewRole = true;
+                        }
+                    }
+                    if (hasNewRole)
+                    {
                         await context.SaveChangesAsync();
                     }
                 }
@@ -382,6 +426,185 @@ public static class DbInitializer
         catch (Exception ex)
         {
             logger.LogDebug("[DbInitializer] Cập nhật PostgreSQL sequence: {Message}", ex.Message);
+        }
+    }
+
+    private static async Task SeedPermissionsAndRolesAsync(AppDbContext context, ILogger logger, bool isFirstInstall)
+    {
+        // 1. Danh mục quyền hạn đã được PermissionCatalogBuilder đồng bộ xuống bảng permissions
+        //    trước khi hàm này chạy; ở đây chỉ đọc lại để phân quyền cho các vai trò hệ thống.
+        var allPermIds = await context.Permissions.Select(p => p.PermissionId).ToListAsync();
+        if (allPermIds.Count == 0)
+        {
+            logger.LogWarning("[DbInitializer] Bảng permissions rỗng — bỏ qua bước phân quyền vai trò.");
+            return;
+        }
+
+        var allPermSet = new HashSet<string>(allPermIds, StringComparer.OrdinalIgnoreCase);
+
+        // 2. Đảm bảo các Vai trò chuẩn tồn tại.
+        var systemRoles = new[]
+        {
+            new Role { RoleId = "ADMIN", RoleName = "Quản trị viên", IsSystem = true },
+            new Role { RoleId = "WAREHOUSE_STAFF", RoleName = "Nhân viên quản lý kho", IsSystem = true },
+            new Role { RoleId = "SALES_STAFF", RoleName = "Nhân viên bán hàng", IsSystem = true },
+            new Role { RoleId = "SURVEY_STAFF", RoleName = "Nhân viên khảo sát & CRM", IsSystem = true },
+            new Role { RoleId = "USER", RoleName = "Khách hàng", IsSystem = true }
+        };
+
+        var existingRoleIds = await context.Roles.Select(r => r.RoleId).ToListAsync();
+        var existingRoleSet = new HashSet<string>(existingRoleIds, StringComparer.OrdinalIgnoreCase);
+        var createdRoleIds = new List<string>();
+
+        foreach (var sr in systemRoles)
+        {
+            if (existingRoleSet.Contains(sr.RoleId))
+            {
+                continue;
+            }
+
+            context.Roles.Add(sr);
+            createdRoleIds.Add(sr.RoleId);
+        }
+
+        if (createdRoleIds.Count > 0)
+        {
+            await context.SaveChangesAsync();
+        }
+
+        // 3. Áp quyền mặc định: vai trò chuẩn đã được Migration seed sẵn nên không thể dựa vào
+        //    "vừa tạo vai trò"; chỉ áp khi CSDL trắng hoặc vai trò mới bổ sung vào mã nguồn.
+        var defaultTargets = systemRoles
+            .Where(sr => !sr.RoleId.Equals("ADMIN", StringComparison.OrdinalIgnoreCase))
+            .Where(sr => AppPermissions.DefaultRolePermissions.TryGetValue(sr.RoleId, out var d) && d.Count > 0)
+            .Where(sr => isFirstInstall ||
+                         createdRoleIds.Contains(sr.RoleId, StringComparer.OrdinalIgnoreCase))
+            .Select(sr => sr.RoleId)
+            .ToList();
+
+        if (defaultTargets.Count > 0)
+        {
+            // Chốt an toàn: chỉ áp cho vai trò hiện chưa có BẤT KỲ quyền nào,
+            // để không bao giờ chồng lên cấu hình đã có.
+            var rolesWithPermissions = new HashSet<string>(
+                await context.RolePermissions
+                    .Where(rp => defaultTargets.Contains(rp.RoleId))
+                    .Select(rp => rp.RoleId)
+                    .Distinct()
+                    .ToListAsync(),
+                StringComparer.OrdinalIgnoreCase);
+
+            var defaultAssignments = new List<RolePermission>();
+
+            foreach (var roleId in defaultTargets.Where(id => !rolesWithPermissions.Contains(id)))
+            {
+                foreach (var pid in AppPermissions.DefaultRolePermissions[roleId])
+                {
+                    if (!allPermSet.Contains(pid))
+                    {
+                        logger.LogWarning(
+                            "[DbInitializer] Quyền mặc định '{Permission}' của vai trò {Role} không tồn tại trong CSDL — đã bỏ qua.",
+                            pid,
+                            roleId);
+                        continue;
+                    }
+
+                    defaultAssignments.Add(new RolePermission
+                    {
+                        RoleId = roleId,
+                        PermissionId = pid,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                }
+            }
+
+            if (defaultAssignments.Count > 0)
+            {
+                context.RolePermissions.AddRange(defaultAssignments);
+                await context.SaveChangesAsync();
+            }
+
+            logger.LogInformation(
+                "✅ [DbInitializer] Đã áp {PermCount} quyền mặc định cho {RoleCount} vai trò hệ thống: {Roles}",
+                defaultAssignments.Count,
+                defaultTargets.Count,
+                string.Join(", ", defaultTargets));
+        }
+
+        // 4. ADMIN luôn được cấp toàn quyền trên mọi quyền hiện có, kể cả quyền mới bổ sung sau này.
+        //    Đây là chủ ý thiết kế: ADMIN là vai trò siêu quản trị, không phụ thuộc cấu hình thủ công.
+        var adminExistingPerms = await context.RolePermissions
+            .Where(rp => rp.RoleId == "ADMIN")
+            .Select(rp => rp.PermissionId)
+            .ToListAsync();
+        var adminPermSet = new HashSet<string>(adminExistingPerms, StringComparer.OrdinalIgnoreCase);
+
+        var adminNewRolePerms = allPermIds
+            .Where(pid => !adminPermSet.Contains(pid))
+            .Select(pid => new RolePermission
+            {
+                RoleId = "ADMIN",
+                PermissionId = pid,
+                AssignedAt = DateTime.UtcNow
+            })
+            .ToList();
+
+        if (adminNewRolePerms.Count > 0)
+        {
+            context.RolePermissions.AddRange(adminNewRolePerms);
+            await context.SaveChangesAsync();
+            logger.LogInformation(
+                "✅ [DbInitializer] Đã cấp thêm {Count} quyền mới cho vai trò ADMIN.",
+                adminNewRolePerms.Count);
+        }
+
+        logger.LogInformation("✅ [DbInitializer] Hoàn tất đồng bộ vai trò và quyền hạn hệ thống.");
+    }
+
+    private static async Task EnsureDefaultAdminAccountAsync(AppDbContext context, ILogger logger)
+    {
+        var hasAdmin = await context.UserRoles.AnyAsync(ur => ur.RoleId == "ADMIN");
+        if (!hasAdmin)
+        {
+            var adminEmail = "admin@techstoree.vn";
+            var existingUser = await context.Users
+                .Include(u => u.UserRoles)
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == adminEmail);
+
+            if (existingUser != null)
+            {
+                if (!existingUser.UserRoles.Any(ur => ur.RoleId == "ADMIN"))
+                {
+                    existingUser.UserRoles.Add(new UserRole
+                    {
+                        RoleId = "ADMIN",
+                        AssignedAt = DateTime.UtcNow
+                    });
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("✅ [DbInitializer] Đã gán vai trò ADMIN cho tài khoản {Email}", adminEmail);
+                }
+            }
+            else
+            {
+                var adminUser = new User
+                {
+                    Username = "admin",
+                    Email = adminEmail,
+                    FullName = "Quản Trị Viên Hệ Thống",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                    Phone = "0900000001",
+                    IsLocked = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                adminUser.UserRoles.Add(new UserRole
+                {
+                    RoleId = "ADMIN",
+                    AssignedAt = DateTime.UtcNow
+                });
+                context.Users.Add(adminUser);
+                await context.SaveChangesAsync();
+                logger.LogInformation("✅ [DbInitializer] Đã khởi tạo tài khoản ADMIN mặc định: {Email} (Mật khẩu: admin123)", adminEmail);
+            }
         }
     }
 }

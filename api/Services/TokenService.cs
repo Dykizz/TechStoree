@@ -40,6 +40,19 @@ public class TokenService(IConfiguration config) : ITokenService
             claims.Add(new Claim(ClaimTypes.Role, r));
         }
 
+        // Gán tất cả quyền (PBAC) của tài khoản vào claims
+        var permissions = user.UserRoles?
+            .Where(ur => ur.Role != null && ur.Role.RolePermissions != null)
+            .SelectMany(ur => ur.Role!.RolePermissions)
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToList() ?? new List<string>();
+
+        foreach (var p in permissions)
+        {
+            claims.Add(new Claim("permission", p));
+        }
+
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),

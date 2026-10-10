@@ -1,8 +1,6 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.PurchaseOrders;
-using WebBanHang.Api.Enums;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -11,7 +9,6 @@ namespace WebBanHang.Api.Controllers;
 /// Quản lý Nhập hàng từ Nhà cung cấp (Purchase Orders)
 /// </summary>
 [Route("api/purchase-orders")]
-[AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF)]
 [Tags("Purchase Orders")]
 public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService) : BaseApiController
 {
@@ -20,6 +17,7 @@ public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService
     /// </summary>
     /// <param name="filter">Bộ lọc theo ngày, trạng thái, nhà cung cấp, tìm kiếm và phân trang</param>
     [HttpGet]
+    [HasPermission(AppPermissions.PurchaseOrders.View)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<PurchaseOrderBaseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -34,6 +32,7 @@ public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService
     /// </summary>
     /// <param name="id">Mã ID của phiếu nhập</param>
     [HttpGet("{id:int}")]
+    [HasPermission(AppPermissions.PurchaseOrders.View)]
     [ProducesResponseType(typeof(ApiResponse<PurchaseOrderDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -47,12 +46,9 @@ public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService
     /// <summary>
     /// Tạo mới phiếu nhập hàng (Chọn lưu DRAFT hoặc nhập kho ngay COMPLETED)
     /// </summary>
-    /// <remarks>
-    /// - Nếu Status = DRAFT: Phiếu ở dạng nháp, chưa cộng số lượng tồn kho.
-    /// - Nếu Status = COMPLETED: Phiếu được chốt, hệ thống tự động cộng dồn tồn kho cho các biến thể.
-    /// </remarks>
     /// <param name="dto">Thông tin phiếu nhập và danh sách biến thể sản phẩm</param>
     [HttpPost]
+    [HasPermission(AppPermissions.PurchaseOrders.Create)]
     [ProducesResponseType(typeof(ApiResponse<PurchaseOrderDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -67,13 +63,10 @@ public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService
     /// <summary>
     /// Cập nhật phiếu nhập hàng (Chỉ cho phép khi phiếu ở trạng thái DRAFT)
     /// </summary>
-    /// <remarks>
-    /// - Không cho phép chỉnh sửa phiếu đã ở trạng thái COMPLETED.
-    /// - Khi cập nhật từ DRAFT sang COMPLETED, hệ thống sẽ tự động cộng dồn tồn kho.
-    /// </remarks>
     /// <param name="id">Mã ID của phiếu nhập</param>
     /// <param name="dto">Dữ liệu cập nhật</param>
     [HttpPut("{id:int}")]
+    [HasPermission(AppPermissions.PurchaseOrders.Update)]
     [ProducesResponseType(typeof(ApiResponse<PurchaseOrderDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -90,6 +83,7 @@ public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService
     /// </summary>
     /// <param name="id">Mã ID của phiếu nhập</param>
     [HttpDelete("{id:int}")]
+    [HasPermission(AppPermissions.PurchaseOrders.Update)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

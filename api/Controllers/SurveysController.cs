@@ -25,7 +25,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// <param name="filter">Bộ lọc khảo sát theo từ khóa, trạng thái mở/đóng, có voucher thưởng</param>
     /// <param name="pagination">Tham số phân trang (trang hiện tại, số lượng bản ghi mỗi trang)</param>
     [HttpGet("admin")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.View)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<SurveyAdminListDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllSurveys([FromQuery] SurveyQueryFilter filter, [FromQuery] PaginationParams pagination)
     {
@@ -38,7 +38,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID bài khảo sát</param>
     [HttpGet("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.View)]
     [ProducesResponseType(typeof(ApiResponse<SurveyAdminDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSurveyById([FromRoute] int id)
@@ -54,7 +54,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="dto">Dữ liệu tạo mới bài khảo sát kèm danh sách câu hỏi và đáp án</param>
     [HttpPost]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Create)]
     [ProducesResponseType(typeof(ApiResponse<SurveyAdminDetailDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateSurvey([FromBody] CreateSurveyRequestDto dto)
     {
@@ -68,7 +68,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// <param name="id">Mã ID bài khảo sát cần chỉnh sửa</param>
     /// <param name="dto">Dữ liệu cập nhật thông tin bài khảo sát</param>
     [HttpPatch("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Update)]
     [ProducesResponseType(typeof(ApiResponse<SurveyAdminDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -83,7 +83,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID bài khảo sát</param>
     [HttpPatch("{id:int}/toggle-active")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Update)]
     [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
     public async Task<IActionResult> ToggleActive([FromRoute] int id)
     {
@@ -96,7 +96,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID bài khảo sát cần xóa</param>
     [HttpDelete("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Delete)]
     [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteSurvey([FromRoute] int id)
@@ -111,7 +111,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// <param name="id">Mã ID bài khảo sát cần phát</param>
     /// <param name="dto">Tiêu chí chỉ định nhóm khách hàng nhận bài</param>
     [HttpPost("{id:int}/assign")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Assign)]
     [ProducesResponseType(typeof(ApiResponse<int>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AssignSurvey([FromRoute] int id, [FromBody] AssignSurveyRequestDto dto)
     {
@@ -124,7 +124,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID bài khảo sát cần xem thống kê</param>
     [HttpGet("{id:int}/statistics")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.View)]
     [ProducesResponseType(typeof(ApiResponse<SurveyStatisticsDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSurveyStatistics([FromRoute] int id)
     {
@@ -137,7 +137,7 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     /// </summary>
     /// <param name="id">Mã ID bài khảo sát gốc cần nhân bản</param>
     [HttpPost("{id:int}/clone")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SURVEY_STAFF)]
+    [HasPermission(AppPermissions.Surveys.Create)]
     [ProducesResponseType(typeof(ApiResponse<SurveyAdminDetailDto>), StatusCodes.Status201Created)]
     public async Task<IActionResult> CloneSurvey([FromRoute] int id)
     {

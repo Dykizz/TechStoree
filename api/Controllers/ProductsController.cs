@@ -43,7 +43,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     /// </summary>
     /// <param name="dto">Dữ liệu tạo sản phẩm cha và các biến thể ban đầu</param>
     [HttpPost]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Products.Create)]
     [ProducesResponseType(typeof(ApiResponse<ProductDetailDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -60,7 +60,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     /// <param name="id">Mã ID sản phẩm</param>
     /// <param name="dto">Dữ liệu cập nhật sản phẩm</param>
     [HttpPut("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Products.Update)]
     [ProducesResponseType(typeof(ApiResponse<ProductDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -77,7 +77,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     /// </summary>
     /// <param name="id">Mã ID sản phẩm</param>
     [HttpPatch("{id:int}/status")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Products.Update)]
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -94,7 +94,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     /// </summary>
     /// <param name="id">Mã ID sản phẩm</param>
     [HttpDelete("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Products.Delete)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
