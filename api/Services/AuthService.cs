@@ -50,7 +50,7 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
         // 5. Gán mặc định vai trò USER (Khách hàng) vào bảng trung gian user_roles
         newUser.UserRoles.Add(new UserRole
         {
-            RoleId = UserRoleType.USER,
+            RoleId = UserRoleTypeExtensions.User,
             AssignedAt = DateTime.UtcNow
         });
 
@@ -62,10 +62,11 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
     {
-        // 1. Tìm tài khoản theo email kèm danh sách các vai trò
+        // 1. Tìm tài khoản theo email kèm danh sách các vai trò và quyền hạn
         var user = await context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r!.RolePermissions)
             .FirstOrDefaultAsync(u => u.Email.ToLower() == dto.Email.Trim().ToLower());
 
         // 2. Kiểm tra tài khoản tồn tại và khớp mật khẩu
@@ -108,6 +109,7 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
         var user = await context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r!.RolePermissions)
             .FirstOrDefaultAsync(u => u.RefreshToken == refreshToken);
 
         // 2. Kiểm tra tính hợp lệ và thời hạn của token
@@ -154,6 +156,7 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
         var user = await context.Users
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+                    .ThenInclude(r => r!.RolePermissions)
             .FirstOrDefaultAsync(u => u.UserId == userId);
 
         if (user == null)

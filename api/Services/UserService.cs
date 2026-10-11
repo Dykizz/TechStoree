@@ -21,10 +21,10 @@ public class UserService(AppDbContext context) : IUserService
             .AsQueryable();
 
         // 1. Lọc theo vai trò cụ thể (nếu có)
-        if (!string.IsNullOrWhiteSpace(filter.Role) &&
-            Enum.TryParse<UserRoleType>(filter.Role.Trim(), true, out var roleEnum))
+        if (!string.IsNullOrWhiteSpace(filter.Role))
         {
-            query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleEnum));
+            var roleFilter = filter.Role.Trim().ToUpper();
+            query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleFilter));
         }
 
         // 1.1 Lọc nhóm cán bộ nhân viên nội bộ vs khách hàng thông thường (nếu có)
@@ -33,12 +33,12 @@ public class UserService(AppDbContext context) : IUserService
             if (filter.IsStaffOnly.Value)
             {
                 // Chỉ lấy tài khoản có ít nhất một vai trò khác USER (tức là nhân viên / quản trị)
-                query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId != UserRoleType.USER));
+                query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId != "USER"));
             }
             else
             {
                 // Chỉ lấy khách hàng thông thường
-                query = query.Where(u => u.UserRoles.All(ur => ur.RoleId == UserRoleType.USER));
+                query = query.Where(u => u.UserRoles.All(ur => ur.RoleId == "USER"));
             }
         }
 
@@ -139,31 +139,26 @@ public class UserService(AppDbContext context) : IUserService
         // 3. Xử lý danh sách vai trò
         var requestedRoles = dto.Roles;
 
-        var roleEnums = new List<UserRoleType>();
+        var roleIds = new List<string>();
         if (requestedRoles != null && requestedRoles.Count > 0)
         {
-            var invalidRoles = new List<string>();
-            foreach (var r in requestedRoles.Distinct())
-            {
-                if (Enum.TryParse<UserRoleType>(r.Trim(), true, out var parsedRole))
-                {
-                    roleEnums.Add(parsedRole);
-                }
-                else
-                {
-                    invalidRoles.Add(r);
-                }
-            }
+            var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
+            var existingRoles = await context.Roles
+                .Where(r => cleanRoles.Contains(r.RoleId))
+                .Select(r => r.RoleId)
+                .ToListAsync();
 
+            var invalidRoles = cleanRoles.Except(existingRoles, StringComparer.OrdinalIgnoreCase).ToList();
             if (invalidRoles.Count > 0)
             {
-                throw new BadRequestException($"Các vai trò không hợp lệ: {string.Join(", ", invalidRoles)}.");
+                throw new BadRequestException($"Các vai trò không tồn tại trong hệ thống: {string.Join(", ", invalidRoles)}.");
             }
+            roleIds = existingRoles;
         }
         else
         {
             // Mặc định gán vai trò USER nếu không chỉ định vai trò nào
-            roleEnums.Add(UserRoleType.USER);
+            roleIds.Add("USER");
         }
 
         // 4. Băm mật khẩu bằng BCrypt
@@ -185,11 +180,11 @@ public class UserService(AppDbContext context) : IUserService
             CreatedAt = DateTime.UtcNow
         };
 
-        foreach (var roleEnum in roleEnums.Distinct())
+        foreach (var roleId in roleIds.Distinct())
         {
             newUser.UserRoles.Add(new UserRole
             {
-                RoleId = roleEnum,
+                RoleId = roleId,
                 AssignedByUserId = creatorUserId,
                 AssignedAt = DateTime.UtcNow
             });
@@ -223,36 +218,28 @@ public class UserService(AppDbContext context) : IUserService
             throw new BadRequestException("Danh sách vai trò không được để trống.");
         }
 
-        var roleEnums = new List<UserRoleType>();
-        var invalidRoles = new List<string>();
+        var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
+        var existingRoles = await context.Roles
+            .Where(r => cleanRoles.Contains(r.RoleId))
+            .Select(r => r.RoleId)
+            .ToListAsync();
 
-        foreach (var r in requestedRoles.Distinct())
-        {
-            if (Enum.TryParse<UserRoleType>(r.Trim(), true, out var parsedRole))
-            {
-                roleEnums.Add(parsedRole);
-            }
-            else
-            {
-                invalidRoles.Add(r);
-            }
-        }
-
+        var invalidRoles = cleanRoles.Except(existingRoles, StringComparer.OrdinalIgnoreCase).ToList();
         if (invalidRoles.Count > 0)
         {
-            throw new BadRequestException($"Các vai trò không hợp lệ: {string.Join(", ", invalidRoles)}.");
+            throw new BadRequestException($"Các vai trò không tồn tại trong hệ thống: {string.Join(", ", invalidRoles)}.");
         }
 
         // Xóa các vai trò cũ và gán các vai trò mới
         context.UserRoles.RemoveRange(user.UserRoles);
         user.UserRoles.Clear();
 
-        foreach (var roleEnum in roleEnums)
+        foreach (var roleId in existingRoles)
         {
             user.UserRoles.Add(new UserRole
             {
                 UserId = user.UserId,
-                RoleId = roleEnum,
+                RoleId = roleId,
                 AssignedByUserId = operatorUserId,
                 AssignedAt = DateTime.UtcNow
             });
@@ -307,7 +294,7 @@ public class UserService(AppDbContext context) : IUserService
         // 1. Chỉ lấy nhóm khách hàng (sở hữu vai trò USER)
         var customers = await context.Users
             .AsNoTracking()
-            .Where(u => u.UserRoles.Any(ur => ur.RoleId == UserRoleType.USER))
+            .Where(u => u.UserRoles.Any(ur => ur.RoleId == "USER"))
             .Select(u => new
             {
                 u.UserId,

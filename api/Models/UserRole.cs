@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using WebBanHang.Api.Enums;
 
 namespace WebBanHang.Api.Models;
 
@@ -12,8 +11,8 @@ public class UserRole
     public User? User { get; set; }
 
     [Column("role_id")]
-    [MaxLength(20)]
-    public UserRoleType RoleId { get; set; }
+    [MaxLength(50)]
+    public string RoleId { get; set; } = string.Empty;
     public Role? Role { get; set; }
 
     [Column("assigned_at")]

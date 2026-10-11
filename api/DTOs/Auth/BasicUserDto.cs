@@ -33,6 +33,11 @@ public class BasicUserDto
     public List<string> Roles { get; set; } = new();
 
     /// <summary>
+    /// Danh sách các quyền hạn của người dùng (PBAC)
+    /// </summary>
+    public List<string> Permissions { get; set; } = new();
+
+    /// <summary>
     /// Vai trò chính (Hỗ trợ tương thích ngược cho client cũ)
     /// </summary>
     /// <example>ADMIN</example>

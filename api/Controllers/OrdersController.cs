@@ -117,7 +117,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// [ADMIN / BÁN HÀNG] Tra cứu và quản lý toàn bộ đơn hàng trong hệ thống
     /// </summary>
     [HttpGet("admin/all")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Orders.View)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<OrderBaseDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllOrders([FromQuery] OrderQueryFilter filter)
@@ -130,7 +130,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, CANCELLED)
     /// </summary>
     [HttpPatch("{id:int}/status")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Orders.UpdateStatus)]
     [ProducesResponseType(typeof(ApiResponse<OrderDetailDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

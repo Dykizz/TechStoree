@@ -5,7 +5,7 @@
     "description": "Bộ API & Automated Tests hoàn chỉnh cho hệ thống Web Bán Hàng (.NET 10 Web API + PostgreSQL) - Bao gồm Auth, Users, Suppliers, Categories, Products (Quản lý và đồng bộ biến thể theo Phương án 1).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "createdAt": "2026-09-21T11:39:33.000Z",
-    "updatedAt": "2026-09-23T10:45:41.000Z",
+    "updatedAt": "2026-10-07T18:20:24.608Z",
     "lastUpdatedBy": "37058152",
     "uid": "37058152-f3da8e80-8794-4dac-8800-3b0ab14dd729"
   },
@@ -116,11 +116,77 @@
           ]
         },
         {
+          "name": "2b. Đăng nhập Quản trị viên (Login Admin - Full Permissions)",
+          "id": "3f3b3c7c-c57b-445b-87d7-a716bb93c467",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@techstoree.vn\",\n  \"password\": \"admin123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Đăng nhập tài khoản Quản trị viên hệ thống (ADMIN) để lấy AccessToken sở hữu toàn bộ quyền hạn phân quyền và quản lý hệ thống."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.token) {",
+                  "    pm.collectionVariables.set(\"accessToken\", json.data.token);",
+                  "    console.log(\"Đã tự động lưu Admin accessToken vào Collection Variables!\");",
+                  "}",
+                  "if (json.data && json.data.refreshToken) {",
+                  "    pm.collectionVariables.set(\"refreshToken\", json.data.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "3. Lấy thông tin cá nhân (Get Profile /me)",
           "id": "1513e756-7b0f-48bb-84eb-6ff3492069df",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -208,7 +274,14 @@
           "id": "628789d7-4ee9-4a12-9672-ae7c7e3f9dcb",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [],
@@ -244,7 +317,14 @@
           "id": "ba8eb557-7f4b-4bab-af0a-e0da17dbda8c",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -295,7 +375,14 @@
           "id": "d4fd159c-c90e-4f03-9d1c-bca5f6a8beae",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
@@ -352,7 +439,14 @@
           "id": "e2d69534-c4b1-491c-a6b4-4b89d28e882f",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -378,7 +472,14 @@
           "id": "0c63dda4-b4e8-486e-aaa2-f6a3da980c3d",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PATCH",
             "header": [
@@ -419,7 +520,14 @@
           "id": "8f99cd1d-9621-4e13-aac6-f15d95ab4f79",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PATCH",
             "header": [
@@ -461,7 +569,14 @@
           "id": "ddef2316-3e15-4b51-81b6-8f4deb181266",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PUT",
             "header": [
@@ -591,6 +706,868 @@
       "uid": "37058152-7ce77fe1-736f-42d8-8361-ae5f2c84e585"
     },
     {
+      "name": "Roles & Permissions",
+      "id": "d479c946-4e89-48dd-b14d-f9b2a937991b",
+      "description": "Bộ API quản lý Vai trò (Roles) và Quyền hạn chi tiết (PBAC - Permission-Based Access Control) cho hệ thống.",
+      "item": [
+        {
+          "name": "1. Danh mục quyền hạn hệ thống theo Module (GET /api/roles/permissions)",
+          "id": "0d790a4b-6db0-4955-bf38-d89484c43f78",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "permissions"
+              ]
+            },
+            "description": "Lấy cây danh mục toàn bộ quyền hạn trong hệ thống được gom nhóm theo từng Module (Products, Orders, Roles, Users...)."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles/permissions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles",
+                    "permissions"
+                  ]
+                },
+                "description": "Lấy cây danh mục toàn bộ quyền hạn trong hệ thống được gom nhóm theo từng Module (Products, Orders, Roles, Users...)."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Lấy danh mục quyền hạn thành công!\",\n  \"data\": [\n    {\n      \"module\": \"Quản lý sản phẩm\",\n      \"permissions\": [\n        {\n          \"permissionId\": \"Products.Create\",\n          \"permissionName\": \"Thêm sản phẩm\",\n          \"module\": \"Quản lý sản phẩm\",\n          \"description\": \"Tạo mới sản phẩm và các biến thể\",\n          \"isReserved\": false,\n          \"endpointCount\": 1,\n          \"endpoints\": [\n            \"Products.CreateProduct\"\n          ]\n        },\n        {\n          \"permissionId\": \"Products.View\",\n          \"permissionName\": \"Xem sản phẩm\",\n          \"module\": \"Quản lý sản phẩm\",\n          \"description\": \"Xem danh sách và chi tiết sản phẩm, biến thể\",\n          \"isReserved\": true,\n          \"endpointCount\": 0,\n          \"endpoints\": []\n        }\n      ]\n    },\n    {\n      \"module\": \"Quản lý đơn hàng\",\n      \"permissions\": [\n        {\n          \"permissionId\": \"Orders.View\",\n          \"permissionName\": \"Xem đơn bán hàng\",\n          \"module\": \"Quản lý đơn hàng\",\n          \"description\": \"Xem tất cả đơn hàng của khách hàng\",\n          \"isReserved\": false,\n          \"endpointCount\": 1,\n          \"endpoints\": [\n            \"Orders.GetAllOrders\"\n          ]\n        },\n        {\n          \"permissionId\": \"Orders.Cancel\",\n          \"permissionName\": \"Hủy đơn hàng\",\n          \"module\": \"Quản lý đơn hàng\",\n          \"description\": \"Hủy đơn hàng của khách hàng\",\n          \"isReserved\": true,\n          \"endpointCount\": 0,\n          \"endpoints\": []\n        }\n      ]\n    }\n  ],\n  \"errors\": null,\n  \"timestamp\": \"2026-10-10T08:30:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Trả về danh sách quyền hạn gom nhóm theo Module\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.an(\"array\");",
+                  "    pm.expect(json.data.length).to.be.greaterThan(0);",
+                  "    pm.expect(json.data[0]).to.have.property(\"module\");",
+                  "    pm.expect(json.data[0]).to.have.property(\"permissions\");",
+                  "});",
+                  "pm.test(\"Mỗi quyền có đầy đủ metadata và ngữ cảnh endpoint\", function () {",
+                  "    var json = pm.response.json();",
+                  "    var all = [];",
+                  "    json.data.forEach(function (g) { all = all.concat(g.permissions); });",
+                  "    pm.expect(all.length).to.be.greaterThan(0);",
+                  "    all.forEach(function (p) {",
+                  "        pm.expect(p).to.have.property(\"permissionId\");",
+                  "        pm.expect(p).to.have.property(\"isReserved\");",
+                  "        pm.expect(p).to.have.property(\"endpointCount\");",
+                  "        pm.expect(p).to.have.property(\"endpoints\");",
+                  "        pm.expect(p.endpointCount).to.equal(p.endpoints.length);",
+                  "    });",
+                  "});",
+                  "pm.test(\"Quyền Reserved chủ ý chưa gắn endpoint nào\", function () {",
+                  "    var json = pm.response.json();",
+                  "    var all = [];",
+                  "    json.data.forEach(function (g) { all = all.concat(g.permissions); });",
+                  "    var reserved = all.filter(function (p) { return p.isReserved; });",
+                  "    pm.expect(reserved.length).to.be.greaterThan(0);",
+                  "    reserved.forEach(function (p) {",
+                  "        pm.expect(p.endpointCount).to.equal(0);",
+                  "    });",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Danh sách tất cả vai trò (GET /api/roles)",
+          "id": "b8e1c2ea-37cf-4ba7-beb1-09c972371ffb",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            },
+            "description": "Lấy danh sách các vai trò (Roles) kèm số lượng người dùng đang giữ vai trò và danh sách mã quyền tương ứng."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles"
+                  ]
+                },
+                "description": "Lấy danh sách các vai trò (Roles) kèm số lượng người dùng đang giữ vai trò và danh sách mã quyền tương ứng."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Lấy danh sách vai trò thành công!\",\n  \"data\": [\n    {\n      \"roleId\": \"ADMIN\",\n      \"roleName\": \"Quản Trị Viên Hệ Thống\",\n      \"description\": \"Toàn quyền quản trị hệ thống\",\n      \"isSystem\": true,\n      \"userCount\": 1,\n      \"permissions\": [\n        \"Users.View\",\n        \"Roles.View\",\n        \"Products.View\"\n      ]\n    },\n    {\n      \"roleId\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n      \"roleName\": \"Nhân viên CSKH & Tư vấn\",\n      \"description\": \"Hỗ trợ khách hàng và tra cứu đơn hàng\",\n      \"isSystem\": false,\n      \"userCount\": 2,\n      \"permissions\": [\n        \"Products.View\",\n        \"Orders.View\",\n        \"Surveys.View\"\n      ]\n    }\n  ],\n  \"errors\": null,\n  \"timestamp\": \"2026-10-08T01:15:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Trả về danh sách vai trò\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Tạo mới vai trò tùy chỉnh (POST /api/roles)",
+          "id": "439f96a6-0bf5-4e12-9b30-188041a7ff94",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"Nhân viên CSKH & Hỗ trợ {{$timestamp}}\",\n  \"description\": \"Vai trò CSKH hỗ trợ tư vấn, xử lý khảo sát và tra cứu đơn hàng\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Orders.UpdateStatus\",\n    \"Surveys.View\",\n    \"Surveys.Update\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            },
+            "description": "Tạo mới vai trò tùy chỉnh kèm quyền hạn. Nếu không truyền roleId, hệ thống sẽ tự động sinh mã định danh dạng GUID."
+          },
+          "response": [
+            {
+              "name": "201 Created (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"roleName\": \"Nhân viên CSKH & Hỗ trợ {{$timestamp}}\",\n  \"description\": \"Vai trò CSKH hỗ trợ tư vấn, xử lý khảo sát và tra cứu đơn hàng\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Orders.UpdateStatus\",\n    \"Surveys.View\",\n    \"Surveys.Update\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles"
+                  ]
+                },
+                "description": "Tạo mới vai trò tùy chỉnh kèm quyền hạn. Nếu không truyền roleId, hệ thống sẽ tự động sinh mã định danh dạng GUID."
+              },
+              "status": "OK",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Tạo vai trò mới thành công!\",\n  \"data\": {\n    \"roleId\": \"7C9E6679-7425-40DE-944B-E07FC1F90AE7\",\n    \"roleName\": \"Nhân viên CSKH & Hỗ trợ\",\n    \"description\": \"Vai trò CSKH hỗ trợ tư vấn, xử lý khảo sát và tra cứu đơn hàng\",\n    \"isSystem\": false,\n    \"userCount\": 0,\n    \"permissions\": [\n      \"Orders.UpdateStatus\",\n      \"Orders.View\",\n      \"Products.View\",\n      \"Surveys.Update\",\n      \"Surveys.View\"\n    ],\n    \"permissionDetails\": [\n      {\n        \"permissionId\": \"Orders.View\",\n        \"permissionName\": \"Xem đơn bán hàng\",\n        \"module\": \"Quản lý đơn hàng\",\n        \"description\": \"Xem tất cả đơn hàng của khách hàng\",\n        \"isReserved\": false,\n        \"endpointCount\": 1,\n        \"endpoints\": [\n          \"Orders.GetAllOrders\"\n        ]\n      },\n      {\n        \"permissionId\": \"Products.View\",\n        \"permissionName\": \"Xem sản phẩm\",\n        \"module\": \"Quản lý sản phẩm\",\n        \"description\": \"Xem danh sách và chi tiết sản phẩm, biến thể\",\n        \"isReserved\": true,\n        \"endpointCount\": 0,\n        \"endpoints\": []\n      }\n    ]\n  },\n  \"errors\": null,\n  \"timestamp\": \"2026-10-10T08:30:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "pm.test(\"Tạo vai trò thành công và tự sinh mã GUID\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.have.property(\"roleId\");",
+                  "    pm.collectionVariables.set(\"createdRoleId\", json.data.roleId);",
+                  "    console.log(\"Đã lưu createdRoleId vào Collection Variables: \" + json.data.roleId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Chi tiết vai trò theo ID (GET /api/roles/:id)",
+          "id": "bc0ed40a-1a78-4432-9c83-81cb507287d9",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "{{createdRoleId}}"
+              ]
+            },
+            "description": "Xem chi tiết một vai trò theo ID (ví dụ: {{createdRoleId}}, ADMIN, WAREHOUSE_STAFF...) bao gồm danh sách đầy đủ chi tiết quyền hạn."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles",
+                    "{{createdRoleId}}"
+                  ]
+                },
+                "description": "Xem chi tiết một vai trò theo ID (ví dụ: {{createdRoleId}}, ADMIN, WAREHOUSE_STAFF...) bao gồm danh sách đầy đủ chi tiết quyền hạn."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Lấy chi tiết vai trò thành công!\",\n  \"data\": {\n    \"roleId\": \"ADMIN\",\n    \"roleName\": \"Quản trị viên\",\n    \"description\": null,\n    \"isSystem\": true,\n    \"userCount\": 5,\n    \"permissions\": [\n      \"Categories.Create\",\n      \"Categories.Delete\",\n      \"Orders.View\",\n      \"Products.Create\"\n    ],\n    \"permissionDetails\": [\n      {\n        \"permissionId\": \"Orders.View\",\n        \"permissionName\": \"Xem đơn bán hàng\",\n        \"module\": \"Quản lý đơn hàng\",\n        \"description\": \"Xem tất cả đơn hàng của khách hàng\",\n        \"isReserved\": false,\n        \"endpointCount\": 1,\n        \"endpoints\": [\n          \"Orders.GetAllOrders\"\n        ]\n      },\n      {\n        \"permissionId\": \"Products.Create\",\n        \"permissionName\": \"Thêm sản phẩm\",\n        \"module\": \"Quản lý sản phẩm\",\n        \"description\": \"Tạo mới sản phẩm và các biến thể\",\n        \"isReserved\": false,\n        \"endpointCount\": 1,\n        \"endpoints\": [\n          \"Products.CreateProduct\"\n        ]\n      }\n    ]\n  },\n  \"errors\": null,\n  \"timestamp\": \"2026-10-10T08:30:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Trả về chi tiết vai trò\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data).to.have.property(\"roleId\");",
+                  "    pm.expect(json.data).to.have.property(\"permissionDetails\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Cập nhật thông tin vai trò (PUT /api/roles/:id)",
+          "id": "1288cd4e-c12d-41ec-ad8e-ab1d408145e7",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"Nhân viên CSKH Nâng Cao {{$timestamp}}\",\n  \"description\": \"Cập nhật mở rộng thêm quyền xem khuyến mãi và hủy đơn hàng\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Orders.UpdateStatus\",\n    \"Orders.Cancel\",\n    \"Promotions.View\",\n    \"Surveys.View\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "{{createdRoleId}}"
+              ]
+            },
+            "description": "Cập nhật tên, mô tả và danh sách quyền hạn của vai trò."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"roleName\": \"Nhân viên CSKH Nâng Cao {{$timestamp}}\",\n  \"description\": \"Cập nhật mở rộng thêm quyền xem khuyến mãi và hủy đơn hàng\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Orders.UpdateStatus\",\n    \"Orders.Cancel\",\n    \"Promotions.View\",\n    \"Surveys.View\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles",
+                    "{{createdRoleId}}"
+                  ]
+                },
+                "description": "Cập nhật tên, mô tả và danh sách quyền hạn của vai trò."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Cập nhật vai trò thành công!\",\n  \"data\": {\n    \"roleId\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n    \"roleName\": \"Nhân viên CSKH Nâng Cao\",\n    \"description\": \"Cập nhật mở rộng thêm quyền xem khuyến mãi và hủy đơn hàng\",\n    \"isSystem\": false,\n    \"userCount\": 0,\n    \"permissions\": [\n      \"Products.View\",\n      \"Orders.View\",\n      \"Promotions.View\"\n    ]\n  },\n  \"errors\": null,\n  \"timestamp\": \"2026-10-08T01:15:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Cập nhật thông tin vai trò thành công\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.roleName).to.include(\"Nâng Cao\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Gán / Cập nhật danh sách quyền hạn cho vai trò (PUT /api/roles/:id/permissions)",
+          "id": "51a381e6-80d0-466c-bf9d-407ff7e89a84",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Promotions.View\",\n    \"Vouchers.View\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}/permissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "{{createdRoleId}}",
+                "permissions"
+              ]
+            },
+            "description": "Cập nhật danh sách quyền hạn (Permissions) cho vai trò mà không cần thay đổi tên hay mô tả."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"permissions\": [\n    \"Products.View\",\n    \"Orders.View\",\n    \"Promotions.View\",\n    \"Vouchers.View\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}/permissions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles",
+                    "{{createdRoleId}}",
+                    "permissions"
+                  ]
+                },
+                "description": "Cập nhật danh sách quyền hạn (Permissions) cho vai trò mà không cần thay đổi tên hay mô tả."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Gán quyền cho vai trò thành công!\",\n  \"data\": {\n    \"roleId\": \"7c9e6679-7425-40de-944b-e07fc1f90ae7\",\n    \"roleName\": \"Nhân viên CSKH Nâng Cao\",\n    \"description\": \"Cập nhật quyền hạn cho vai trò\",\n    \"isSystem\": false,\n    \"userCount\": 0,\n    \"permissions\": [\n      \"Products.View\",\n      \"Orders.View\",\n      \"Promotions.View\",\n      \"Vouchers.View\"\n    ]\n  },\n  \"errors\": null,\n  \"timestamp\": \"2026-10-08T01:15:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Gán quyền hạn thành công\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.permissions).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Xóa vai trò tùy chỉnh (DELETE /api/roles/:id)",
+          "id": "03ab6a3e-3234-44e3-a3fb-a61091e07f56",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles",
+                "{{createdRoleId}}"
+              ]
+            },
+            "description": "Xóa vai trò tùy chỉnh theo ID. Hệ thống tự động ngăn chặn xóa vai trò hệ thống (ADMIN, USER...) hoặc vai trò đang được gán cho người dùng."
+          },
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "DELETE",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles/{{createdRoleId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles",
+                    "{{createdRoleId}}"
+                  ]
+                },
+                "description": "Xóa vai trò tùy chỉnh theo ID. Hệ thống tự động ngăn chặn xóa vai trò hệ thống (ADMIN, USER...) hoặc vai trò đang được gán cho người dùng."
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Xóa vai trò thành công!\",\n  \"data\": null,\n  \"errors\": null,\n  \"timestamp\": \"2026-10-08T01:15:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"Xóa vai trò thành công\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Từ chối quyền không tồn tại (POST /api/roles - mong đợi 400)",
+          "id": "3e217057-f769-4128-836d-42ba0f6ed718",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"Vai trò kiểm thử quyền sai {{$timestamp}}\",\n  \"description\": \"Kiểm thử ràng buộc: quyền không tồn tại phải bị từ chối\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Khong.TonTai\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "roles"
+              ]
+            },
+            "description": "Ràng buộc bảo vệ: mọi mã quyền gửi lên phải tồn tại trong danh mục chuẩn (AppPermissions.Catalog). Nếu có mã sai, hệ thống trả về HTTP 400 kèm danh sách mã không hợp lệ thay vì âm thầm bỏ qua."
+          },
+          "response": [
+            {
+              "name": "400 Bad Request (Quyền không tồn tại)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"roleName\": \"Vai trò kiểm thử quyền sai {{$timestamp}}\",\n  \"description\": \"Kiểm thử ràng buộc: quyền không tồn tại phải bị từ chối\",\n  \"permissions\": [\n    \"Products.View\",\n    \"Khong.TonTai\"\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/roles",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "roles"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"message\": \"Các quyền không tồn tại trong hệ thống: Khong.TonTai.\",\n  \"data\": null,\n  \"errors\": null,\n  \"timestamp\": \"2026-10-10T08:30:00.000Z\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Bad Request\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"Từ chối quyền không tồn tại trong danh mục chuẩn\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.message).to.include(\"không tồn tại\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Suppliers",
       "item": [
         {
@@ -598,7 +1575,14 @@
           "id": "81923412-32ba-4b21-a18a-98213746a111",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -637,7 +1621,14 @@
           "id": "81923412-32ba-4b21-a18a-98213746a222",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -663,7 +1654,14 @@
           "id": "81923412-32ba-4b21-a18a-98213746a333",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
@@ -697,7 +1695,14 @@
           "id": "81923412-32ba-4b21-a18a-98213746a444",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PUT",
             "header": [
@@ -732,7 +1737,14 @@
           "id": "81923412-32ba-4b21-a18a-98213746a555",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "DELETE",
             "header": [],
@@ -819,7 +1831,14 @@
           "id": "957ae1ce-7984-4b99-b2b9-e372699eaead",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
             "header": [
@@ -858,7 +1877,14 @@
           "id": "adbe9c7f-ac26-49c0-ad5c-e571c2b9c5d9",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PUT",
             "header": [
@@ -898,7 +1924,14 @@
           "id": "eb6c5ebc-daef-4c09-9d91-4a0fcc995170",
           "request": {
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "DELETE",
             "header": [],
@@ -1061,7 +2094,14 @@
               "id": "b202caeb-d808-4838-8f9e-4c2809f5a751",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "POST",
                 "header": [
@@ -1126,7 +2166,14 @@
               "id": "9d29dbd2-b0a5-414e-b057-fbace959df60",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1184,7 +2231,14 @@
               "id": "a6f89b79-fbfd-40a9-9dee-f818efbd6d2b",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1242,7 +2296,14 @@
               "id": "0747f3f3-1041-4270-b6e2-a7a7ba8df069",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PATCH",
                 "header": [],
@@ -1287,7 +2348,14 @@
               "id": "b14c96a6-9392-4e3c-a3a6-84817ca412ea",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "DELETE",
                 "header": [],
@@ -1335,7 +2403,14 @@
               "name": "[400] Tạo sản phẩm - Danh sách biến thể rỗng",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "POST",
                 "header": [
@@ -1386,7 +2461,14 @@
               "name": "[400] Tạo sản phẩm - Truyền variantId khi tạo mới",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "POST",
                 "header": [
@@ -1437,7 +2519,14 @@
               "name": "[400] Tạo sản phẩm - Trùng lặp bộ thuộc tính biến thể",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "POST",
                 "header": [
@@ -1488,7 +2577,14 @@
               "name": "[400] Tạo sản phẩm - Biến thể thiếu thuộc tính bắt buộc",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "POST",
                 "header": [
@@ -1539,7 +2635,14 @@
               "name": "[400] Cập nhật - Trùng lặp variantId trong payload",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1591,7 +2694,14 @@
               "name": "[400] Cập nhật - variantId không thuộc về sản phẩm này",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1643,7 +2753,14 @@
               "name": "[400] Cập nhật - Đổi variantAttributes mà không gửi variants",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1819,7 +2936,14 @@
               "name": "[404] Cập nhật sản phẩm không tồn tại (ID 999999)",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "PUT",
                 "header": [
@@ -1867,7 +2991,14 @@
               "name": "[404] Xóa sản phẩm không tồn tại (ID 999999)",
               "request": {
                 "auth": {
-                  "type": "bearer"
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
                 },
                 "method": "DELETE",
                 "header": [],
@@ -3420,7 +4551,14 @@
             },
             "description": "Lấy giỏ hàng của người dùng hiện tại (tự động khởi tạo nếu chưa có)",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3457,7 +4595,14 @@
             },
             "description": "Thêm biến thể sản phẩm (VD: Tai nghe Sony WH-1000XM5 Màu Đen) vào giỏ hàng. Nếu đã có thì tự động cộng dồn.",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3495,7 +4640,14 @@
             },
             "description": "Cập nhật số lượng của một mặt hàng trong giỏ (CartItemId)",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3519,7 +4671,14 @@
             },
             "description": "Xóa một mặt hàng khỏi giỏ hàng",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3542,7 +4701,14 @@
             },
             "description": "Xóa toàn bộ mặt hàng trong giỏ hàng của người dùng",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3579,7 +4745,14 @@
             },
             "description": "Kiểm tra ràng buộc tồn kho khi số lượng yêu cầu vượt quá tồn kho khả dụng",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         },
@@ -3616,7 +4789,14 @@
             },
             "description": "Kiểm tra xử lý khi biến thể sản phẩm không tồn tại",
             "auth": {
-              "type": "bearer"
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
             }
           }
         }
@@ -6766,6 +7946,61 @@
                 "type": "text/javascript"
               }
             }
+          ],
+          "response": [
+            {
+              "name": "200 OK (Data mẫu thành công)",
+              "originalRequest": {
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{accessToken}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"folder\": \"techstore/products\",\n  \"publicId\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/api/media/signature",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "media",
+                    "signature"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"message\": \"Sinh chữ ký tải ảnh Cloudinary thành công.\",\n  \"data\": {\n    \"signature\": \"97d459533e27bb269286d25f81be9e37d6a6f2b7\",\n    \"timestamp\": 1791396992,\n    \"apiKey\": \"828931777453149\",\n    \"cloudName\": \"dys5pjniy\",\n    \"folder\": \"techstore/products\",\n    \"publicId\": \"\",\n    \"uploadUrl\": \"https://api.cloudinary.com/v1_1/dys5pjniy/auto/upload\"\n  },\n  \"errors\": null,\n  \"timestamp\": \"2026-10-08T01:15:00.000Z\"\n}"
+            }
           ]
         }
       ]
@@ -6911,6 +8146,11 @@
     {
       "key": "surveyQuestionId2",
       "value": "2",
+      "type": "string"
+    },
+    {
+      "key": "createdRoleId",
+      "value": "",
       "type": "string"
     }
   ],

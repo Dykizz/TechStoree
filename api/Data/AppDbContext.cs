@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     }
 
     public DbSet<Role> Roles => Set<Role>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
@@ -46,9 +48,41 @@ public class AppDbContext : DbContext
             entity.HasKey(r => r.RoleId);
             entity.Property(r => r.RoleId)
                   .HasColumnName("role_id")
-                  .HasConversion<string>()
-                  .HasMaxLength(20);
-            entity.Property(r => r.RoleName).HasColumnName("role_name").IsRequired().HasMaxLength(50);
+                  .HasMaxLength(50);
+            entity.Property(r => r.RoleName).HasColumnName("role_name").IsRequired().HasMaxLength(100);
+            entity.Property(r => r.Description).HasColumnName("description").HasMaxLength(255);
+            entity.Property(r => r.IsSystem).HasColumnName("is_system").HasDefaultValue(false);
+        });
+
+        // 1.1 Cấu hình bảng Permissions
+        modelBuilder.Entity<Permission>(entity =>
+        {
+            entity.ToTable("permissions");
+            entity.HasKey(p => p.PermissionId);
+            entity.Property(p => p.PermissionId).HasColumnName("permission_id").HasMaxLength(50);
+            entity.Property(p => p.PermissionName).HasColumnName("permission_name").IsRequired().HasMaxLength(100);
+            entity.Property(p => p.Module).HasColumnName("module").IsRequired().HasMaxLength(50);
+            entity.Property(p => p.Description).HasColumnName("description").HasMaxLength(255);
+        });
+
+        // 1.2 Cấu hình bảng trung gian RolePermissions
+        modelBuilder.Entity<RolePermission>(entity =>
+        {
+            entity.ToTable("role_permissions");
+            entity.HasKey(rp => new { rp.RoleId, rp.PermissionId });
+            entity.Property(rp => rp.RoleId).HasColumnName("role_id").HasMaxLength(50);
+            entity.Property(rp => rp.PermissionId).HasColumnName("permission_id").HasMaxLength(50);
+            entity.Property(rp => rp.AssignedAt).HasColumnName("assigned_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(rp => rp.Role)
+                  .WithMany(r => r.RolePermissions)
+                  .HasForeignKey(rp => rp.RoleId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(rp => rp.Permission)
+                  .WithMany(p => p.RolePermissions)
+                  .HasForeignKey(rp => rp.PermissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // 2. Cấu hình bảng Users
@@ -75,8 +109,7 @@ public class AppDbContext : DbContext
             entity.Property(ur => ur.UserId).HasColumnName("user_id");
             entity.Property(ur => ur.RoleId)
                   .HasColumnName("role_id")
-                  .HasConversion<string>()
-                  .HasMaxLength(20);
+                  .HasMaxLength(50);
             entity.Property(ur => ur.AssignedAt).HasColumnName("assigned_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(ur => ur.AssignedByUserId).HasColumnName("assigned_by_user_id");
 
@@ -587,11 +620,11 @@ public class AppDbContext : DbContext
 
         // 10. Seed dữ liệu mặc định cho Role (RBAC)
         modelBuilder.Entity<Role>().HasData(
-            new Role { RoleId = UserRoleType.ADMIN, RoleName = "Quản trị viên" },
-            new Role { RoleId = UserRoleType.WAREHOUSE_STAFF, RoleName = "Nhân viên quản lý kho" },
-            new Role { RoleId = UserRoleType.SALES_STAFF, RoleName = "Nhân viên bán hàng" },
-            new Role { RoleId = UserRoleType.SURVEY_STAFF, RoleName = "Nhân viên khảo sát & CRM" },
-            new Role { RoleId = UserRoleType.USER, RoleName = "Khách hàng" }
+            new Role { RoleId = "ADMIN", RoleName = "Quản trị viên", IsSystem = true },
+            new Role { RoleId = "WAREHOUSE_STAFF", RoleName = "Nhân viên quản lý kho", IsSystem = true },
+            new Role { RoleId = "SALES_STAFF", RoleName = "Nhân viên bán hàng", IsSystem = true },
+            new Role { RoleId = "SURVEY_STAFF", RoleName = "Nhân viên khảo sát & CRM", IsSystem = true },
+            new Role { RoleId = "USER", RoleName = "Khách hàng", IsSystem = true }
         );
 
         // 11. Tách và nạp dữ liệu mẫu (Dummy Data) từ file Data/dummy_data.json

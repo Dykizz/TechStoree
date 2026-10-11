@@ -43,7 +43,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// </summary>
     /// <param name="dto">Dữ liệu tạo danh mục</param>
     [HttpPost]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Categories.Create)]
     [ProducesResponseType(typeof(ApiResponse<CategoryDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -60,7 +60,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// <param name="id">Mã ID danh mục cần sửa</param>
     /// <param name="dto">Dữ liệu cập nhật danh mục</param>
     [HttpPut("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Categories.Update)]
     [ProducesResponseType(typeof(ApiResponse<CategoryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -77,7 +77,7 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     /// </summary>
     /// <param name="id">Mã ID danh mục cần xóa</param>
     [HttpDelete("{id:int}")]
-    [AuthorizeRoles(UserRoleType.ADMIN, UserRoleType.WAREHOUSE_STAFF, UserRoleType.SALES_STAFF)]
+    [HasPermission(AppPermissions.Categories.Delete)]
     [ProducesResponseType(typeof(ApiResponse<object?>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

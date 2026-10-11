@@ -32,6 +32,11 @@ services:
       - ASPNETCORE_URLS=http://+:5000
       - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-web_ban_hang};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres123}
       - Cors__AllowedOrigins=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:30001,http://localhost:3001}
+      # Giữ đúng tên CLOUDINARY_* (CloudinaryService đọc biến môi trường trực tiếp, không qua IConfiguration)
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      - CLOUDINARY_DEFAULT_FOLDER=${CLOUDINARY_DEFAULT_FOLDER:-techstore}
     depends_on:
       postgres:
         condition: service_healthy

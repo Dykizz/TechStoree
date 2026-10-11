@@ -124,7 +124,7 @@ namespace WebBanHang.Api.Migrations
                         new
                         {
                             CategoryId = 1,
-                            CategoryName = "Laptop",
+                            CategoryName = "Laptop & Máy tính xách tay",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -136,7 +136,7 @@ namespace WebBanHang.Api.Migrations
                         new
                         {
                             CategoryId = 3,
-                            CategoryName = "Phụ kiện máy tính",
+                            CategoryName = "Bàn phím cơ & Chuột Gaming",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         },
                         new
@@ -369,6 +369,35 @@ namespace WebBanHang.Api.Migrations
                     b.ToTable("order_items", (string)null);
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Permission", b =>
+                {
+                    b.Property<string>("PermissionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("permission_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("module");
+
+                    b.Property<string>("PermissionName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("permission_name");
+
+                    b.HasKey("PermissionId");
+
+                    b.ToTable("permissions", (string)null);
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Product", b =>
                 {
                     b.Property<int>("ProductId")
@@ -426,7 +455,7 @@ namespace WebBanHang.Api.Migrations
                             ProductId = 1,
                             CategoryId = 1,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz, chip Intel Core Ultra thế hệ mới.",
+                            Description = "Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz, chip Intel Core Ultra thế hệ mới tích hợp NPU AI.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
                             IsActive = true,
                             ProductName = "Laptop ASUS Zenbook 14 OLED UX3405",
@@ -437,7 +466,7 @@ namespace WebBanHang.Api.Migrations
                             ProductId = 2,
                             CategoryId = 1,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Laptop gaming hiệu năng cao card đồ họa RTX 4050, tản nhiệt buồng hơi kép.",
+                            Description = "Laptop gaming hiệu năng cao card đồ họa RTX 4050, tản nhiệt buồng hơi kép, tần số quét 144Hz.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
                             IsActive = true,
                             ProductName = "Laptop Gaming Acer Nitro V 15",
@@ -448,7 +477,7 @@ namespace WebBanHang.Api.Migrations
                             ProductId = 3,
                             CategoryId = 2,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Tai nghe chống ồn chủ động đỉnh cao chống ồn tự động theo môi trường, pin 30h.",
+                            Description = "Tai nghe chống ồn chủ động đỉnh cao với bộ xử lý V1 và HD QN1, chất âm Hi-Res Audio, thời lượng pin 30h.",
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
                             IsActive = true,
                             ProductName = "Tai nghe chụp tai Sony WH-1000XM5",
@@ -459,22 +488,22 @@ namespace WebBanHang.Api.Migrations
                             ProductId = 4,
                             CategoryId = 3,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Bàn phím cơ 3 mode kết nối gõ êm ái, switch custom hot-swap mạch xuôi.",
-                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/f/l/fl-esports-gp75.png",
+                            Description = "Bàn phím cơ layout 75% 3 chế độ kết nối (Bluetooth/2.4G/Dây), mạch xuôi, foam tiêu âm Poron cao cấp.",
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75.png",
                             IsActive = true,
                             ProductName = "Bàn phím cơ không dây FL-Esports GP75",
-                            VariantAttributes = "[\"Lo\\u1EA1i Switch\"]"
+                            VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\",\"Switch\"]"
                         },
                         new
                         {
                             ProductId = 5,
                             CategoryId = 4,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Description = "Màn hình trợ lý ảo tích hợp loa cảm ứng theo dõi giấc ngủ Radar Soli.",
-                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/g/o/google-nest-hub-2.png",
+                            Description = "Robot dọn nhà thông minh tự động giặt sấy giẻ, tự đổ rác và bơm nước lau sàn, lực hút 5300Pa với AI camera tránh chướng ngại vật.",
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/r/o/robot-hut-bui-dreame-l10s-ultra.png",
                             IsActive = true,
-                            ProductName = "Màn hình thông minh Google Nest Hub Gen 2",
-                            VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\"]"
+                            ProductName = "Robot hút bụi lau nhà Xiaomi Dreame L10s Ultra",
+                            VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\",\"Phi\\u00EAn b\\u1EA3n\"]"
                         });
                 });
 
@@ -542,81 +571,86 @@ namespace WebBanHang.Api.Migrations
                         new
                         {
                             VariantId = 1,
-                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"16GB RAM / 512GB SSD\",\"M\\u00E0u s\\u1EAFc\":\"Xanh\"}",
+                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"Ultra 5 - 16GB / 512GB\",\"M\\u00E0u s\\u1EAFc\":\"Xanh Ponder Blue\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
                             IsActive = true,
                             Price = 24990000m,
                             ProductId = 1,
-                            StockQuantity = 15,
-                            VariantName = "16GB RAM / 512GB SSD - Xanh"
+                            StockQuantity = 25,
+                            VariantName = "Intel Core Ultra 5 / 16GB RAM / 512GB SSD / Xanh Ponder Blue"
                         },
                         new
                         {
                             VariantId = 2,
-                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"32GB RAM / 1TB SSD\",\"M\\u00E0u s\\u1EAFc\":\"Xanh\"}",
+                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"Ultra 7 - 32GB / 1TB\",\"M\\u00E0u s\\u1EAFc\":\"B\\u1EA1c Foggy Silver\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
                             IsActive = true,
-                            Price = 28990000m,
+                            Price = 31990000m,
                             ProductId = 1,
-                            StockQuantity = 10,
-                            VariantName = "32GB RAM / 1TB SSD - Xanh"
+                            StockQuantity = 15,
+                            VariantName = "Intel Core Ultra 7 / 32GB RAM / 1TB SSD / Bạc Foggy Silver"
                         },
                         new
                         {
                             VariantId = 3,
-                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"16GB RAM / 512GB SSD\",\"M\\u00E0u s\\u1EAFc\":\"\\u0110en\"}",
+                            Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"i5-13420H - 16GB / 512GB\",\"M\\u00E0u s\\u1EAFc\":\"\\u0110en Obsidian\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
                             IsActive = true,
                             Price = 21490000m,
                             ProductId = 2,
-                            StockQuantity = 20,
-                            VariantName = "16GB RAM / 512GB SSD - Đen"
+                            StockQuantity = 30,
+                            VariantName = "Core i5-13420H / RTX 4050 6GB / 16GB / 512GB / Đen Obsidian"
                         },
                         new
                         {
                             VariantId = 4,
-                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u \\u0110en (Midnight Black)\"}",
+                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"\\u0110en Nh\\u00E1m Midnight Black\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
                             IsActive = true,
-                            Price = 7490000m,
+                            Price = 6990000m,
                             ProductId = 3,
-                            StockQuantity = 25,
-                            VariantName = "Màu Đen (Midnight Black)"
+                            StockQuantity = 50,
+                            VariantName = "Đen Nhám Midnight Black"
                         },
                         new
                         {
                             VariantId = 5,
-                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u B\\u1EA1c (Silver Platinum)\"}",
+                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"B\\u1EA1c \\u00C1nh Kim Platinum Silver\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5-silver.png",
                             IsActive = true,
-                            Price = 7490000m,
+                            Price = 6990000m,
                             ProductId = 3,
-                            StockQuantity = 15,
-                            VariantName = "Màu Bạc (Silver Platinum)"
+                            StockQuantity = 35,
+                            VariantName = "Bạc Ánh Kim Platinum Silver"
                         },
                         new
                         {
                             VariantId = 6,
-                            Attributes = "{\"Lo\\u1EA1i Switch\":\"Taro Pink Switch\"}",
+                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"Polar White\",\"Switch\":\"Gateron Pro Yellow\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75.png",
                             IsActive = true,
-                            Price = 2190000m,
+                            Price = 1850000m,
                             ProductId = 4,
-                            StockQuantity = 18,
-                            VariantName = "Taro Pink Switch"
+                            StockQuantity = 40,
+                            VariantName = "Polar White / Switch Gateron Pro Yellow / 3 Mode"
                         },
                         new
                         {
                             VariantId = 7,
-                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"M\\u00E0u Than Ch\\u00EC (Chalk)\"}",
+                            Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"Taro Purple\",\"Switch\":\"Kailh Box Jellyfish\"}",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75-taro.png",
                             IsActive = true,
-                            Price = 1890000m,
-                            ProductId = 5,
-                            StockQuantity = 12,
-                            VariantName = "Màu Than Chì (Chalk)"
+                            Price = 2190000m,
+                            ProductId = 4,
+                            StockQuantity = 20,
+                            VariantName = "Taro Purple / Switch Kailh Box Jellyfish / 3 Mode"
                         });
                 });
 
@@ -769,14 +803,25 @@ namespace WebBanHang.Api.Migrations
             modelBuilder.Entity("WebBanHang.Api.Models.Role", b =>
                 {
                     b.Property<string>("RoleId")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("role_id");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsSystem")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_system");
 
                     b.Property<string>("RoleName")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("role_name");
 
                     b.HasKey("RoleId");
@@ -787,28 +832,58 @@ namespace WebBanHang.Api.Migrations
                         new
                         {
                             RoleId = "ADMIN",
+                            IsSystem = true,
                             RoleName = "Quản trị viên"
                         },
                         new
                         {
                             RoleId = "WAREHOUSE_STAFF",
+                            IsSystem = true,
                             RoleName = "Nhân viên quản lý kho"
                         },
                         new
                         {
                             RoleId = "SALES_STAFF",
+                            IsSystem = true,
                             RoleName = "Nhân viên bán hàng"
                         },
                         new
                         {
                             RoleId = "SURVEY_STAFF",
+                            IsSystem = true,
                             RoleName = "Nhân viên khảo sát & CRM"
                         },
                         new
                         {
                             RoleId = "USER",
+                            IsSystem = true,
                             RoleName = "Khách hàng"
                         });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.RolePermission", b =>
+                {
+                    b.Property<string>("RoleId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("role_id");
+
+                    b.Property<string>("PermissionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("permission_id");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("role_permissions", (string)null);
                 });
 
             modelBuilder.Entity("WebBanHang.Api.Models.Supplier", b =>
@@ -1211,8 +1286,8 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<string>("RoleId")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("role_id");
 
                     b.Property<DateTime>("AssignedAt")
@@ -1547,6 +1622,25 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Variant");
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.RolePermission", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Survey", b =>
                 {
                     b.HasOne("WebBanHang.Api.Models.Voucher", "RewardVoucher")
@@ -1716,6 +1810,11 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Items");
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Product", b =>
                 {
                     b.Navigation("Variants");
@@ -1728,6 +1827,8 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.Role", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoles");
                 });
 

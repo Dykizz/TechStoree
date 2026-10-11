@@ -24,6 +24,14 @@ public static class MappingExtensions
     public static List<string> ExtractRoles(this User user) =>
         user.UserRoles?.Select(ur => ur.RoleId.ToString()).Distinct().ToList() ?? new List<string>();
 
+    public static List<string> ExtractPermissions(this User user) =>
+        user.UserRoles?
+            .Where(ur => ur.Role != null)
+            .SelectMany(ur => ur.Role!.RolePermissions)
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToList() ?? new List<string>();
+
     public static BasicUserDto ToDto(this User user)
     {
         return new BasicUserDto
@@ -32,7 +40,8 @@ public static class MappingExtensions
             Username = user.Username,
             FullName = user.FullName,
             Email = user.Email,
-            Roles = user.ExtractRoles()
+            Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions()
         };
     }
 
@@ -49,6 +58,7 @@ public static class MappingExtensions
             TechInterest = user.TechInterest,
             Address = user.Address,
             Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt
         };
@@ -67,6 +77,7 @@ public static class MappingExtensions
             TechInterest = user.TechInterest,
             Address = user.Address,
             Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt,
             CreatedByUserId = user.CreatedByUserId

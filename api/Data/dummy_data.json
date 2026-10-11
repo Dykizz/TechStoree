@@ -6,7 +6,7 @@
       "password": "admin123",
       "fullName": "Quản Trị Viên Hệ Thống",
       "phone": "0900000001",
-      "role": "ADMIN"
+      "roles": ["ADMIN"]
     },
     {
       "username": "kho01",
@@ -14,7 +14,7 @@
       "password": "staff123",
       "fullName": "Trần Văn Kho (Thủ Kho)",
       "phone": "0900000002",
-      "role": "WAREHOUSE_STAFF"
+      "roles": ["WAREHOUSE_STAFF"]
     },
     {
       "username": "sales01",
@@ -22,7 +22,7 @@
       "password": "staff123",
       "fullName": "Lê Thị Bán Hàng (Sales)",
       "phone": "0900000003",
-      "role": "SALES_STAFF"
+      "roles": ["SALES_STAFF"]
     },
     {
       "username": "crm01",
@@ -30,7 +30,7 @@
       "password": "staff123",
       "fullName": "Phạm Văn Chăm Sóc Khách Hàng",
       "phone": "0900000004",
-      "role": "SURVEY_STAFF"
+      "roles": ["SURVEY_STAFF"]
     },
     {
       "username": "khachhang01",
@@ -38,7 +38,7 @@
       "password": "customer123",
       "fullName": "Nguyễn Văn Khách Hàng",
       "phone": "0987654321",
-      "role": "USER"
+      "roles": ["USER"]
     }
   ],
   "suppliers": [
