@@ -50,16 +50,26 @@ public class AuthorizeCheckOperationFilter : IOperationFilter
                 }
             };
 
-            // Bổ sung thông tin Role cần thiết vào Description nếu có
+            // Bổ sung thông tin Role hoặc Permission cần thiết vào Description nếu có
             var roles = allAuthorizeAttrs
                 .Where(a => !string.IsNullOrWhiteSpace(a.Roles))
                 .Select(a => a.Roles)
                 .Distinct()
                 .ToList();
 
-            if (roles.Count > 0)
+            var permissions = allAuthorizeAttrs
+                .Where(a => !string.IsNullOrWhiteSpace(a.Policy))
+                .Select(a => a.Policy!.StartsWith("Permission:") ? a.Policy["Permission:".Length..] : a.Policy)
+                .Distinct()
+                .ToList();
+
+            var authRequirements = new List<string>();
+            if (roles.Count > 0) authRequirements.Add($"Vai trò: `{string.Join(", ", roles)}`");
+            if (permissions.Count > 0) authRequirements.Add($"Quyền: `{string.Join(", ", permissions)}`");
+
+            if (authRequirements.Count > 0)
             {
-                var roleInfo = $"\n\n> 🔒 **Yêu cầu quyền:** `{string.Join(", ", roles)}`";
+                var roleInfo = $"\n\n> 🔒 **Yêu cầu:** {string.Join(" | ", authRequirements)}";
                 operation.Description = string.IsNullOrWhiteSpace(operation.Description)
                     ? roleInfo
                     : operation.Description + roleInfo;

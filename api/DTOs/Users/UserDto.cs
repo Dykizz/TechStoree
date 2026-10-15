@@ -57,10 +57,21 @@ public class UserDto
     public string? Address { get; set; }
 
     /// <summary>
-    /// Vai trò (ADMIN hoặc USER)
+    /// Danh sách vai trò của người dùng (RBAC)
     /// </summary>
-    /// <example>USER</example>
-    public string Role { get; set; } = string.Empty;
+    /// <example>["ADMIN"]</example>
+    public List<string> Roles { get; set; } = new();
+
+    /// <summary>
+    /// Danh sách các quyền hạn của người dùng (PBAC)
+    /// </summary>
+    public List<string> Permissions { get; set; } = new();
+
+    /// <summary>
+    /// Vai trò chính (Hỗ trợ tương thích ngược cho client cũ)
+    /// </summary>
+    /// <example>ADMIN</example>
+    public string Role => Roles.FirstOrDefault() ?? "USER";
 
     /// <summary>
     /// Trạng thái khóa tài khoản
@@ -73,4 +84,10 @@ public class UserDto
     /// </summary>
     /// <example>2026-01-01T00:00:00Z</example>
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Mã ID người dùng / Admin khởi tạo tài khoản này (null nếu tự đăng ký)
+    /// </summary>
+    /// <example>1</example>
+    public int? CreatedByUserId { get; set; }
 }

@@ -51,10 +51,21 @@ public class UserInfoDto
     public string? Address { get; set; }
 
     /// <summary>
-    /// Quyền hạn / Vai trò của tài khoản
+    /// Danh sách vai trò của tài khoản (RBAC)
+    /// </summary>
+    /// <example>["ADMIN"]</example>
+    public List<string> Roles { get; set; } = new();
+
+    /// <summary>
+    /// Danh sách các quyền hạn của người dùng (PBAC)
+    /// </summary>
+    public List<string> Permissions { get; set; } = new();
+
+    /// <summary>
+    /// Vai trò chính (Hỗ trợ tương thích ngược cho client cũ)
     /// </summary>
     /// <example>ADMIN</example>
-    public string Role { get; set; } = string.Empty;
+    public string Role => Roles.FirstOrDefault() ?? "USER";
 
     /// <summary>
     /// Trạng thái khóa tài khoản

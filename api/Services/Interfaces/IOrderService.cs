@@ -41,7 +41,7 @@ public interface IOrderService
     Task<OrderDetailDto> CancelOrderAsync(int orderId, int? userId, CancelOrderRequestDto request, bool isAdmin = false);
 
     /// <summary>
-    /// Dành cho Quản trị viên: Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, ...)
+    /// Dành cho Quản trị viên / Nhân viên bán hàng: Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, ...)
     /// </summary>
-    Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request);
+    Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null);
 }

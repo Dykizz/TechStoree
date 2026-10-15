@@ -292,8 +292,8 @@
 
 .checkoutBtn {
   text-align: center;
-  background-color: #284cff;
-  border: 1px solid #284cff;
+  background-color: var(--brand);
+  border: 1px solid var(--brand);
   color: #ffffff;
   padding: 12px;
   border-radius: 6px;

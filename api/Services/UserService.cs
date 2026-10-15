@@ -5,6 +5,7 @@ using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
+using WebBanHang.Api.Models;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services;
@@ -15,14 +16,30 @@ public class UserService(AppDbContext context) : IUserService
     {
         var query = context.Users
             .AsNoTracking()
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .AsQueryable();
 
-        // 1. Lọc theo vai trò (nếu có)
+        // 1. Lọc theo vai trò cụ thể (nếu có)
         if (!string.IsNullOrWhiteSpace(filter.Role))
         {
-            var roleLower = filter.Role.Trim().ToLower();
-            query = query.Where(u => u.RoleId.ToLower() == roleLower);
+            var roleFilter = filter.Role.Trim().ToUpper();
+            query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleFilter));
+        }
+
+        // 1.1 Lọc nhóm cán bộ nhân viên nội bộ vs khách hàng thông thường (nếu có)
+        if (filter.IsStaffOnly.HasValue)
+        {
+            if (filter.IsStaffOnly.Value)
+            {
+                // Chỉ lấy tài khoản có ít nhất một vai trò khác USER (tức là nhân viên / quản trị)
+                query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId != "USER"));
+            }
+            else
+            {
+                // Chỉ lấy khách hàng thông thường
+                query = query.Where(u => u.UserRoles.All(ur => ur.RoleId == "USER"));
+            }
         }
 
         // 2. Lọc theo trạng thái khóa (nếu có)
@@ -61,7 +78,8 @@ public class UserService(AppDbContext context) : IUserService
     {
         var user = await context.Users
             .AsNoTracking()
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
 
         if (user == null)
@@ -75,7 +93,8 @@ public class UserService(AppDbContext context) : IUserService
     public async Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto)
     {
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
 
         if (user == null)
@@ -97,10 +116,91 @@ public class UserService(AppDbContext context) : IUserService
         return user.ToUserDto();
     }
 
-    public async Task<UserDto> UpdateRoleAsync(int id, UpdateRoleRequestDto dto)
+    public async Task<UserDto> CreateUserAsync(int creatorUserId, CreateUserRequestDto dto)
+    {
+        // 1. Kiểm tra tên đăng nhập trùng lặp
+        var usernameTrimmed = dto.Username.Trim();
+        var usernameExists = await context.Users
+            .AnyAsync(u => u.Username.ToLower() == usernameTrimmed.ToLower());
+        if (usernameExists)
+        {
+            throw new BadRequestException("Tên đăng nhập này đã được sử dụng.");
+        }
+
+        // 2. Kiểm tra email trùng lặp
+        var emailTrimmed = dto.Email.Trim().ToLower();
+        var emailExists = await context.Users
+            .AnyAsync(u => u.Email.ToLower() == emailTrimmed);
+        if (emailExists)
+        {
+            throw new BadRequestException("Địa chỉ email này đã được đăng ký.");
+        }
+
+        // 3. Xử lý danh sách vai trò
+        var requestedRoles = dto.Roles;
+
+        var roleIds = new List<string>();
+        if (requestedRoles != null && requestedRoles.Count > 0)
+        {
+            var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
+            var existingRoles = await context.Roles
+                .Where(r => cleanRoles.Contains(r.RoleId))
+                .Select(r => r.RoleId)
+                .ToListAsync();
+
+            var invalidRoles = cleanRoles.Except(existingRoles, StringComparer.OrdinalIgnoreCase).ToList();
+            if (invalidRoles.Count > 0)
+            {
+                throw new BadRequestException($"Các vai trò không tồn tại trong hệ thống: {string.Join(", ", invalidRoles)}.");
+            }
+            roleIds = existingRoles;
+        }
+        else
+        {
+            // Mặc định gán vai trò USER nếu không chỉ định vai trò nào
+            roleIds.Add("USER");
+        }
+
+        // 4. Băm mật khẩu bằng BCrypt
+        var hashedPassword = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+        // 5. Khởi tạo đối tượng User mới
+        var newUser = new User
+        {
+            Username = usernameTrimmed,
+            PasswordHash = hashedPassword,
+            Email = emailTrimmed,
+            FullName = dto.FullName.Trim(),
+            Phone = dto.Phone?.Trim(),
+            DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
+            TechInterest = dto.TechInterest?.Trim(),
+            Address = dto.Address?.Trim(),
+            IsLocked = false,
+            CreatedByUserId = creatorUserId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var roleId in roleIds.Distinct())
+        {
+            newUser.UserRoles.Add(new UserRole
+            {
+                RoleId = roleId,
+                AssignedByUserId = creatorUserId,
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+
+        context.Users.Add(newUser);
+        await context.SaveChangesAsync();
+
+        return newUser.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateRoleAsync(int operatorUserId, int id, UpdateRoleRequestDto dto)
     {
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
 
         if (user == null)
@@ -108,25 +208,52 @@ public class UserService(AppDbContext context) : IUserService
             throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
         }
 
-        var normalizedRoleId = dto.RoleId.Trim().ToUpper();
+        // Hỗ trợ cả danh sách Roles mới lẫn RoleId đơn lẻ (tương thích ngược)
+        var requestedRoles = (dto.Roles != null && dto.Roles.Count > 0)
+            ? dto.Roles
+            : (!string.IsNullOrWhiteSpace(dto.RoleId) ? new List<string> { dto.RoleId } : new List<string>());
 
-        // Kiểm tra xem RoleId có tồn tại trong bảng roles không
-        var roleExists = await context.Roles.AnyAsync(r => r.RoleId == normalizedRoleId);
-        if (!roleExists)
+        if (requestedRoles.Count == 0)
         {
-            throw new BadRequestException($"Vai trò '{dto.RoleId}' không hợp lệ trên hệ thống.");
+            throw new BadRequestException("Danh sách vai trò không được để trống.");
         }
 
-        user.RoleId = normalizedRoleId;
-        await context.SaveChangesAsync();
+        var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
+        var existingRoles = await context.Roles
+            .Where(r => cleanRoles.Contains(r.RoleId))
+            .Select(r => r.RoleId)
+            .ToListAsync();
 
+        var invalidRoles = cleanRoles.Except(existingRoles, StringComparer.OrdinalIgnoreCase).ToList();
+        if (invalidRoles.Count > 0)
+        {
+            throw new BadRequestException($"Các vai trò không tồn tại trong hệ thống: {string.Join(", ", invalidRoles)}.");
+        }
+
+        // Xóa các vai trò cũ và gán các vai trò mới
+        context.UserRoles.RemoveRange(user.UserRoles);
+        user.UserRoles.Clear();
+
+        foreach (var roleId in existingRoles)
+        {
+            user.UserRoles.Add(new UserRole
+            {
+                UserId = user.UserId,
+                RoleId = roleId,
+                AssignedByUserId = operatorUserId,
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+
+        await context.SaveChangesAsync();
         return user.ToUserDto();
     }
 
     public async Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto)
     {
         var user = await context.Users
-            .Include(u => u.Role)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == userId);
 
         if (user == null)
@@ -164,10 +291,10 @@ public class UserService(AppDbContext context) : IUserService
 
     public async Task<DemographicsReportDto> GetDemographicsReportAsync()
     {
-        // 1. Chỉ lấy nhóm khách hàng (RoleId là USER, loại trừ tài khoản quản trị ADMIN)
+        // 1. Chỉ lấy nhóm khách hàng (sở hữu vai trò USER)
         var customers = await context.Users
             .AsNoTracking()
-            .Where(u => u.RoleId == UserRoleTypeExtensions.User)
+            .Where(u => u.UserRoles.Any(ur => ur.RoleId == "USER"))
             .Select(u => new
             {
                 u.UserId,

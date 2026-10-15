@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import AuthStory from "../components/auth-story";
 import PasswordVisibilityIcon from "../components/password-visibility-icon";
@@ -18,6 +19,7 @@ type AuthResult = { user?: SessionUser; message?: string };
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -80,7 +82,13 @@ export default function LoginPage() {
       }
       setPassword("");
       setUser(result.user);
-      window.location.href = "/";
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(
+        next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
+          ? next
+          : "/",
+      );
+      router.refresh();
     } catch {
       setError("Không thể kết nối đến máy chủ. Vui lòng thử lại sau.");
     } finally {
@@ -99,7 +107,9 @@ export default function LoginPage() {
         setNotice(result.message ?? "Đã rời phiên trên trình duyệt này.");
       }
     } catch {
-      setNotice("Đã rời phiên trên trình duyệt này; chưa xác nhận được với máy chủ.");
+      setNotice(
+        "Đã rời phiên trên trình duyệt này; chưa xác nhận được với máy chủ.",
+      );
     } finally {
       setUser(null);
       setPending(false);
@@ -112,17 +122,30 @@ export default function LoginPage() {
 
       <section className={styles.authPanel} aria-label="Đăng nhập TechStoree">
         <div className={styles.mobileBrand} aria-hidden="true">
-          <span className={styles.brandMark} /><span>TECHSTOREE</span>
+          <span className={styles.brandMark} />
+          <span>TECHSTOREE</span>
         </div>
         <div className={styles.authContent}>
           {checkingSession ? (
-            <div className={styles.sessionLoading} role="status">Đang kiểm tra phiên đăng nhập…</div>
+            <div className={styles.sessionLoading} role="status">
+              Đang kiểm tra phiên đăng nhập…
+            </div>
           ) : user ? (
             <div className={styles.signedIn}>
               <p className={styles.signedInKicker}>ĐÃ ĐĂNG NHẬP</p>
               <h2>Xin chào, {user.fullName || user.username}.</h2>
-              <p>Bạn đã đăng nhập với tài khoản <strong>{user.email}</strong>. Hồ sơ cá nhân và giỏ hàng của bạn đã sẵn sàng.</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
+              <p>
+                Bạn đã đăng nhập với tài khoản <strong>{user.email}</strong>. Hồ
+                sơ cá nhân và giỏ hàng của bạn đã sẵn sàng.
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  marginTop: "20px",
+                }}
+              >
                 <Link
                   href="/"
                   className={styles.primaryButton}
@@ -133,11 +156,21 @@ export default function LoginPage() {
                 <Link
                   href="/profile"
                   className={styles.primaryButton}
-                  style={{ textDecoration: "none", textAlign: "center", background: "#333", borderColor: "#333" }}
+                  style={{
+                    textDecoration: "none",
+                    textAlign: "center",
+                    background: "#333",
+                    borderColor: "#333",
+                  }}
                 >
                   Xem hồ sơ của tôi
                 </Link>
-                <button className={styles.textButton} type="button" onClick={() => void handleLogout()} disabled={pending}>
+                <button
+                  className={styles.textButton}
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  disabled={pending}
+                >
                   {pending ? "Đang đăng xuất…" : "Đăng xuất tài khoản"}
                 </button>
               </div>
@@ -148,39 +181,122 @@ export default function LoginPage() {
                 <p>ĐĂNG NHẬP HỆ THỐNG</p>
                 <h2>Chào mừng trở lại.</h2>
               </div>
-              {error && <div className={styles.formAlert} role="alert"><span className={styles.alertIcon} aria-hidden="true">!</span><span>{error}</span></div>}
-              {notice && <div className={styles.notice} role="status">{notice}</div>}
+              {error && (
+                <div className={styles.formAlert} role="alert">
+                  <span className={styles.alertIcon} aria-hidden="true">
+                    !
+                  </span>
+                  <span>{error}</span>
+                </div>
+              )}
+              {notice && (
+                <div className={styles.notice} role="status">
+                  {notice}
+                </div>
+              )}
               <form className={styles.form} onSubmit={handleSubmit} noValidate>
                 <div className={styles.field}>
-                  <div className={styles.labelRow}><label htmlFor="email">ĐỊA CHỈ EMAIL</label></div>
-                  <input id="email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="tenban@example.com" value={email}
-                    onChange={(event) => { setEmail(event.target.value); setEmailError(""); }}
-                    aria-invalid={Boolean(emailError)} aria-describedby={emailError ? "email-error" : undefined} required />
-                  {emailError && <p className={styles.fieldError} id="email-error">{emailError}</p>}
+                  <div className={styles.labelRow}>
+                    <label htmlFor="email">ĐỊA CHỈ EMAIL</label>
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    placeholder="tenban@example.com"
+                    value={email}
+                    onChange={(event) => {
+                      setEmail(event.target.value);
+                      setEmailError("");
+                    }}
+                    aria-invalid={Boolean(emailError)}
+                    aria-describedby={emailError ? "email-error" : undefined}
+                    required
+                  />
+                  {emailError && (
+                    <p className={styles.fieldError} id="email-error">
+                      {emailError}
+                    </p>
+                  )}
                 </div>
                 <div className={styles.field}>
-                  <div className={styles.labelRow}><label htmlFor="password">MẬT KHẨU</label></div>
+                  <div className={styles.labelRow}>
+                    <label htmlFor="password">MẬT KHẨU</label>
+                  </div>
                   <div className={styles.passwordWrap}>
-                    <input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete="current-password" placeholder="Nhập mật khẩu" value={password}
-                      onChange={(event) => { setPassword(event.target.value); setPasswordError(""); }}
-                      aria-invalid={Boolean(passwordError)} aria-describedby={passwordError ? "password-error" : undefined} required />
-                    <button className={styles.showPassword} type="button" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"} aria-pressed={showPassword} aria-controls="password">
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="current-password"
+                      placeholder="Nhập mật khẩu"
+                      value={password}
+                      onChange={(event) => {
+                        setPassword(event.target.value);
+                        setPasswordError("");
+                      }}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={
+                        passwordError ? "password-error" : undefined
+                      }
+                      required
+                    />
+                    <button
+                      className={styles.showPassword}
+                      type="button"
+                      onClick={() => setShowPassword((shown) => !shown)}
+                      aria-label={
+                        showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                      }
+                      aria-pressed={showPassword}
+                      aria-controls="password"
+                    >
                       <PasswordVisibilityIcon visible={showPassword} />
                     </button>
                   </div>
-                  {passwordError && <p className={styles.fieldError} id="password-error">{passwordError}</p>}
+                  {passwordError && (
+                    <p className={styles.fieldError} id="password-error">
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
                 <div className={styles.formOptions}>
-                  <label className={styles.remember}><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span>Duy trì đăng nhập</span></label>
-                  <button type="button" className={styles.textButton} onClick={() => { setError(""); setNotice("Vui lòng liên hệ quản trị viên để hỗ trợ khôi phục mật khẩu."); }}>Quên mật khẩu?</button>
+                  <label className={styles.remember}>
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(event) => setRemember(event.target.checked)}
+                    />
+                    <span>Duy trì đăng nhập</span>
+                  </label>
+                  <button
+                    type="button"
+                    className={styles.textButton}
+                    onClick={() => {
+                      setError("");
+                      setNotice(
+                        "Vui lòng liên hệ quản trị viên để hỗ trợ khôi phục mật khẩu.",
+                      );
+                    }}
+                  >
+                    Quên mật khẩu?
+                  </button>
                 </div>
-                <button className={styles.primaryButton} type="submit" disabled={pending}>
+                <button
+                  className={styles.primaryButton}
+                  type="submit"
+                  disabled={pending}
+                >
                   <span>{pending ? "Đang đăng nhập…" : "Đăng nhập"}</span>
                 </button>
               </form>
               <div className={styles.signUp}>
                 <span>Chưa có tài khoản?</span>
-                <Link href="/register" className={styles.textButton}>Tạo tài khoản mới</Link>
+                <Link href="/register" className={styles.textButton}>
+                  Tạo tài khoản mới
+                </Link>
               </div>
             </>
           )}

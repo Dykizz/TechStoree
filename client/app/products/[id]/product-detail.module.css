@@ -55,7 +55,8 @@
 }
 
 .mainImage {
-  object-fit: cover;
+  object-fit: contain;
+  padding: 24px;
 }
 
 .details {
@@ -67,13 +68,13 @@
   font-size: 0.8rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #284cff;
+  color: var(--brand);
   font-weight: 600;
   margin-bottom: 8px;
 }
 
 .title {
-  font-family: var(--font-noto-serif-display, Georgia, serif);
+  font-family: inherit;
   font-size: 2.2rem;
   font-weight: 700;
   color: #111111;
@@ -269,8 +270,8 @@
 }
 
 .buyNowBtn {
-  background-color: #284cff;
-  border: 2px solid #284cff;
+  background-color: var(--brand);
+  border: 2px solid var(--brand);
   color: #ffffff;
   padding: 14px 20px;
   border-radius: 8px;
@@ -311,7 +312,7 @@
 }
 
 .guaranteeIcon {
-  color: #284cff;
+  color: var(--brand);
   flex-shrink: 0;
 }
 

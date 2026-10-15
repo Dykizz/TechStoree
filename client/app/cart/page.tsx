@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "../../lib/context/CartContext";
-import { SAMPLE_VOUCHERS } from "../../lib/order-client";
+
 import { formatPrice } from "../../lib/products-client";
 import styles from "./cart.module.css";
 
@@ -18,6 +18,8 @@ export default function CartPage() {
     appliedVoucher,
     discountAmount,
     finalPrice,
+    busy,
+    error: cartError,
     updateQuantity,
     removeItem,
     clearCart,
@@ -31,13 +33,13 @@ export default function CartPage() {
     isError: boolean;
   } | null>(null);
 
-  const handleApplyVoucher = (codeToApply?: string) => {
+  const handleApplyVoucher = async (codeToApply?: string) => {
     const code = (codeToApply || voucherCode).trim();
     if (!code) {
       setVoucherMsg({ text: "Vui lòng nhập mã voucher.", isError: true });
       return;
     }
-    const res = applyVoucher(code);
+    const res = await applyVoucher(code);
     setVoucherMsg({ text: res.message, isError: !res.success });
     if (res.success) {
       setVoucherCode("");
@@ -66,7 +68,8 @@ export default function CartPage() {
             </svg>
             <h1 className={styles.emptyTitle}>Giỏ hàng của bạn đang trống</h1>
             <p className={styles.emptyText}>
-              Chưa có sản phẩm nào trong giỏ hàng. Hãy khám phá danh mục sản phẩm công nghệ tinh tuyển của chúng tôi để chọn món đồ yêu thích.
+              Chưa có sản phẩm nào trong giỏ hàng. Hãy khám phá danh mục sản
+              phẩm công nghệ tinh tuyển của chúng tôi để chọn món đồ yêu thích.
             </p>
             <Link href="/products" className={styles.shopBtn}>
               Khám phá sản phẩm ngay
@@ -88,7 +91,10 @@ export default function CartPage() {
         </div>
 
         <div className={styles.layout}>
-          <section className={styles.cartListSection} aria-label="Danh sách sản phẩm">
+          <section
+            className={styles.cartListSection}
+            aria-label="Danh sách sản phẩm"
+          >
             <div className={styles.tableHeader}>
               <span>Sản phẩm</span>
               <span>Đơn giá</span>
@@ -147,7 +153,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       className={styles.qtyBtn}
-                      disabled={item.quantity >= item.stockQuantity}
+                      disabled={busy || item.quantity >= item.stockQuantity}
                       onClick={() =>
                         updateQuantity(item.cartItemId, item.quantity + 1)
                       }
@@ -166,6 +172,7 @@ export default function CartPage() {
                   <button
                     type="button"
                     className={styles.removeBtn}
+                    disabled={busy || !!cartError}
                     onClick={() => removeItem(item.cartItemId)}
                     aria-label={`Xóa ${item.productName}`}
                   >
@@ -193,6 +200,7 @@ export default function CartPage() {
               <button
                 type="button"
                 className={styles.clearCartBtn}
+                disabled={busy}
                 onClick={clearCart}
               >
                 Xóa toàn bộ giỏ hàng
@@ -200,7 +208,10 @@ export default function CartPage() {
             </div>
           </section>
 
-          <aside className={styles.summarySection} aria-label="Tóm tắt đơn hàng">
+          <aside
+            className={styles.summarySection}
+            aria-label="Tóm tắt đơn hàng"
+          >
             <h2 className={styles.summaryTitle}>Tóm Tắt Đơn Hàng</h2>
 
             <div className={styles.voucherBox}>
@@ -211,7 +222,8 @@ export default function CartPage() {
               {appliedVoucher ? (
                 <div className={styles.appliedVoucherBadge}>
                   <div>
-                    <strong>{appliedVoucher.code}</strong>: -{formatPrice(discountAmount)}
+                    <strong>{appliedVoucher.code}</strong>: -
+                    {formatPrice(discountAmount)}
                   </div>
                   <button
                     type="button"
@@ -261,21 +273,6 @@ export default function CartPage() {
                       {voucherMsg.text}
                     </p>
                   )}
-
-                  <div className={styles.suggestedVouchers}>
-                    <span className={styles.suggestedTitle}>Mã ưu đãi gợi ý:</span>
-                    {SAMPLE_VOUCHERS.map((v) => (
-                      <div
-                        key={v.code}
-                        className={styles.voucherPill}
-                        onClick={() => handleApplyVoucher(v.code)}
-                        title="Bấm để áp dụng nhanh"
-                      >
-                        <strong>{v.code}</strong>
-                        <span>{v.title}</span>
-                      </div>
-                    ))}
-                  </div>
                 </>
               )}
             </div>
@@ -293,22 +290,21 @@ export default function CartPage() {
               )}
               <div className={styles.summaryRow}>
                 <span>Vận chuyển tiêu chuẩn</span>
-                <span className={styles.freeShipping}>Miễn phí</span>
-              </div>
-              <div className={styles.summaryRow}>
-                <span>Bảo hiểm đơn hàng</span>
-                <span className={styles.freeShipping}>Đã bao gồm</span>
+                <span className={styles.freeShipping}>Chưa tính phí</span>
               </div>
             </div>
 
             <div className={styles.totalRow}>
               <span className={styles.totalLabel}>Tổng thanh toán</span>
-              <span className={styles.totalPrice}>{formatPrice(finalPrice)}</span>
+              <span className={styles.totalPrice}>
+                {formatPrice(finalPrice)}
+              </span>
             </div>
 
             <button
               type="button"
               className={styles.checkoutBtn}
+              disabled={busy}
               onClick={handleProceedToCheckout}
             >
               Tiến hành đặt hàng

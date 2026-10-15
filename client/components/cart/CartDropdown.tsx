@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useCart, resolveCartItemImage } from "../../lib/context/CartContext";
 import { CartItem } from "../../lib/types/cart";
@@ -22,7 +23,7 @@ function CartDropdownItem({
   onClose?: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
-  const resolvedImg = resolveCartItemImage(item.imageUrl, item.productId);
+  const resolvedImg = resolveCartItemImage(item.imageUrl);
 
   return (
     <li className={styles.item}>
@@ -34,7 +35,10 @@ function CartDropdownItem({
       >
         <div className={styles.imageWrap}>
           {resolvedImg && !imgFailed ? (
-            <img
+            <Image
+              width={64}
+              height={64}
+              unoptimized
               src={resolvedImg}
               alt={item.productName}
               className={styles.thumb}
@@ -72,7 +76,8 @@ function CartDropdownItem({
           {item.productName}
         </Link>
 
-        {(item.variantName || Object.values(item.attributes || {}).length > 0) && (
+        {(item.variantName ||
+          Object.values(item.attributes || {}).length > 0) && (
           <div className={styles.itemVariant}>
             {item.variantName || Object.values(item.attributes).join(" · ")}
           </div>
@@ -159,7 +164,8 @@ export default function CartDropdown({
             </svg>
             <p className={styles.emptyTitle}>Giỏ hàng đang trống</p>
             <p className={styles.emptyDesc}>
-              Chưa có sản phẩm nào được chọn. Hãy khám phá sản phẩm công nghệ tinh tuyển!
+              Chưa có sản phẩm nào được chọn. Hãy khám phá sản phẩm công nghệ
+              tinh tuyển!
             </p>
             <Link
               href="/products"
@@ -193,11 +199,7 @@ export default function CartDropdown({
           </div>
 
           <div className={styles.actions}>
-            <Link
-              href="/cart"
-              className={styles.viewCartBtn}
-              onClick={onClose}
-            >
+            <Link href="/cart" className={styles.viewCartBtn} onClick={onClose}>
               Xem giỏ hàng
             </Link>
             <Link
@@ -224,7 +226,7 @@ export default function CartDropdown({
 
           <p className={styles.shippingNote}>
             <span>🚚</span>
-            <span>Miễn phí vận chuyển cho đơn từ 2.000.000₫</span>
+            <span>Giá và ưu đãi được kiểm tra lại khi đặt hàng</span>
           </p>
         </div>
       )}

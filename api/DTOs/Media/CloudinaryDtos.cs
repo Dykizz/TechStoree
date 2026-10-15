@@ -58,6 +58,7 @@ public class CloudinarySignatureResponseDto
     /// <summary>
     /// Public ID đã ký (nếu có)
     /// </summary>
+    /// <example>techstore/products/asus-zenbook-14</example>
     public string? PublicId { get; set; }
 
     /// <summary>

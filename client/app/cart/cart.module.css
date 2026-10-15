@@ -14,7 +14,7 @@
 }
 
 .title {
-  font-family: var(--font-noto-serif-display, Georgia, serif);
+  font-family: inherit;
   font-size: 2.2rem;
   font-weight: 700;
   color: #111111;
@@ -102,7 +102,7 @@
 }
 
 .productName:hover {
-  color: #284cff;
+  color: var(--brand);
 }
 
 .variantLabel {
@@ -385,7 +385,7 @@
 
 .checkoutBtn {
   width: 100%;
-  background-color: #284cff;
+  background-color: var(--brand);
   color: #ffffff;
   border: none;
   padding: 16px;

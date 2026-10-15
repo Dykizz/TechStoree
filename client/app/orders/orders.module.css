@@ -14,7 +14,7 @@
 }
 
 .title {
-  font-family: var(--font-noto-serif-display, Georgia, serif);
+  font-family: inherit;
   font-size: 2.2rem;
   font-weight: 700;
   color: #111111;
@@ -206,7 +206,7 @@
 }
 
 .searchBtn:hover {
-  background-color: #284cff;
+  background-color: var(--brand);
 }
 
 /* Order List & Cards */
@@ -367,7 +367,7 @@
 }
 
 .itemName:hover {
-  color: #284cff;
+  color: var(--brand);
 }
 
 .itemVariant {
@@ -478,8 +478,8 @@
 }
 
 .actionBtnReorder:hover {
-  background-color: #284cff;
-  border-color: #284cff;
+  background-color: var(--brand);
+  border-color: var(--brand);
 }
 
 /* Order Footer */
@@ -577,7 +577,7 @@
 }
 
 .continueBtn:hover {
-  background-color: #284cff;
+  background-color: var(--brand);
 }
 
 @media (max-width: 768px) {
@@ -596,4 +596,31 @@
     flex: 1;
     justify-content: center;
   }
+}
+.tabBtn[aria-pressed="true"] {
+  color: var(--brand);
+  border-color: var(--brand);
+  background: #fff0f1;
+}
+.integrationNotice,
+.integrationError {
+  padding: 16px;
+  margin: 20px 0;
+  border-radius: 10px;
+  background: #eef8f1;
+  color: #205e39;
+}
+.integrationError {
+  background: #fff0f1;
+  color: #8b1926;
+}
+.integrationPagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-top: 30px;
+}
+.itemImage {
+  object-fit: contain;
 }

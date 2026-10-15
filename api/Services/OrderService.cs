@@ -278,6 +278,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         var query = dbContext.Orders
             .AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.UpdatedByUser)
             .Where(o => o.UserId == userId);
 
         query = ApplyOrderFilter(query, filter);
@@ -289,6 +290,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         var query = dbContext.Orders
             .AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.UpdatedByUser)
             .AsQueryable();
 
         query = ApplyOrderFilter(query, filter);
@@ -380,6 +382,10 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         order.CancelledAt = now;
         order.CancellationReason = request.Reason.Trim();
         order.UpdatedAt = now;
+        if (userId.HasValue)
+        {
+            order.UpdatedByUserId = userId.Value;
+        }
 
         if (order.PaymentStatus == PaymentStatus.PAID)
         {
@@ -392,7 +398,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         return (await GetOrderByIdAsync(order.OrderId))!;
     }
 
-    public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request)
+    public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null)
     {
         var order = await dbContext.Orders
             .Include(o => o.Items)
@@ -416,15 +422,19 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         // Nếu chuyển sang CANCELLED, gọi qua nghiệp vụ CancelOrderAsync để hoàn kho và voucher
         if (request.Status == OrderStatus.CANCELLED)
         {
-            return await CancelOrderAsync(orderId, null, new CancelOrderRequestDto
+            return await CancelOrderAsync(orderId, updatedByUserId, new CancelOrderRequestDto
             {
-                Reason = request.Reason ?? "Quản trị viên hủy đơn hàng"
+                Reason = request.Reason ?? "Quản trị viên / Nhân viên bán hàng hủy đơn hàng"
             }, isAdmin: true);
         }
 
         var now = DateTime.UtcNow;
         order.OrderStatus = request.Status;
         order.UpdatedAt = now;
+        if (updatedByUserId.HasValue)
+        {
+            order.UpdatedByUserId = updatedByUserId.Value;
+        }
 
         if (request.PaymentStatus.HasValue)
         {
@@ -552,10 +562,11 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         };
     }
 
-    /// Truy vấn cơ bản chi tiết đơn hàng (kèm User và Items)
+    /// Truy vấn cơ bản chi tiết đơn hàng (kèm User, UpdatedByUser và Items)
     private IQueryable<Order> BuildOrderDetailQuery() =>
         dbContext.Orders
             .AsNoTracking()
             .Include(o => o.User)
+            .Include(o => o.UpdatedByUser)
             .Include(o => o.Items);
 }

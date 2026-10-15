@@ -21,6 +21,17 @@ public static class MappingExtensions
     // USER MAPPINGS
     // ==========================================
 
+    public static List<string> ExtractRoles(this User user) =>
+        user.UserRoles?.Select(ur => ur.RoleId.ToString()).Distinct().ToList() ?? new List<string>();
+
+    public static List<string> ExtractPermissions(this User user) =>
+        user.UserRoles?
+            .Where(ur => ur.Role != null)
+            .SelectMany(ur => ur.Role!.RolePermissions)
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToList() ?? new List<string>();
+
     public static BasicUserDto ToDto(this User user)
     {
         return new BasicUserDto
@@ -29,7 +40,8 @@ public static class MappingExtensions
             Username = user.Username,
             FullName = user.FullName,
             Email = user.Email,
-            Role = user.RoleId
+            Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions()
         };
     }
 
@@ -45,7 +57,8 @@ public static class MappingExtensions
             DateOfBirth = user.DateOfBirth,
             TechInterest = user.TechInterest,
             Address = user.Address,
-            Role = user.RoleId,
+            Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,
             CreatedAt = user.CreatedAt
         };
@@ -63,9 +76,11 @@ public static class MappingExtensions
             DateOfBirth = user.DateOfBirth,
             TechInterest = user.TechInterest,
             Address = user.Address,
-            Role = user.RoleId,
+            Roles = user.ExtractRoles(),
+            Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            CreatedByUserId = user.CreatedByUserId
         };
     }
 
@@ -551,6 +566,8 @@ public static class MappingExtensions
         dto.TotalSavings = totalPromotionDiscount + order.VoucherDiscountAmount;
         dto.CreatedAt = order.CreatedAt;
         dto.UpdatedAt = order.UpdatedAt;
+        dto.UpdatedByUserId = order.UpdatedByUserId;
+        dto.UpdatedByUsername = order.UpdatedByUser?.Username;
         dto.PaidAt = order.PaidAt;
         dto.CancelledAt = order.CancelledAt;
         dto.CancellationReason = order.CancellationReason;
