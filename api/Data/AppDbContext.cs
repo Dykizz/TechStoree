@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<UserVoucher> UserVouchers => Set<UserVoucher>();
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<Survey> Surveys => Set<Survey>();
     public DbSet<SurveyQuestion> SurveyQuestions => Set<SurveyQuestion>();
     public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
@@ -507,6 +508,54 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
+        // 13.1 Cấu hình bảng Invoices (Hóa đơn thanh toán)
+        modelBuilder.Entity<Invoice>(entity =>
+        {
+            entity.ToTable("invoices");
+            entity.HasKey(i => i.InvoiceId);
+            entity.Property(i => i.InvoiceId).HasColumnName("invoice_id");
+
+            entity.Property(i => i.InvoiceCode).HasColumnName("invoice_code").IsRequired().HasMaxLength(50);
+            entity.HasIndex(i => i.InvoiceCode).IsUnique();
+
+            entity.Property(i => i.OrderId).HasColumnName("order_id");
+            entity.HasIndex(i => i.OrderId).IsUnique();
+
+            entity.Property(i => i.UserId).HasColumnName("user_id");
+            entity.HasIndex(i => i.UserId);
+
+            entity.Property(i => i.TotalAmount).HasColumnName("total_amount").HasPrecision(18, 2);
+
+            entity.Property(i => i.Status)
+                  .HasColumnName("status")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(30)
+                  .HasDefaultValue(InvoiceStatus.UNPAID);
+            entity.HasIndex(i => i.Status);
+
+            entity.Property(i => i.PaymentMethod)
+                  .HasColumnName("payment_method")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(30)
+                  .HasDefaultValue(PaymentMethod.COD);
+
+            entity.Property(i => i.PaidAt).HasColumnName("paid_at");
+            entity.Property(i => i.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(i => i.Note).HasColumnName("note").HasMaxLength(500);
+
+            entity.HasOne(i => i.Order)
+                  .WithOne(o => o.Invoice)
+                  .HasForeignKey<Invoice>(i => i.OrderId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(i => i.User)
+                  .WithMany()
+                  .HasForeignKey(i => i.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
         // 14. Cấu hình bảng Surveys (Khảo sát thị trường CRM)
         modelBuilder.Entity<Survey>(entity =>
         {
@@ -589,17 +638,20 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // 18. Cấu hình bảng SurveyAnswers (Câu trả lời khách hàng - Khóa chính phức hợp 3NF)
+        // 18. Cấu hình bảng SurveyAnswers (Câu trả lời khách hàng)
         modelBuilder.Entity<SurveyAnswer>(entity =>
         {
             entity.ToTable("survey_answers", t =>
                 t.HasCheckConstraint("chk_survey_answer_content", "selected_option_id IS NOT NULL OR text_answer IS NOT NULL"));
 
-            entity.HasKey(a => new { a.AssignmentId, a.QuestionId });
+            entity.HasKey(a => a.AnswerId);
+            entity.Property(a => a.AnswerId).HasColumnName("answer_id");
             entity.Property(a => a.AssignmentId).HasColumnName("assignment_id");
             entity.Property(a => a.QuestionId).HasColumnName("question_id");
             entity.Property(a => a.SelectedOptionId).HasColumnName("selected_option_id");
             entity.Property(a => a.TextAnswer).HasColumnName("text_answer");
+
+            entity.HasIndex(a => new { a.AssignmentId, a.QuestionId });
 
             entity.HasOne(a => a.Assignment)
                   .WithMany(asg => asg.Answers)

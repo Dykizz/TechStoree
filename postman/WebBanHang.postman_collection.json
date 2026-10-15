@@ -6217,7 +6217,11 @@
                   "    pm.collectionVariables.set(\"createdOrderId\", json.data.orderId);",
                   "    pm.collectionVariables.set(\"createdOrderCode\", json.data.orderCode);",
                   "    console.log(\"Saved createdOrderId: \" + json.data.orderId + \", Code: \" + json.data.orderCode);",
-                  "});"
+                  "});",
+                  "    if (json.data.invoice) {",
+                  "        pm.collectionVariables.set(\"createdInvoiceId\", json.data.invoice.invoiceId.toString());",
+                  "        pm.collectionVariables.set(\"createdInvoiceCode\", json.data.invoice.invoiceCode);",
+                  "    }"
                 ]
               }
             }
@@ -6337,7 +6341,11 @@
                   "    pm.expect(json.data.items).to.be.an(\"array\");",
                   "    pm.expect(json.data.items[0]).to.have.property(\"originalPrice\");",
                   "    pm.expect(json.data.items[0]).to.have.property(\"unitPrice\");",
-                  "});"
+                  "});",
+                  "    if (json.data.invoice) {",
+                  "        pm.collectionVariables.set(\"createdInvoiceId\", json.data.invoice.invoiceId.toString());",
+                  "        pm.collectionVariables.set(\"createdInvoiceCode\", json.data.invoice.invoiceCode);",
+                  "    }"
                 ]
               }
             }
@@ -7007,6 +7015,303 @@
       ]
     },
     {
+      "name": "Invoices",
+      "item": [
+        {
+          "name": "1. [Khách hàng] Lấy danh sách hóa đơn của tôi (GET /api/invoices/my-invoices)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/my-invoices?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "my-invoices"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lấy danh sách các hóa đơn điện tử thuộc tài khoản người dùng đang đăng nhập (hỗ trợ phân trang, lọc theo trạng thái)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"My invoices retrieved successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    if (json.data.items.length > 0) {",
+                  "        pm.collectionVariables.set(\"createdInvoiceId\", json.data.items[0].invoiceId.toString());",
+                  "        pm.collectionVariables.set(\"createdInvoiceCode\", json.data.items[0].invoiceCode);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. [Khách hàng] Tra cứu hóa đơn theo Order ID (GET /api/invoices/by-order/:orderId)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/by-order/{{createdOrderId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "by-order",
+                "{{createdOrderId}}"
+              ]
+            },
+            "description": "Tra cứu thông tin hóa đơn thanh toán tương ứng với mã đơn hàng OrderId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Invoice by OrderId retrieved correctly\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.orderId).to.eql(Number(pm.collectionVariables.get(\"createdOrderId\")));",
+                  "    pm.collectionVariables.set(\"createdInvoiceId\", json.data.invoiceId.toString());",
+                  "    pm.collectionVariables.set(\"createdInvoiceCode\", json.data.invoiceCode);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. [Khách hàng] Xem chi tiết hóa đơn theo ID (GET /api/invoices/:id)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/{{createdInvoiceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "{{createdInvoiceId}}"
+              ]
+            },
+            "description": "Xem thông tin chi tiết một hóa đơn điện tử theo ID (mã số thuế, tiền hàng, thuế GTGT, trạng thái thanh toán)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Invoice detail retrieved correctly\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.invoiceId).to.eql(Number(pm.collectionVariables.get(\"createdInvoiceId\")));",
+                  "    pm.expect(json.data).to.have.property(\"invoiceCode\");",
+                  "    pm.expect(json.data).to.have.property(\"totalAmount\");",
+                  "    pm.expect(json.data).to.have.property(\"invoiceStatus\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. [ADMIN / BÁN HÀNG] Tra cứu toàn bộ danh sách hóa đơn (GET /api/invoices/admin/all)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/admin/all?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "admin",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "[Yêu cầu quyền Orders.View] Quản trị viên tra cứu toàn bộ danh sách hóa đơn trên hệ thống, phân trang và tìm kiếm theo mã hóa đơn/khách hàng."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Admin invoice list returned successfully\", function () {",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.items).to.be.an(\"array\");",
+                  "    pm.expect(json.data.totalCount).to.be.at.least(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. [Test Lỗi] Xem chi tiết hóa đơn không tồn tại (GET /api/invoices/:id - 404 Not Found)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{accessToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/invoices/999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "invoices",
+                "999999"
+              ]
+            },
+            "description": "Hệ thống phải trả về lỗi 404 Not Found khi tra cứu hóa đơn không tồn tại."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "pm.test(\"Error message returned correctly\", function () {",
+                  "    pm.expect(json.success).to.be.false;",
+                  "    pm.expect(json.message).to.include(\"Không tìm thấy hóa đơn\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Surveys",
       "description": "Bộ API & Automated Tests đầy đủ cho Module Khảo sát thị trường (CRM Survey Module) bao gồm Quản trị viên và Khách hàng.",
       "item": [
@@ -7089,7 +7394,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe chống ồn Sony WH-1000XM6 - {{$timestamp}}\",\n  \"description\": \"Thu thập ý kiến khách hàng về màu sắc và tầm giá dự kiến cho thế hệ tai nghe chống ồn mới từ Sony.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 2\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn tính năng nào được nâng cấp nhất?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    }\n  ]\n}",
+              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe chống ồn Sony WH-1000XM6 - {{$timestamp}}\",\n  \"description\": \"Thu thập ý kiến khách hàng về màu sắc và tầm giá dự kiến cho thế hệ tai nghe chống ồn mới từ Sony.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 2\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn tính năng nào được nâng cấp nhất?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    },\n    {\n      \"questionText\": \"Bạn quan tâm đến những tính năng nào dưới đây của tai nghe? (Chọn nhiều đáp án)\",\n      \"questionType\": \"MULTI_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 3,\n      \"options\": [\n        {\n          \"optionText\": \"Chống ồn chủ động (ANC) thế hệ mới\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Kết nối đa điểm cùng lúc 2 thiết bị\",\n          \"orderNum\": 2\n        },\n        {\n          \"optionText\": \"Thời lượng pin trên 40 giờ\",\n          \"orderNum\": 3\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7120,7 +7425,7 @@
                   "pm.test(\"Response has surveyId and questions\", function () {",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.surveyId).to.be.a(\"number\");",
-                  "    pm.expect(json.data.questions).to.be.an(\"array\").with.lengthOf(2);",
+                  "    pm.expect(json.data.questions).to.be.an(\"array\").with.lengthOf(3);",
                   "    ",
                   "    pm.collectionVariables.set(\"createdSurveyId\", json.data.surveyId.toString());",
                   "    var q1 = json.data.questions[0];",
@@ -7130,6 +7435,12 @@
                   "    }",
                   "    var q2 = json.data.questions[1];",
                   "    pm.collectionVariables.set(\"surveyQuestionId2\", q2.questionId.toString());",
+                  "    var q3 = json.data.questions[2];",
+                  "    pm.collectionVariables.set(\"surveyQuestionId3\", q3.questionId.toString());",
+                  "    if (q3.options && q3.options.length >= 2) {",
+                  "        pm.collectionVariables.set(\"surveyOptionId3_1\", q3.options[0].optionId.toString());",
+                  "        pm.collectionVariables.set(\"surveyOptionId3_2\", q3.options[1].optionId.toString());",
+                  "    }",
                   "    console.log(\"Đã lưu createdSurveyId:\", json.data.surveyId);",
                   "});"
                 ]
@@ -7206,7 +7517,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe Sony WH-1000XM6 (Đã cập nhật)\",\n  \"description\": \"Cập nhật mô tả nội dung chương trình khảo sát phụ kiện âm thanh.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Dưới 8 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 2\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 3\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn màu sắc nào nhất cho dòng tai nghe này?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    }\n  ]\n}",
+              "raw": "{\n  \"title\": \"Khảo sát nhu cầu Tai nghe Sony WH-1000XM6 (Đã cập nhật)\",\n  \"description\": \"Cập nhật mô tả nội dung chương trình khảo sát phụ kiện âm thanh.\",\n  \"rewardVoucherId\": null,\n  \"isActive\": true,\n  \"questions\": [\n    {\n      \"questionText\": \"Mức giá bạn sẵn sàng chi trả cho Sony WH-1000XM6 là bao nhiêu?\",\n      \"questionType\": \"SINGLE_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 1,\n      \"options\": [\n        {\n          \"optionText\": \"Dưới 8 triệu đồng\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Từ 8 đến 10 triệu đồng\",\n          \"orderNum\": 2\n        },\n        {\n          \"optionText\": \"Trên 10 triệu đồng\",\n          \"orderNum\": 3\n        }\n      ]\n    },\n    {\n      \"questionText\": \"Bạn mong muốn màu sắc nào nhất cho dòng tai nghe này?\",\n      \"questionType\": \"TEXT\",\n      \"isRequired\": false,\n      \"orderNum\": 2\n    },\n    {\n      \"questionText\": \"Bạn quan tâm đến những tính năng nào dưới đây? (Cập nhật)\",\n      \"questionType\": \"MULTI_CHOICE\",\n      \"isRequired\": true,\n      \"orderNum\": 3,\n      \"options\": [\n        {\n          \"optionText\": \"Chống ồn ANC nâng cấp\",\n          \"orderNum\": 1\n        },\n        {\n          \"optionText\": \"Kết nối đa thiết bị\",\n          \"orderNum\": 2\n        }\n      ]\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -7243,6 +7554,14 @@
                   "    pm.collectionVariables.set(\"surveyOptionId1\", q1.options[0].optionId.toString());",
                   "    var q2 = json.data.questions[1];",
                   "    pm.collectionVariables.set(\"surveyQuestionId2\", q2.questionId.toString());",
+                  "    if (json.data.questions.length > 2) {",
+                  "        var q3 = json.data.questions[2];",
+                  "        pm.collectionVariables.set(\"surveyQuestionId3\", q3.questionId.toString());",
+                  "        if (q3.options && q3.options.length >= 2) {",
+                  "            pm.collectionVariables.set(\"surveyOptionId3_1\", q3.options[0].optionId.toString());",
+                  "            pm.collectionVariables.set(\"surveyOptionId3_2\", q3.options[1].optionId.toString());",
+                  "        }",
+                  "    }",
                   "});"
                 ]
               }
@@ -7616,7 +7935,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": {{surveyQuestionId1}},\n      \"selectedOptionId\": {{surveyOptionId1}},\n      \"textAnswer\": null\n    },\n    {\n      \"questionId\": {{surveyQuestionId2}},\n      \"selectedOptionId\": null,\n      \"textAnswer\": \"Tôi mong muốn pin tai nghe dùng được trên 30 tiếng liên tục khi bật ANC và đệm tai thoáng khí hơn.\"\n    }\n  ]\n}",
+              "raw": "{\n  \"answers\": [\n    {\n      \"questionId\": {{surveyQuestionId1}},\n      \"selectedOptionId\": {{surveyOptionId1}},\n      \"textAnswer\": null\n    },\n    {\n      \"questionId\": {{surveyQuestionId2}},\n      \"selectedOptionId\": null,\n      \"textAnswer\": \"Tôi mong muốn pin tai nghe dùng được trên 30 tiếng liên tục khi bật ANC và đệm tai thoáng khí hơn.\"\n    },\n    {\n      \"questionId\": {{surveyQuestionId3}},\n      \"selectedOptionIds\": [\n        {{surveyOptionId3_1}},\n        {{surveyOptionId3_2}}\n      ],\n      \"textAnswer\": null\n    }\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -8150,6 +8469,31 @@
     },
     {
       "key": "createdRoleId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdInvoiceId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdInvoiceCode",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "surveyQuestionId3",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "surveyOptionId3_1",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "surveyOptionId3_2",
       "value": "",
       "type": "string"
     }

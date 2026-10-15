@@ -2,6 +2,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.DTOs.Carts;
 using WebBanHang.Api.DTOs.Categories;
+using WebBanHang.Api.DTOs.Invoices;
 using WebBanHang.Api.DTOs.Orders;
 using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.Promotions;
@@ -582,7 +583,31 @@ public static class MappingExtensions
         var detail = order.PopulateOrderBase(new OrderDetailDto());
         detail.User = order.User != null ? order.User.ToDto() : null;
         detail.Items = order.Items?.Select(i => i.ToOrderItemDto()).ToList() ?? new List<OrderItemDto>();
+        detail.Invoice = order.Invoice?.ToInvoiceDto();
         return detail;
+    }
+
+    // ==========================================
+    // INVOICE MAPPINGS
+    // ==========================================
+
+    public static InvoiceDto ToInvoiceDto(this Invoice invoice)
+    {
+        return new InvoiceDto
+        {
+            InvoiceId = invoice.InvoiceId,
+            InvoiceCode = invoice.InvoiceCode,
+            OrderId = invoice.OrderId,
+            OrderCode = invoice.Order?.OrderCode ?? string.Empty,
+            UserId = invoice.UserId,
+            CustomerName = invoice.Order?.ReceiverName ?? invoice.User?.FullName ?? invoice.User?.Username ?? string.Empty,
+            TotalAmount = invoice.TotalAmount,
+            Status = invoice.Status,
+            PaymentMethod = invoice.PaymentMethod,
+            PaidAt = invoice.PaidAt,
+            CreatedAt = invoice.CreatedAt,
+            Note = invoice.Note
+        };
     }
 
     // ==========================================
@@ -607,15 +632,25 @@ public static class MappingExtensions
         List<SurveyAssignment>? completedAssignments = null)
     {
         var answers = questionAnswers ?? question.Answers?.ToList() ?? new List<SurveyAnswer>();
-        var totalAnswers = answers.Count;
+        var respondentCount = answers.Select(a => a.AssignmentId).Distinct().Count();
+        var totalAnswers = question.QuestionType == SurveyQuestionType.MULTI_CHOICE
+            ? respondentCount
+            : answers.Count;
+
+        var isChoiceQuestion = question.QuestionType == SurveyQuestionType.SINGLE_CHOICE ||
+                               question.QuestionType == SurveyQuestionType.MULTI_CHOICE;
 
         var optionsDto = new List<SurveyOptionDto>();
-        if (question.QuestionType == SurveyQuestionType.SINGLE_CHOICE && question.Options != null)
+        if (isChoiceQuestion && question.Options != null)
         {
+            var baseCount = question.QuestionType == SurveyQuestionType.MULTI_CHOICE
+                ? respondentCount
+                : totalAnswers;
+
             foreach (var opt in question.Options.OrderBy(o => o.OrderNum))
             {
                 var voteCount = answers.Count(a => a.SelectedOptionId == opt.OptionId);
-                var percentage = totalAnswers > 0 ? Math.Round((double)voteCount / totalAnswers * 100, 1) : 0.0;
+                var percentage = baseCount > 0 ? Math.Round((double)voteCount / baseCount * 100, 1) : 0.0;
                 optionsDto.Add(opt.ToOptionDto(voteCount, percentage));
             }
         }

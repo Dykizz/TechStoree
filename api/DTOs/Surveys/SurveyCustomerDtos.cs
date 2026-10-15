@@ -119,6 +119,12 @@ public class SubmitAnswerDto
     public int? SelectedOptionId { get; set; }
 
     /// <summary>
+    /// Danh sách ID đáp án trắc nghiệm được chọn (nếu câu hỏi là MULTI_CHOICE)
+    /// </summary>
+    /// <example>[1, 2]</example>
+    public List<int>? SelectedOptionIds { get; set; }
+
+    /// <summary>
     /// Nội dung trả lời tự luận (nếu câu hỏi là TEXT)
     /// </summary>
     /// <example>Tôi mong muốn tai nghe có thêm màu bạc Titan và chống nước chuẩn IPX4.</example>
