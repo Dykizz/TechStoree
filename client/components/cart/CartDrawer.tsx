@@ -229,7 +229,7 @@ export default function CartDrawer() {
                 className={styles.viewCartBtn}
                 onClick={closeCart}
               >
-                Xem chi tiết giỏ hàng
+                Xem tất cả / Đi đến giỏ hàng
               </Link>
               <button
                 type="button"
