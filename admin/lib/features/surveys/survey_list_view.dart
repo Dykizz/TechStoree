@@ -15,6 +15,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 
 class SurveyListView extends StatefulWidget {
   final Function(SurveyAdminList survey) onViewDetail;
@@ -185,13 +186,8 @@ class _SurveyListViewState extends State<SurveyListView> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                    child: DataTable(
+                            ScrollableTableWrapper(
+                                child: DataTable(
                                       headingRowHeight: 40,
                                       dataRowMinHeight: 48,
                                       dataRowMaxHeight: 48,
@@ -360,11 +356,8 @@ class _SurveyListViewState extends State<SurveyListView> {
                                           ],
                                         );
                                       }).toList(),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+                                     ),
+                             ),
 
                             if (result.totalItems > 0)
                               AppPagination(

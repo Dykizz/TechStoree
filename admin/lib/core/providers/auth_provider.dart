@@ -11,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
   String _userName = 'Quản Trị Viên';
   String _userRole = 'ADMIN';
   List<String> _userRoles = ['ADMIN'];
+  List<String> _permissions = [];
   String? _token;
   String? _refreshToken;
   Future<bool>? _refreshFuture;
@@ -22,9 +23,19 @@ class AuthProvider extends ChangeNotifier {
   String get userName => _userName;
   String get userRole => _userRole;
   List<String> get userRoles => _userRoles;
+  List<String> get permissions => _permissions;
   String? get token => _token;
   String? get refreshToken => _refreshToken;
   bool get hasRefreshToken => _refreshToken != null && _refreshToken!.isNotEmpty;
+
+  /// Kiểm tra xem người dùng hiện tại có ở chế độ Offline (mock JWT) hay không
+  bool get isOfflineMode => _token != null && _token!.startsWith('demo-jwt-token');
+
+  /// Kiểm tra quyền hạn cụ thể (ADMIN mặc định có tất cả quyền)
+  bool can(String permission) {
+    if (isAdmin) return true;
+    return _permissions.contains(permission);
+  }
 
   bool get isAdmin => _userRoles.contains('ADMIN') || _userRole == 'ADMIN';
   bool get isSalesStaff => _userRoles.contains('SALES_STAFF') || _userRole == 'SALES_STAFF';
@@ -60,6 +71,11 @@ class AuthProvider extends ChangeNotifier {
           } else {
             _userRoles = [];
           }
+          if (user['permissions'] != null && user['permissions'] is List) {
+            _permissions = List<String>.from(user['permissions']);
+          } else {
+            _permissions = [];
+          }
           _userRole = user['primaryRole'] ?? user['role'] ?? (_userRoles.isNotEmpty ? _userRoles.first : 'ADMIN');
         }
         _isLoggedIn = true;
@@ -80,6 +96,18 @@ class AuthProvider extends ChangeNotifier {
       _userName = 'Quản Trị Viên';
       _userRole = 'ADMIN';
       _userRoles = ['ADMIN'];
+      _permissions = [
+        'Categories.Create', 'Categories.Delete', 'Categories.Update', 'Categories.View',
+        'Orders.Cancel', 'Orders.UpdateStatus', 'Orders.View',
+        'Products.Create', 'Products.Delete', 'Products.Update', 'Products.View',
+        'Promotions.Create', 'Promotions.Delete', 'Promotions.Update', 'Promotions.View',
+        'PurchaseOrders.Create', 'PurchaseOrders.Update', 'PurchaseOrders.View',
+        'Roles.Create', 'Roles.Delete', 'Roles.Update', 'Roles.View',
+        'Suppliers.Create', 'Suppliers.Delete', 'Suppliers.Update', 'Suppliers.View',
+        'Surveys.Assign', 'Surveys.Create', 'Surveys.Delete', 'Surveys.Update', 'Surveys.View',
+        'Users.AssignRoles', 'Users.Create', 'Users.Lock', 'Users.Update', 'Users.View',
+        'Vouchers.Assign', 'Vouchers.Create', 'Vouchers.Delete', 'Vouchers.Update', 'Vouchers.View'
+      ];
       _token = 'demo-jwt-token-techstoree-2026';
       _refreshToken = 'demo-refresh-token-techstoree-2026';
       BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
@@ -103,6 +131,7 @@ class AuthProvider extends ChangeNotifier {
         _userRole = 'ADMIN';
         _userRoles = ['ADMIN'];
       }
+      _permissions = [];
       _token = 'demo-jwt-token';
       _refreshToken = 'demo-refresh-token';
       BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
@@ -164,6 +193,9 @@ class AuthProvider extends ChangeNotifier {
             if (user['roles'] != null && user['roles'] is List) {
               _userRoles = List<String>.from(user['roles']);
             }
+            if (user['permissions'] != null && user['permissions'] is List) {
+              _permissions = List<String>.from(user['permissions']);
+            }
             _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
           }
           debugPrint('[AuthProvider] Access token successfully refreshed!');
@@ -197,6 +229,9 @@ class AuthProvider extends ChangeNotifier {
       if (user['roles'] != null && user['roles'] is List) {
         _userRoles = List<String>.from(user['roles']);
       }
+      if (user['permissions'] != null && user['permissions'] is List) {
+        _permissions = List<String>.from(user['permissions']);
+      }
       _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
     }
     notifyListeners();
@@ -207,6 +242,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = false;
     _token = null;
     _refreshToken = null;
+    _permissions = [];
     _errorMessage = null;
     BaseApiService.clearRamTokens();
     notifyListeners();

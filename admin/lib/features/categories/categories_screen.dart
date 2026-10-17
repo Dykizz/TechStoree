@@ -14,6 +14,7 @@ import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -124,13 +125,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                return SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                    child: DataTable(
+                            ScrollableTableWrapper(
+                              child: DataTable(
                                       headingRowHeight: 38,
                                       dataRowMinHeight: 42,
                                       dataRowMaxHeight: 42,
@@ -209,9 +205,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         );
                                       }).toList(),
                                     ),
-                                  ),
-                                );
-                              },
                             ),
                             if (totalItems > 0)
                               AppPagination(

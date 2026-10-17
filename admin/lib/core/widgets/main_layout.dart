@@ -15,7 +15,9 @@ import '../../features/purchase_orders/purchase_orders_screen.dart';
 import '../../features/promotions/promotions_screen.dart';
 import '../../features/vouchers/vouchers_screen.dart';
 import '../../features/surveys/surveys_screen.dart';
-import '../../features/users/users_screen.dart';
+import '../../features/customers/customers_screen.dart';
+import '../../features/staff/staff_screen.dart';
+import '../../features/roles/roles_screen.dart';
 import '../../features/settings/settings_screen.dart';
 
 class MainLayout extends StatelessWidget {
@@ -32,16 +34,18 @@ class MainLayout extends StatelessWidget {
 
     switch (index) {
       case 0: return true; // Tổng quan
-      case 1: return isWarehouse || isSales; // Sản phẩm
-      case 2: return isSales; // Đơn hàng
-      case 3: return isWarehouse; // Danh mục
-      case 4: return isWarehouse; // Nhà cung cấp
-      case 5: return isWarehouse; // Phiếu nhập hàng
-      case 6: return isSales; // Khuyến mãi
-      case 7: return isSales; // Vouchers
-      case 8: return isSurvey; // Khảo sát
-      case 9: return isSales || isSurvey; // Khách hàng / Users
-      case 10: return false; // Cài đặt (Admin only)
+      case 1: return authProvider.can('Products.View') || isWarehouse || isSales; // Sản phẩm
+      case 2: return authProvider.can('Orders.View') || isSales; // Đơn hàng
+      case 3: return authProvider.can('Categories.View') || isWarehouse; // Danh mục
+      case 4: return authProvider.can('Suppliers.View') || isWarehouse; // Nhà cung cấp
+      case 5: return authProvider.can('PurchaseOrders.View') || isWarehouse; // Phiếu nhập hàng
+      case 6: return authProvider.can('Promotions.View') || isSales; // Khuyến mãi
+      case 7: return authProvider.can('Vouchers.View') || isSales; // Vouchers
+      case 8: return authProvider.can('Surveys.View') || isSurvey; // Khảo sát
+      case 9: return authProvider.can('Users.View') || isSales || isSurvey; // Khách hàng
+      case 10: return authProvider.can('Users.View') || isAdmin; // Nhân viên
+      case 11: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
+      case 12: return false; // Cài đặt (Admin only)
       default: return false;
     }
   }
@@ -62,7 +66,9 @@ class MainLayout extends StatelessWidget {
       'Khuyến mãi & Giảm giá',
       'Mã giảm giá Voucher',
       'Khảo sát thị trường',
-      'Khách hàng / User',
+      'Khách hàng',
+      'Nhân viên',
+      'Vai Trò & Phân Quyền',
       'Cài đặt hệ thống',
     ];
 
@@ -76,7 +82,9 @@ class MainLayout extends StatelessWidget {
       PromotionsScreen(),
       VouchersScreen(),
       SurveysScreen(),
-      UsersScreen(),
+      CustomersScreen(),
+      StaffScreen(),
+      RolesScreen(),
       SettingsScreen(),
     ];
 

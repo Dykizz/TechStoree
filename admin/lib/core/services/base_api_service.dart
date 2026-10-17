@@ -336,7 +336,7 @@ abstract class BaseApiService extends ChangeNotifier {
           }
           if (jsonRes['errors'] != null) {
             final errs = jsonRes['errors'];
-            if (errs is Map<String, dynamic>) {
+            if (errs is Map) {
               final messages = <String>[];
               errs.forEach((k, v) {
                 if (v is List) {

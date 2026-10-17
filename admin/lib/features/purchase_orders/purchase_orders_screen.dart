@@ -17,6 +17,7 @@ import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class PurchaseOrdersScreen extends StatefulWidget {
@@ -177,15 +178,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                     message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
                                     icon: Icons.inventory_2_outlined,
                                   )
-                                : LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return SingleChildScrollView(
-                                        scrollDirection: Axis.vertical,
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: ConstrainedBox(
-                                            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                            child: DataTable(
+                                : ScrollableTableWrapper(
+                                    child: DataTable(
                                               headingRowHeight: 40,
                                               dataRowMinHeight: 50,
                                               dataRowMaxHeight: 54,
@@ -289,12 +283,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                                   ],
                                                 );
                                               }).toList(),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                             ),
+                                ),
                           ),
                           if (totalItems > 0)
                             AppPagination(

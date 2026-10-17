@@ -18,7 +18,7 @@ extension SurveyQuestionTypeExt on SurveyQuestionType {
   String get displayName {
     switch (this) {
       case SurveyQuestionType.SINGLE_CHOICE:
-        return 'Trắc nghiệm (1 đáp án)';
+        return 'Trắc nghiệm';
       case SurveyQuestionType.TEXT:
         return 'Tự luận / Ý kiến đóng góp';
     }

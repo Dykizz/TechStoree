@@ -35,24 +35,28 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & Giảm giá', index: 6),
       _NavItem(icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Mã giảm giá Voucher', index: 7),
       _NavItem(icon: Icons.poll_outlined, activeIcon: Icons.poll_rounded, label: 'Khảo sát thị trường', index: 8),
-      _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng / User', index: 9),
-      _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 10),
+      _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng', index: 9),
+      _NavItem(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded, label: 'Nhân viên', index: 10),
+      _NavItem(icon: Icons.admin_panel_settings_outlined, activeIcon: Icons.admin_panel_settings_rounded, label: 'Vai trò & Phân quyền', index: 11),
+      _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 12),
     ];
 
     final navItems = allNavItems.where((item) {
       if (isAdmin) return true;
       switch (item.index) {
         case 0: return true; // Let everyone see Dashboard
-        case 1: return isWarehouse || isSales;
-        case 2: return isSales;
-        case 3: return isWarehouse;
-        case 4: return isWarehouse;
-        case 5: return isWarehouse;
-        case 6: return isSales;
-        case 7: return isSales;
-        case 8: return isSurvey;
-        case 9: return isSales || isSurvey;
-        case 10: return false; // Only ADMIN
+        case 1: return authProvider.can('Products.View') || isWarehouse || isSales;
+        case 2: return authProvider.can('Orders.View') || isSales;
+        case 3: return authProvider.can('Categories.View') || isWarehouse;
+        case 4: return authProvider.can('Suppliers.View') || isWarehouse;
+        case 5: return authProvider.can('PurchaseOrders.View') || isWarehouse;
+        case 6: return authProvider.can('Promotions.View') || isSales;
+        case 7: return authProvider.can('Vouchers.View') || isSales;
+        case 8: return authProvider.can('Surveys.View') || isSurvey;
+        case 9: return authProvider.can('Users.View') || isSales || isSurvey;
+        case 10: return authProvider.can('Users.View') || isAdmin;
+        case 11: return authProvider.can('Roles.View');
+        case 12: return false; // Only ADMIN
         default: return false;
       }
     }).toList();

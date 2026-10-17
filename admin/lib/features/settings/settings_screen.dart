@@ -7,7 +7,6 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
-import '../roles/rbac_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,85 +15,24 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
+class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _urlCtrl;
-  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     final apiService = Provider.of<ApiService>(context, listen: false);
     _urlCtrl = TextEditingController(text: apiService.baseUrl);
-    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
     _urlCtrl.dispose();
-    _tabController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-
-    return Column(
-      children: [
-        // Tab Navigation Bar Header
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: borderColor)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  indicatorColor: AppColors.primary,
-                  indicatorWeight: 3,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: textPrimary.withValues(alpha: 0.6),
-                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
-                  tabs: const [
-                    Tab(
-                      icon: Icon(Icons.admin_panel_settings_rounded, size: 18),
-                      text: 'Phân Quyền Vai Trò (Dynamic RBAC)',
-                    ),
-                    Tab(
-                      icon: Icon(Icons.settings_outlined, size: 18),
-                      text: 'Cấu Hình Hệ Thống & API',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Tab Views Body
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              // Tab 1: RBAC Management Interface
-              const RbacScreen(),
-
-              // Tab 2: System API & Theme Settings
-              _buildSystemSettingsTab(context),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSystemSettingsTab(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;

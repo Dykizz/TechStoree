@@ -51,10 +51,17 @@ mixin UserApiService on BaseApiService {
     ),
   ];
 
-  Future<List<AppUser>> getUsers({String? token}) async {
+  Future<List<AppUser>> getUsers({String? token, bool? isStaffOnly}) async {
     try {
+      final queryParams = <String, String>{};
+      if (isStaffOnly != null) {
+        queryParams['isStaffOnly'] = isStaffOnly.toString();
+      }
+      final uri = Uri.parse('$baseUrl/users').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
       final response = await httpGet(
-        Uri.parse('$baseUrl/users'),
+        uri,
         token: token,
       );
 
@@ -76,12 +83,42 @@ mixin UserApiService on BaseApiService {
     } catch (e) {
       debugPrint('API Error getUsers: $e');
     }
-    return mockUsers.map((u) => _userCache[u.id] ?? u).toList();
+    var list = mockUsers.map((u) => _userCache[u.id] ?? u).toList();
+    if (isStaffOnly != null) {
+      if (isStaffOnly) {
+        list = list.where((u) => u.role.toUpperCase() != 'USER' || u.roles.any((r) => r.toUpperCase() != 'USER')).toList();
+      } else {
+        list = list.where((u) => u.role.toUpperCase() == 'USER' && (u.roles.isEmpty || u.roles.every((r) => r.toUpperCase() == 'USER'))).toList();
+      }
+    }
+    return list;
   }
 
   Future<ApiResult> createUser(AppUser user, String password, {String? token}) async {
     try {
       final response = await httpPost(
+        Uri.parse('$baseUrl/users'),
+        token: token,
+        body: json.encode({
+          'username': user.userName.isNotEmpty ? user.userName : user.fullName.toLowerCase().replaceAll(' ', '_'),
+          'email': user.email,
+          'password': password,
+          'fullName': user.fullName,
+          'phone': user.phone,
+          'techInterest': user.techInterest,
+          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+          'address': user.address,
+          'roles': user.roles.isNotEmpty ? user.roles : [user.role],
+        }),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        notifyListeners();
+        return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
+      }
+
+      // Fallback sang /auth/register nếu cần
+      final fallback = await httpPost(
         Uri.parse('$baseUrl/auth/register'),
         token: token,
         body: json.encode({
@@ -95,11 +132,11 @@ mixin UserApiService on BaseApiService {
           'address': user.address,
         }),
       );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (fallback.statusCode >= 200 && fallback.statusCode < 300) {
         notifyListeners();
         return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
       }
+
       return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
       debugPrint('API Error createUser: $e');
