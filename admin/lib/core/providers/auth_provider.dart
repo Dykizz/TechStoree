@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../services/base_api_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
@@ -9,7 +10,11 @@ class AuthProvider extends ChangeNotifier {
   String _userEmail = 'admin@techstoree.vn';
   String _userName = 'Quản Trị Viên';
   String _userRole = 'ADMIN';
+  List<String> _userRoles = ['ADMIN'];
+  List<String> _permissions = [];
   String? _token;
+  String? _refreshToken;
+  Future<bool>? _refreshFuture;
 
   bool get isLoggedIn => _isLoggedIn;
   bool get isLoading => _isLoading;
@@ -17,7 +22,25 @@ class AuthProvider extends ChangeNotifier {
   String get userEmail => _userEmail;
   String get userName => _userName;
   String get userRole => _userRole;
+  List<String> get userRoles => _userRoles;
+  List<String> get permissions => _permissions;
   String? get token => _token;
+  String? get refreshToken => _refreshToken;
+  bool get hasRefreshToken => _refreshToken != null && _refreshToken!.isNotEmpty;
+
+  /// Kiểm tra xem người dùng hiện tại có ở chế độ Offline (mock JWT) hay không
+  bool get isOfflineMode => _token != null && _token!.startsWith('demo-jwt-token');
+
+  /// Kiểm tra quyền hạn cụ thể (ADMIN mặc định có tất cả quyền)
+  bool can(String permission) {
+    if (isAdmin) return true;
+    return _permissions.contains(permission);
+  }
+
+  bool get isAdmin => _userRoles.contains('ADMIN') || _userRole == 'ADMIN';
+  bool get isSalesStaff => _userRoles.contains('SALES_STAFF') || _userRole == 'SALES_STAFF';
+  bool get isWarehouseStaff => _userRoles.contains('WAREHOUSE_STAFF') || _userRole == 'WAREHOUSE_STAFF';
+  bool get isSurveyStaff => _userRoles.contains('SURVEY_STAFF') || _userRole == 'SURVEY_STAFF';
 
   Future<bool> login(String email, String password, {String baseUrl = 'http://localhost:5000/api'}) async {
     _isLoading = true;
@@ -35,11 +58,25 @@ class AuthProvider extends ChangeNotifier {
       if (response.statusCode == 200 && resJson['success'] == true && resJson['data'] != null) {
         final data = resJson['data'];
         _token = data['token'] ?? data['accessToken'];
+        _refreshToken = data['refreshToken']?.toString();
+        // Tự động lưu Token vào RAM của BaseApiService
+        BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
+
         final user = data['user'];
         if (user != null) {
           _userEmail = user['email'] ?? email;
           _userName = user['fullName'] ?? user['username'] ?? 'Quản Trị Viên';
-          _userRole = user['role'] ?? 'ADMIN';
+          if (user['roles'] != null && user['roles'] is List) {
+            _userRoles = List<String>.from(user['roles']);
+          } else {
+            _userRoles = [];
+          }
+          if (user['permissions'] != null && user['permissions'] is List) {
+            _permissions = List<String>.from(user['permissions']);
+          } else {
+            _permissions = [];
+          }
+          _userRole = user['primaryRole'] ?? user['role'] ?? (_userRoles.isNotEmpty ? _userRoles.first : 'ADMIN');
         }
         _isLoggedIn = true;
         _isLoading = false;
@@ -58,7 +95,22 @@ class AuthProvider extends ChangeNotifier {
       _userEmail = 'admin@techstoree.vn';
       _userName = 'Quản Trị Viên';
       _userRole = 'ADMIN';
+      _userRoles = ['ADMIN'];
+      _permissions = [
+        'Categories.Create', 'Categories.Delete', 'Categories.Update', 'Categories.View',
+        'Orders.Cancel', 'Orders.UpdateStatus', 'Orders.View',
+        'Products.Create', 'Products.Delete', 'Products.Update', 'Products.View',
+        'Promotions.Create', 'Promotions.Delete', 'Promotions.Update', 'Promotions.View',
+        'PurchaseOrders.Create', 'PurchaseOrders.Update', 'PurchaseOrders.View',
+        'Roles.Create', 'Roles.Delete', 'Roles.Update', 'Roles.View',
+        'Suppliers.Create', 'Suppliers.Delete', 'Suppliers.Update', 'Suppliers.View',
+        'Surveys.Assign', 'Surveys.Create', 'Surveys.Delete', 'Surveys.Update', 'Surveys.View',
+        'Users.AssignRoles', 'Users.Create', 'Users.Lock', 'Users.Update', 'Users.View',
+        'Vouchers.Assign', 'Vouchers.Create', 'Vouchers.Delete', 'Vouchers.Update', 'Vouchers.View'
+      ];
       _token = 'demo-jwt-token-techstoree-2026';
+      _refreshToken = 'demo-refresh-token-techstoree-2026';
+      BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -66,8 +118,23 @@ class AuthProvider extends ChangeNotifier {
       _isLoggedIn = true;
       _userEmail = email;
       _userName = email.split('@').first.toUpperCase();
-      _userRole = 'ADMIN';
+      if (email.contains('kho')) {
+        _userRole = 'WAREHOUSE_STAFF';
+        _userRoles = ['WAREHOUSE_STAFF'];
+      } else if (email.contains('sales')) {
+        _userRole = 'SALES_STAFF';
+        _userRoles = ['SALES_STAFF'];
+      } else if (email.contains('survey') || email.contains('crm')) {
+        _userRole = 'SURVEY_STAFF';
+        _userRoles = ['SURVEY_STAFF'];
+      } else {
+        _userRole = 'ADMIN';
+        _userRoles = ['ADMIN'];
+      }
+      _permissions = [];
       _token = 'demo-jwt-token';
+      _refreshToken = 'demo-refresh-token';
+      BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
       _isLoading = false;
       notifyListeners();
       return true;
@@ -79,11 +146,119 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
-  void logout() {
+  /// Calls the refresh token endpoint to obtain a new access token and refresh token.
+  /// Deduplicates multiple simultaneous refresh requests using _refreshFuture.
+  Future<bool> refreshAccessToken({String? baseUrl}) {
+    if (_refreshFuture != null) {
+      debugPrint('[AuthProvider] Token refresh already in progress, awaiting existing task...');
+      return _refreshFuture!;
+    }
+    _refreshFuture = _executeTokenRefresh(baseUrl: baseUrl);
+    return _refreshFuture!.whenComplete(() {
+      _refreshFuture = null;
+    });
+  }
+
+  Future<bool> _executeTokenRefresh({String? baseUrl}) async {
+    if (_refreshToken == null || _refreshToken!.isEmpty) {
+      debugPrint('[AuthProvider] No refresh token available. Logging out...');
+      logout();
+      return false;
+    }
+
+    final effectiveBaseUrl = (baseUrl != null && baseUrl.isNotEmpty)
+        ? baseUrl
+        : 'http://localhost:5000/api';
+
+    try {
+      debugPrint('[AuthProvider] Refreshing access token via $effectiveBaseUrl/auth/refresh-token...');
+      final response = await http.post(
+        Uri.parse('$effectiveBaseUrl/auth/refresh-token'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'refreshToken': _refreshToken}),
+      ).timeout(const Duration(seconds: 7));
+
+      if (response.statusCode == 200) {
+        final resJson = json.decode(utf8.decode(response.bodyBytes));
+        if (resJson['success'] == true && resJson['data'] != null) {
+          final data = resJson['data'];
+          _token = data['token'] ?? data['accessToken'];
+          if (data['refreshToken'] != null && data['refreshToken'].toString().isNotEmpty) {
+            _refreshToken = data['refreshToken'].toString();
+          }
+          final user = data['user'];
+          if (user != null) {
+            _userEmail = user['email'] ?? _userEmail;
+            _userName = user['fullName'] ?? user['username'] ?? _userName;
+            if (user['roles'] != null && user['roles'] is List) {
+              _userRoles = List<String>.from(user['roles']);
+            }
+            if (user['permissions'] != null && user['permissions'] is List) {
+              _permissions = List<String>.from(user['permissions']);
+            }
+            _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
+          }
+          debugPrint('[AuthProvider] Access token successfully refreshed!');
+          notifyListeners();
+          return true;
+        }
+      }
+      debugPrint('[AuthProvider] Refresh token failed with HTTP ${response.statusCode}');
+    } catch (e) {
+      debugPrint('[AuthProvider] Exception during token refresh: $e');
+    }
+
+    // If refresh token call failed or token is expired/revoked, log the user out
+    logout(baseUrl: effectiveBaseUrl);
+    return false;
+  }
+
+  void updateTokensFromRefresh({
+    required String accessToken,
+    String? refreshToken,
+    dynamic user,
+  }) {
+    _token = accessToken;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      _refreshToken = refreshToken;
+    }
+    BaseApiService.setRamTokens(accessToken: _token, refreshToken: _refreshToken);
+    if (user != null && user is Map<String, dynamic>) {
+      _userEmail = user['email'] ?? _userEmail;
+      _userName = user['fullName'] ?? user['username'] ?? _userName;
+      if (user['roles'] != null && user['roles'] is List) {
+        _userRoles = List<String>.from(user['roles']);
+      }
+      if (user['permissions'] != null && user['permissions'] is List) {
+        _permissions = List<String>.from(user['permissions']);
+      }
+      _userRole = user['primaryRole'] ?? user['role'] ?? _userRole;
+    }
+    notifyListeners();
+  }
+
+  void logout({String? baseUrl}) {
+    final tokenToRevoke = _token;
     _isLoggedIn = false;
     _token = null;
+    _refreshToken = null;
+    _permissions = [];
     _errorMessage = null;
+    BaseApiService.clearRamTokens();
     notifyListeners();
+
+    if (tokenToRevoke != null && tokenToRevoke.isNotEmpty) {
+      try {
+        final effectiveBaseUrl = baseUrl ?? 'http://localhost:5000/api';
+        http.post(
+          Uri.parse('$effectiveBaseUrl/auth/logout'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $tokenToRevoke',
+          },
+        ).timeout(const Duration(seconds: 3)).then((_) {}).catchError((_) {});
+      } catch (_) {}
+    }
   }
 }
 

@@ -17,7 +17,10 @@ void main() {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ApiService()..checkBackendConnection()),
+        ChangeNotifierProxyProvider<AuthProvider, ApiService>(
+          create: (_) => ApiService()..checkBackendConnection(),
+          update: (_, auth, api) => (api ?? ApiService())..setAuthProvider(auth),
+        ),
       ],
       child: const TechStoreAdminApp(),
     ),
