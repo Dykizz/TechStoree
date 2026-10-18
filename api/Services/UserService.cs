@@ -16,6 +16,9 @@ public class UserService(AppDbContext context) : IUserService
     {
         var query = context.Users
             .AsNoTracking()
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .AsQueryable();
@@ -33,13 +36,31 @@ public class UserService(AppDbContext context) : IUserService
             if (filter.IsStaffOnly.Value)
             {
                 // Chỉ lấy tài khoản có ít nhất một vai trò khác USER (tức là nhân viên / quản trị)
-                query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId != "USER"));
+                query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId != UserRoleTypeExtensions.User));
             }
             else
             {
                 // Chỉ lấy khách hàng thông thường
-                query = query.Where(u => u.UserRoles.All(ur => ur.RoleId == "USER"));
+                query = query.Where(u => u.UserRoles.All(ur => ur.RoleId == UserRoleTypeExtensions.User));
             }
+        }
+
+        // 1.2 Lọc theo loại thực thể (CUSTOMER, EMPLOYEE, ADMIN)
+        if (filter.UserType.HasValue)
+        {
+            query = filter.UserType.Value switch
+            {
+                UserType.CUSTOMER => query.Where(u => u.Customer != null && u.Employee == null && u.Admin == null),
+                UserType.EMPLOYEE => query.Where(u => u.Employee != null),
+                UserType.ADMIN => query.Where(u => u.Admin != null),
+                _ => query
+            };
+        }
+
+        // 1.3 Lọc nhân viên theo chế độ làm việc (FULL_TIME / PART_TIME)
+        if (filter.EmploymentType.HasValue)
+        {
+            query = query.Where(u => u.Employee != null && u.Employee.EmploymentType == filter.EmploymentType.Value);
         }
 
         // 2. Lọc theo trạng thái khóa (nếu có)
@@ -48,7 +69,7 @@ public class UserService(AppDbContext context) : IUserService
             query = query.Where(u => u.IsLocked == filter.IsLocked.Value);
         }
 
-        // 3. Tìm kiếm theo từ khóa (username, email, họ tên, số điện thoại)
+        // 3. Tìm kiếm theo từ khóa (username, email, họ tên, số điện thoại, mã nhân viên)
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.Trim().ToLower();
@@ -56,7 +77,8 @@ public class UserService(AppDbContext context) : IUserService
                 u.Username.ToLower().Contains(search) ||
                 u.Email.ToLower().Contains(search) ||
                 u.FullName.ToLower().Contains(search) ||
-                (u.Phone != null && u.Phone.Contains(search)));
+                (u.Phone != null && u.Phone.Contains(search)) ||
+                (u.Employee != null && u.Employee.EmployeeCode.ToLower().Contains(search)));
         }
 
         // 4. Sắp xếp mặc định theo thời gian tạo mới nhất
@@ -78,6 +100,9 @@ public class UserService(AppDbContext context) : IUserService
     {
         var user = await context.Users
             .AsNoTracking()
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
@@ -93,6 +118,9 @@ public class UserService(AppDbContext context) : IUserService
     public async Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto)
     {
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
@@ -172,13 +200,46 @@ public class UserService(AppDbContext context) : IUserService
             Email = emailTrimmed,
             FullName = dto.FullName.Trim(),
             Phone = dto.Phone?.Trim(),
-            DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
-            TechInterest = dto.TechInterest?.Trim(),
-            Address = dto.Address?.Trim(),
             IsLocked = false,
             CreatedByUserId = creatorUserId,
             CreatedAt = DateTime.UtcNow
         };
+
+        // Gán thực thể tương ứng dựa vào danh sách Roles
+        var hasAdminRole = roleIds.Any(r => r.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase));
+        if (hasAdminRole)
+        {
+            newUser.Admin = new Admin();
+        }
+
+        var isStaffRole = roleIds.Any(r => r.Equals(UserRoleTypeExtensions.WarehouseStaff, StringComparison.OrdinalIgnoreCase)
+                                        || r.Equals(UserRoleTypeExtensions.SalesStaff, StringComparison.OrdinalIgnoreCase)
+                                        || r.Equals(UserRoleTypeExtensions.SurveyStaff, StringComparison.OrdinalIgnoreCase));
+        if (isStaffRole)
+        {
+            var empCode = !string.IsNullOrWhiteSpace(dto.EmployeeCode)
+                ? dto.EmployeeCode.Trim().ToUpper()
+                : $"NV{DateTime.UtcNow:yyMMddHHmmss}";
+
+            newUser.Employee = new Employee
+            {
+                EmployeeCode = empCode,
+                EmploymentType = dto.EmploymentType ?? EmploymentType.FULL_TIME,
+                BaseSalary = dto.BaseSalary ?? 0,
+                HourlyRate = dto.HourlyRate ?? 0
+            };
+        }
+
+        var isCustomer = roleIds.Any(r => r.Equals(UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase)) || (!isStaffRole && !hasAdminRole);
+        if (isCustomer)
+        {
+            newUser.Customer = new Customer
+            {
+                DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
+                TechInterest = dto.TechInterest?.Trim(),
+                Address = dto.Address?.Trim()
+            };
+        }
 
         foreach (var roleId in roleIds.Distinct())
         {
@@ -199,6 +260,9 @@ public class UserService(AppDbContext context) : IUserService
     public async Task<UserDto> UpdateRoleAsync(int operatorUserId, int id, UpdateRoleRequestDto dto)
     {
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == id);
@@ -245,6 +309,33 @@ public class UserService(AppDbContext context) : IUserService
             });
         }
 
+        // Đồng bộ thực thể khi cập nhật vai trò
+        var hasNewAdmin = existingRoles.Any(r => r.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase));
+        if (hasNewAdmin && user.Admin == null)
+        {
+            user.Admin = new Admin();
+        }
+
+        var hasNewStaff = existingRoles.Any(r => r.Equals(UserRoleTypeExtensions.WarehouseStaff, StringComparison.OrdinalIgnoreCase)
+                                              || r.Equals(UserRoleTypeExtensions.SalesStaff, StringComparison.OrdinalIgnoreCase)
+                                              || r.Equals(UserRoleTypeExtensions.SurveyStaff, StringComparison.OrdinalIgnoreCase));
+        if (hasNewStaff && user.Employee == null)
+        {
+            user.Employee = new Employee
+            {
+                EmployeeCode = $"NV{user.UserId:D4}",
+                EmploymentType = EmploymentType.FULL_TIME,
+                BaseSalary = 0,
+                HourlyRate = 0
+            };
+        }
+
+        var hasNewCustomer = existingRoles.Any(r => r.Equals(UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
+        if (hasNewCustomer && user.Customer == null)
+        {
+            user.Customer = new Customer();
+        }
+
         await context.SaveChangesAsync();
         return user.ToUserDto();
     }
@@ -252,6 +343,9 @@ public class UserService(AppDbContext context) : IUserService
     public async Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto)
     {
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.UserId == userId);
@@ -263,11 +357,16 @@ public class UserService(AppDbContext context) : IUserService
 
         user.FullName = dto.FullName.Trim();
         user.Phone = dto.Phone?.Trim();
-        user.DateOfBirth = dto.DateOfBirth.HasValue
+
+        if (user.Customer == null)
+        {
+            user.Customer = new Customer();
+        }
+        user.Customer.DateOfBirth = dto.DateOfBirth.HasValue
             ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc)
             : null;
-        user.TechInterest = dto.TechInterest?.Trim();
-        user.Address = dto.Address?.Trim();
+        user.Customer.TechInterest = dto.TechInterest?.Trim();
+        user.Customer.Address = dto.Address?.Trim();
 
         await context.SaveChangesAsync();
         return user.ToUserDto();
@@ -291,15 +390,14 @@ public class UserService(AppDbContext context) : IUserService
 
     public async Task<DemographicsReportDto> GetDemographicsReportAsync()
     {
-        // 1. Chỉ lấy nhóm khách hàng (sở hữu vai trò USER)
-        var customers = await context.Users
+        // 1. Chỉ lấy nhóm khách hàng từ bảng Customers
+        var customers = await context.Customers
             .AsNoTracking()
-            .Where(u => u.UserRoles.Any(ur => ur.RoleId == "USER"))
-            .Select(u => new
+            .Select(c => new
             {
-                u.UserId,
-                u.DateOfBirth,
-                u.TechInterest
+                c.CustomerId,
+                c.DateOfBirth,
+                c.TechInterest
             })
             .ToListAsync();
 

@@ -313,7 +313,7 @@
       "name": "Users",
       "item": [
         {
-          "name": "1. Danh sách người dùng (Phân trang, lọc Role & StaffOnly)",
+          "name": "1. Danh sách người dùng (Phân trang, lọc Role, UserType, EmploymentType & Search)",
           "id": "ba8eb557-7f4b-4bab-af0a-e0da17dbda8c",
           "request": {
             "auth": {
@@ -353,8 +353,27 @@
                   "disabled": true
                 },
                 {
+                  "key": "userType",
+                  "value": "EMPLOYEE",
+                  "description": "Lọc theo loại thực thể người dùng: CUSTOMER, EMPLOYEE, ADMIN",
+                  "disabled": true
+                },
+                {
+                  "key": "employmentType",
+                  "value": "FULL_TIME",
+                  "description": "Lọc nhân viên theo chế độ làm việc: FULL_TIME, PART_TIME",
+                  "disabled": true
+                },
+                {
+                  "key": "isLocked",
+                  "value": "false",
+                  "description": "Lọc theo trạng thái khóa: true (bị khóa), false (đang hoạt động)",
+                  "disabled": true
+                },
+                {
                   "key": "search",
-                  "value": ""
+                  "value": "",
+                  "description": "Tìm kiếm theo từ khóa (username, email, họ tên, số điện thoại, mã nhân viên)"
                 },
                 {
                   "key": "isStaffOnly",
@@ -393,7 +412,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"kho_{{$timestamp}}\",\n  \"email\": \"kho_{{$timestamp}}@techstoree.vn\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Trần Văn Kho\",\n  \"phone\": \"0987654321\",\n  \"dateOfBirth\": \"1998-05-20T00:00:00Z\",\n  \"techInterest\": \"Laptop\",\n  \"address\": \"Kho Tổng, TP.HCM\",\n  \"roles\": [\n    \"WAREHOUSE_STAFF\"\n  ]\n}",
+              "raw": "{\n  \"username\": \"kho_{{$timestamp}}\",\n  \"email\": \"kho_{{$timestamp}}@techstoree.vn\",\n  \"password\": \"Password@123\",\n  \"fullName\": \"Trần Văn Kho\",\n  \"phone\": \"0987654321\",\n  \"employeeCode\": \"NV_{{$timestamp}}\",\n  \"employmentType\": \"FULL_TIME\",\n  \"baseSalary\": 12000000,\n  \"hourlyRate\": 60000,\n  \"roles\": [\n    \"WAREHOUSE_STAFF\"\n  ]\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -410,7 +429,7 @@
                 "users"
               ]
             },
-            "description": "Quản trị viên (ADMIN) tạo mới tài khoản nhân viên hoặc khách hàng với danh sách vai trò tùy chọn (roles). Tự động ghi nhận Admin khởi tạo vào `createdByUserId`."
+            "description": "Quản trị viên (ADMIN) tạo mới tài khoản nhân viên hoặc khách hàng với danh sách vai trò tùy chọn (roles). Hỗ trợ đầy đủ thông tin nhân sự: `employeeCode`, `employmentType` (FULL_TIME, PART_TIME), `baseSalary`, `hourlyRate`. Tự động ghi nhận Admin khởi tạo vào `createdByUserId`."
           },
           "response": [],
           "event": [
@@ -422,10 +441,13 @@
                   "pm.test(\"Status code is 201 Created\", function () {",
                   "    pm.response.to.have.status(201);",
                   "});",
-                  "pm.test(\"User created with multi-role and audit tracking\", function () {",
+                  "pm.test(\"User created with multi-role and employee details\", function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.roles).to.be.an(\"array\").that.includes(\"WAREHOUSE_STAFF\");",
+                  "    pm.expect(json.data.employeeCode).to.be.a(\"string\");",
+                  "    pm.expect(json.data.employmentType).to.eql(\"FULL_TIME\");",
+                  "    pm.expect(json.data.baseSalary).to.eql(12000000);",
                   "    pm.expect(json.data.createdByUserId).to.be.a(\"number\");",
                   "    pm.environment.set(\"createdStaffId\", json.data.userId);",
                   "});"

@@ -1,4 +1,5 @@
 using WebBanHang.Api.Common;
+using WebBanHang.Api.Enums;
 
 namespace WebBanHang.Api.DTOs.Users;
 
@@ -21,4 +22,16 @@ public class UserQueryFilter : PaginationParams
     /// </summary>
     /// <example>false</example>
     public bool? IsLocked { get; set; }
+
+    /// <summary>
+    /// Lọc theo loại thực thể người dùng: CUSTOMER (Khách hàng), EMPLOYEE (Nhân viên), ADMIN (Quản trị viên)
+    /// </summary>
+    /// <example>CUSTOMER</example>
+    public UserType? UserType { get; set; }
+
+    /// <summary>
+    /// Lọc nhân viên theo chế độ làm việc: FULL_TIME hoặc PART_TIME
+    /// </summary>
+    /// <example>FULL_TIME</example>
+    public EmploymentType? EmploymentType { get; set; }
 }
