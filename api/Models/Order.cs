@@ -130,4 +130,7 @@ public class Order
 
     // Danh sách sản phẩm trong đơn hàng
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+
+    // Hóa đơn liên kết 1-1 với đơn hàng
+    public Invoice? Invoice { get; set; }
 }

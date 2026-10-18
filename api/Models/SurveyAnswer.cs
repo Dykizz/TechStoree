@@ -1,15 +1,20 @@
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace WebBanHang.Api.Models;
 
 /// <summary>
 /// Thực thể Câu trả lời của khách hàng trong một bài khảo sát
-/// Khóa chính phức hợp (assignment_id, question_id) chuẩn 3NF:
-/// Cho phép lưu cả đáp án trắc nghiệm (selected_option_id) lẫn câu trả lời tự luận (text_answer).
+/// Cho phép lưu cả đáp án trắc nghiệm đơn/nhiều lựa chọn (selected_option_id) lẫn câu trả lời tự luận (text_answer).
 /// </summary>
 [Table("survey_answers")]
 public class SurveyAnswer
 {
+    [Key]
+    [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+    [Column("answer_id")]
+    public int AnswerId { get; set; }
+
     [Column("assignment_id")]
     public int AssignmentId { get; set; }
 

@@ -27,7 +27,7 @@ public class SurveyQuestion
     public string QuestionText { get; set; } = string.Empty;
 
     /// <summary>
-    /// Loại câu hỏi: SINGLE_CHOICE (Trắc nghiệm), TEXT (Tự luận)
+    /// Loại câu hỏi: SINGLE_CHOICE (Trắc nghiệm 1 đáp án), MULTI_CHOICE (Trắc nghiệm nhiều đáp án), TEXT (Tự luận)
     /// </summary>
     [Required]
     [MaxLength(20)]
@@ -47,7 +47,7 @@ public class SurveyQuestion
     public int OrderNum { get; set; } = 1;
 
     /// <summary>
-    /// Danh sách đáp án lựa chọn (Chỉ áp dụng với câu hỏi SINGLE_CHOICE)
+    /// Danh sách đáp án lựa chọn (Áp dụng với câu hỏi SINGLE_CHOICE hoặc MULTI_CHOICE)
     /// </summary>
     public ICollection<SurveyOption> Options { get; set; } = new List<SurveyOption>();
 

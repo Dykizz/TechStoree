@@ -3,6 +3,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Orders;
 using WebBanHang.Api.DTOs.Vouchers;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
@@ -10,7 +11,7 @@ using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services;
 
-public class OrderService(AppDbContext dbContext, IVoucherService voucherService) : IOrderService
+public class OrderService(AppDbContext dbContext, IVoucherService voucherService, IInvoiceService invoiceService) : IOrderService
 {
     public async Task<CheckoutPreviewDto> PreviewCheckoutAsync(int userId, CheckoutPreviewRequestDto request)
     {
@@ -252,6 +253,9 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         dbContext.Orders.Add(order);
         await dbContext.SaveChangesAsync();
 
+        // 5 Tự động tạo Hóa đơn (Invoice) cho đơn hàng qua InvoiceService
+        await invoiceService.CreateInvoiceForOrderAsync(order, now);
+
         // Gắn order_id vào user_voucher sau khi đã sinh order.OrderId
         if (userVoucher != null)
         {
@@ -392,6 +396,9 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             order.PaymentStatus = PaymentStatus.REFUNDED;
         }
 
+        // 4. Đồng bộ trạng thái Hóa đơn sang CANCELLED qua InvoiceService
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
+
         await dbContext.SaveChangesAsync();
         await transaction.CommitAsync();
 
@@ -449,6 +456,9 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             order.PaymentStatus = PaymentStatus.PAID;
             order.PaidAt = now;
         }
+
+        // Đồng bộ trạng thái Hóa đơn liên kết qua InvoiceService
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
 
         await dbContext.SaveChangesAsync();
         return (await GetOrderByIdAsync(order.OrderId))!;
@@ -568,5 +578,6 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             .AsNoTracking()
             .Include(o => o.User)
             .Include(o => o.UpdatedByUser)
-            .Include(o => o.Items);
+            .Include(o => o.Items)
+            .Include(o => o.Invoice);
 }

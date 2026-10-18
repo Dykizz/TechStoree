@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.DTOs.Invoices;
 
 namespace WebBanHang.Api.DTOs.Orders;
 
@@ -178,6 +179,11 @@ public class OrderDetailDto : OrderBaseDto
     /// Danh sách chi tiết các mặt hàng trong đơn hàng (Dữ liệu Snapshot lịch sử)
     /// </summary>
     public List<OrderItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Hóa đơn liên kết với đơn hàng
+    /// </summary>
+    public InvoiceDto? Invoice { get; set; }
 }
 
 /// <summary>
