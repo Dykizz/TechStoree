@@ -64,6 +64,7 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();

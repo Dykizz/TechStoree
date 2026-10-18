@@ -147,6 +147,80 @@ namespace WebBanHang.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Invoice", b =>
+                {
+                    b.Property<int>("InvoiceId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("invoice_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("InvoiceId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("InvoiceCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("invoice_code");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("COD")
+                        .HasColumnName("payment_method");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("UNPAID")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("InvoiceId");
+
+                    b.HasIndex("InvoiceCode")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("invoices", (string)null);
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Order", b =>
                 {
                     b.Property<int>("OrderId")
@@ -1008,6 +1082,13 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.SurveyAnswer", b =>
                 {
+                    b.Property<int>("AnswerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("answer_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AnswerId"));
+
                     b.Property<int>("AssignmentId")
                         .HasColumnType("integer")
                         .HasColumnName("assignment_id");
@@ -1024,11 +1105,13 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("text_answer");
 
-                    b.HasKey("AssignmentId", "QuestionId");
+                    b.HasKey("AnswerId");
 
                     b.HasIndex("QuestionId");
 
                     b.HasIndex("SelectedOptionId");
+
+                    b.HasIndex("AssignmentId", "QuestionId");
 
                     b.ToTable("survey_answers", null, t =>
                         {
@@ -1511,6 +1594,25 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Variant");
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Invoice", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.Order", "Order")
+                        .WithOne("Invoice")
+                        .HasForeignKey("WebBanHang.Api.Models.Invoice", "OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Order", b =>
                 {
                     b.HasOne("WebBanHang.Api.Models.User", "UpdatedByUser")
@@ -1807,6 +1909,8 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.Order", b =>
                 {
+                    b.Navigation("Invoice");
+
                     b.Navigation("Items");
                 });
 

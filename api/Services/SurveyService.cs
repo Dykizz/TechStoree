@@ -100,7 +100,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                 OrderNum = qDto.OrderNum > 0 ? qDto.OrderNum : questionIndex++
             };
 
-            if (qDto.QuestionType == SurveyQuestionType.SINGLE_CHOICE)
+            if (qDto.QuestionType == SurveyQuestionType.SINGLE_CHOICE || qDto.QuestionType == SurveyQuestionType.MULTI_CHOICE)
             {
                 if (qDto.Options == null || qDto.Options.Count < 2)
                 {
@@ -192,7 +192,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                         OrderNum = qDto.OrderNum > 0 ? qDto.OrderNum : questionIndex++
                     };
 
-                    if (qDto.QuestionType == SurveyQuestionType.SINGLE_CHOICE)
+                    if (qDto.QuestionType == SurveyQuestionType.SINGLE_CHOICE || qDto.QuestionType == SurveyQuestionType.MULTI_CHOICE)
                     {
                         if (qDto.Options == null || qDto.Options.Count < 2)
                         {
@@ -342,20 +342,24 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
         {
             var qAnswers = allAnswers.Where(ans => ans.QuestionId == q.QuestionId).ToList();
 
+            var respondentCount = qAnswers.Select(ans => ans.AssignmentId).Distinct().Count();
+
             var qStat = new QuestionStatisticsDto
             {
                 QuestionId = q.QuestionId,
                 QuestionText = q.QuestionText,
                 QuestionType = q.QuestionType,
-                TotalAnswers = qAnswers.Count
+                TotalAnswers = q.QuestionType == SurveyQuestionType.MULTI_CHOICE ? respondentCount : qAnswers.Count
             };
 
-            if (q.QuestionType == SurveyQuestionType.SINGLE_CHOICE)
+            if (q.QuestionType == SurveyQuestionType.SINGLE_CHOICE || q.QuestionType == SurveyQuestionType.MULTI_CHOICE)
             {
+                int baseCount = q.QuestionType == SurveyQuestionType.MULTI_CHOICE ? respondentCount : qAnswers.Count;
+
                 foreach (var opt in q.Options)
                 {
                     int voteCount = qAnswers.Count(ans => ans.SelectedOptionId == opt.OptionId);
-                    double percentage = qAnswers.Count > 0 ? Math.Round((double)voteCount / qAnswers.Count * 100, 1) : 0.0;
+                    double percentage = baseCount > 0 ? Math.Round((double)voteCount / baseCount * 100, 1) : 0.0;
 
                     qStat.OptionStats.Add(new OptionStatisticsDto
                     {
@@ -498,57 +502,104 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
 
         var survey = assignment.Survey;
 
-        // Loại bỏ câu trả lời trùng lặp QuestionId nếu client gửi lặp trong danh sách Answers (ngăn Primary Key Violation)
-        var distinctAnswers = dto.Answers
+        // Gom nhóm câu trả lời theo QuestionId
+        var answersByQuestion = dto.Answers
             .GroupBy(a => a.QuestionId)
-            .Select(g => g.Last())
-            .ToList();
+            .ToDictionary(g => g.Key, g => g.ToList());
 
         // 1. Kiểm tra validation các câu hỏi REQUIRED
-        var requiredQuestions = survey.Questions.Where(q => q.IsRequired).ToList();
+        var requiredQuestions = survey.Questions.Where(q => q.IsRequired);
         foreach (var reqQ in requiredQuestions)
         {
-            var ans = distinctAnswers.FirstOrDefault(a => a.QuestionId == reqQ.QuestionId);
-            if (ans == null ||
-                (reqQ.QuestionType == SurveyQuestionType.SINGLE_CHOICE && !ans.SelectedOptionId.HasValue) ||
-                (reqQ.QuestionType == SurveyQuestionType.TEXT && string.IsNullOrWhiteSpace(ans.TextAnswer)))
+            var isValid = answersByQuestion.TryGetValue(reqQ.QuestionId, out var qAnswers) && reqQ.QuestionType switch
+            {
+                SurveyQuestionType.TEXT => qAnswers.Any(a => !string.IsNullOrWhiteSpace(a.TextAnswer)),
+                _ => qAnswers.Any(a => a.SelectedOptionId.HasValue || a.SelectedOptionIds?.Count > 0)
+            };
+
+            if (!isValid)
             {
                 throw new BadRequestException($"Câu hỏi '{reqQ.QuestionText}' là bắt buộc. Vui lòng hoàn thành câu hỏi.");
             }
         }
 
-        // 2. Lưu các câu trả lời vào survey_answers và kiểm tra SelectedOptionId hợp lệ
-        foreach (var answerDto in distinctAnswers)
+        // 2. Lưu các câu trả lời vào survey_answers và kiểm tra đáp án hợp lệ
+        foreach (var (questionId, qAnswers) in answersByQuestion)
         {
-            var question = survey.Questions.FirstOrDefault(q => q.QuestionId == answerDto.QuestionId);
+            var question = survey.Questions.FirstOrDefault(q => q.QuestionId == questionId);
             if (question == null) continue;
 
-            if (question.QuestionType == SurveyQuestionType.SINGLE_CHOICE && answerDto.SelectedOptionId.HasValue)
+            if (question.QuestionType == SurveyQuestionType.SINGLE_CHOICE)
             {
-                // Kiểm tra đáp án được chọn có thuộc danh sách Options của câu hỏi này không
-                var validOption = question.Options.Any(o => o.OptionId == answerDto.SelectedOptionId.Value);
-                if (!validOption)
+                var firstAns = qAnswers.LastOrDefault();
+                if (firstAns == null) continue;
+
+                int? optionId = firstAns.SelectedOptionId ?? firstAns.SelectedOptionIds?.FirstOrDefault();
+                if (optionId.HasValue)
                 {
-                    throw new BadRequestException($"Đáp án được chọn cho câu hỏi '{question.QuestionText}' không hợp lệ.");
+                    var validOption = question.Options.Any(o => o.OptionId == optionId.Value);
+                    if (!validOption)
+                    {
+                        throw new BadRequestException($"Đáp án được chọn cho câu hỏi '{question.QuestionText}' không hợp lệ.");
+                    }
+
+                    context.SurveyAnswers.Add(new SurveyAnswer
+                    {
+                        AssignmentId = assignment.AssignmentId,
+                        QuestionId = question.QuestionId,
+                        SelectedOptionId = optionId.Value,
+                        TextAnswer = null
+                    });
+                }
+            }
+            else if (question.QuestionType == SurveyQuestionType.MULTI_CHOICE)
+            {
+                var selectedOptionIds = new HashSet<int>();
+                foreach (var ans in qAnswers)
+                {
+                    if (ans.SelectedOptionId.HasValue)
+                    {
+                        selectedOptionIds.Add(ans.SelectedOptionId.Value);
+                    }
+                    if (ans.SelectedOptionIds != null)
+                    {
+                        foreach (var optId in ans.SelectedOptionIds)
+                        {
+                            selectedOptionIds.Add(optId);
+                        }
+                    }
                 }
 
-                context.SurveyAnswers.Add(new SurveyAnswer
+                foreach (var optId in selectedOptionIds)
                 {
-                    AssignmentId = assignment.AssignmentId,
-                    QuestionId = question.QuestionId,
-                    SelectedOptionId = answerDto.SelectedOptionId,
-                    TextAnswer = null
-                });
+                    var validOption = question.Options.Any(o => o.OptionId == optId);
+                    if (!validOption)
+                    {
+                        throw new BadRequestException($"Đáp án được chọn cho câu hỏi '{question.QuestionText}' không hợp lệ.");
+                    }
+
+                    context.SurveyAnswers.Add(new SurveyAnswer
+                    {
+                        AssignmentId = assignment.AssignmentId,
+                        QuestionId = question.QuestionId,
+                        SelectedOptionId = optId,
+                        TextAnswer = null
+                    });
+                }
             }
-            else if (question.QuestionType == SurveyQuestionType.TEXT && !string.IsNullOrWhiteSpace(answerDto.TextAnswer))
+            else if (question.QuestionType == SurveyQuestionType.TEXT)
             {
-                context.SurveyAnswers.Add(new SurveyAnswer
+                var textAns = qAnswers.LastOrDefault(a => !string.IsNullOrWhiteSpace(a.TextAnswer));
+                if (textAns != null && !string.IsNullOrWhiteSpace(textAns.TextAnswer))
                 {
-                    AssignmentId = assignment.AssignmentId,
-                    QuestionId = question.QuestionId,
-                    SelectedOptionId = null,
-                    TextAnswer = answerDto.TextAnswer.Trim()
-                });
+                    context.SurveyAnswers.Add(new SurveyAnswer
+                    {
+                        AssignmentId = assignment.AssignmentId,
+                        QuestionId = question.QuestionId,
+                        SelectedOptionId = null,
+                        TextAnswer = textAns.TextAnswer.Trim()
+                    });
+                }
             }
         }
 
@@ -611,7 +662,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             }
 
             // 3. Nếu là câu hỏi trắc nghiệm -> So sánh các đáp án
-            if (oldQ.QuestionType == SurveyQuestionType.SINGLE_CHOICE)
+            if (oldQ.QuestionType == SurveyQuestionType.SINGLE_CHOICE || oldQ.QuestionType == SurveyQuestionType.MULTI_CHOICE)
             {
                 var oldOptions = oldQ.Options.OrderBy(o => o.OrderNum).ToList();
                 var newOptions = (newQ.Options ?? new List<CreateSurveyOptionDto>()).OrderBy(o => o.OrderNum).ToList();
