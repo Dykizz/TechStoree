@@ -16,6 +16,9 @@ public class AppDbContext : DbContext
     public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<User> Users => Set<User>();
+    public DbSet<Customer> Customers => Set<Customer>();
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<Category> Categories => Set<Category>();
@@ -128,6 +131,58 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(ur => ur.AssignedByUserId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // 2.2 Cấu hình quan hệ 1-1: Customer
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.ToTable("customers");
+            entity.HasKey(c => c.CustomerId);
+            entity.Property(c => c.CustomerId).HasColumnName("customer_id");
+            entity.Property(c => c.Address).HasColumnName("address").HasMaxLength(255);
+            entity.Property(c => c.DateOfBirth).HasColumnName("date_of_birth");
+            entity.Property(c => c.TechInterest).HasColumnName("tech_interest").HasMaxLength(100);
+
+            entity.HasOne(c => c.User)
+                  .WithOne(u => u.Customer)
+                  .HasForeignKey<Customer>(c => c.CustomerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 2.3 Cấu hình quan hệ 1-1: Employee
+        modelBuilder.Entity<Employee>(entity =>
+        {
+            entity.ToTable("employees");
+            entity.HasKey(e => e.EmployeeId);
+            entity.Property(e => e.EmployeeId).HasColumnName("employee_id");
+            entity.Property(e => e.EmployeeCode).HasColumnName("employee_code").IsRequired().HasMaxLength(20);
+            entity.HasIndex(e => e.EmployeeCode).IsUnique();
+            entity.Property(e => e.EmploymentType)
+                  .HasColumnName("employment_type")
+                  .HasConversion<string>()
+                  .IsRequired()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(EmploymentType.FULL_TIME);
+            entity.Property(e => e.BaseSalary).HasColumnName("base_salary").HasColumnType("decimal(12,0)").HasDefaultValue(0);
+            entity.Property(e => e.HourlyRate).HasColumnName("hourly_rate").HasColumnType("decimal(10,0)").HasDefaultValue(0);
+
+            entity.HasOne(e => e.User)
+                  .WithOne(u => u.Employee)
+                  .HasForeignKey<Employee>(e => e.EmployeeId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 2.4 Cấu hình quan hệ 1-1: Admin
+        modelBuilder.Entity<Admin>(entity =>
+        {
+            entity.ToTable("admins");
+            entity.HasKey(a => a.AdminId);
+            entity.Property(a => a.AdminId).HasColumnName("admin_id");
+
+            entity.HasOne(a => a.User)
+                  .WithOne(u => u.Admin)
+                  .HasForeignKey<Admin>(a => a.AdminId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // 3. Cấu hình bảng Suppliers

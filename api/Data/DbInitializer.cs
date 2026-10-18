@@ -133,7 +133,7 @@ public static class DbInitializer
                 }
                 else
                 {
-                    rolesToAssign.Add("USER");
+                    rolesToAssign.Add(UserRoleTypeExtensions.User);
                 }
                 rolesToAssign = rolesToAssign.Distinct().ToList();
 
@@ -155,6 +155,35 @@ public static class DbInitializer
                         IsLocked = false,
                         CreatedAt = DateTime.UtcNow
                     };
+
+                    if (rolesToAssign.Contains(UserRoleTypeExtensions.Admin))
+                    {
+                        newUser.Admin = new Admin();
+                    }
+
+                    var isStaff = rolesToAssign.Any(r => r != UserRoleTypeExtensions.User && r != UserRoleTypeExtensions.Admin);
+                    if (isStaff)
+                    {
+                        var code = $"NV{username.ToUpper()}";
+                        if (code.Length > 20) code = code[..20];
+                        newUser.Employee = new Employee
+                        {
+                            EmployeeCode = code,
+                            EmploymentType = EmploymentType.FULL_TIME,
+                            BaseSalary = 10000000,
+                            HourlyRate = 50000
+                        };
+                    }
+
+                    if (rolesToAssign.Contains(UserRoleTypeExtensions.User) || (!isStaff && newUser.Admin == null))
+                    {
+                        newUser.Customer = new Customer
+                        {
+                            Address = "TP. Hồ Chí Minh",
+                            DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                            TechInterest = "Gaming"
+                        };
+                    }
 
                     foreach (var roleId in rolesToAssign)
                     {
@@ -185,6 +214,42 @@ public static class DbInitializer
                             hasNewRole = true;
                         }
                     }
+
+                    var hasAdmin = rolesToAssign.Contains(UserRoleTypeExtensions.Admin);
+                    var isStaffUser = rolesToAssign.Any(r => r != UserRoleTypeExtensions.User && r != UserRoleTypeExtensions.Admin);
+                    var isCust = rolesToAssign.Contains(UserRoleTypeExtensions.User) || (!isStaffUser && !hasAdmin);
+
+                    if (hasAdmin && !await context.Admins.AnyAsync(a => a.AdminId == exists.UserId))
+                    {
+                        context.Admins.Add(new Admin { AdminId = exists.UserId });
+                        hasNewRole = true;
+                    }
+                    if (isStaffUser && !await context.Employees.AnyAsync(e => e.EmployeeId == exists.UserId))
+                    {
+                        var code = $"NV{exists.Username.ToUpper()}";
+                        if (code.Length > 20) code = code[..20];
+                        context.Employees.Add(new Employee
+                        {
+                            EmployeeId = exists.UserId,
+                            EmployeeCode = code,
+                            EmploymentType = EmploymentType.FULL_TIME,
+                            BaseSalary = 10000000,
+                            HourlyRate = 50000
+                        });
+                        hasNewRole = true;
+                    }
+                    if (isCust && !await context.Customers.AnyAsync(c => c.CustomerId == exists.UserId))
+                    {
+                        context.Customers.Add(new Customer
+                        {
+                            CustomerId = exists.UserId,
+                            Address = "TP. Hồ Chí Minh",
+                            DateOfBirth = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                            TechInterest = "Gaming"
+                        });
+                        hasNewRole = true;
+                    }
+
                     if (hasNewRole)
                     {
                         await context.SaveChangesAsync();

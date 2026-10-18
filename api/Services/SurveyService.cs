@@ -278,7 +278,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                     throw new BadRequestException("Vui lòng chọn sở thích công nghệ mục tiêu.");
                 }
                 var interestLower = dto.TechInterest.Trim().ToLower();
-                usersQuery = usersQuery.Where(u => u.TechInterest != null && u.TechInterest.ToLower().Contains(interestLower));
+                usersQuery = usersQuery.Where(u => u.Customer != null && u.Customer.TechInterest != null && u.Customer.TechInterest.ToLower().Contains(interestLower));
                 break;
 
             case SurveyTargetType.ALL:
