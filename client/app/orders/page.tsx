@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import {
 } from "../../lib/products-client";
 import type { Order } from "../../lib/types/order";
 import styles from "./orders.module.css";
+
 const tabs = [
   { key: "", label: "Tất cả" },
   { key: "PENDING", label: "Chờ xác nhận" },
@@ -25,6 +27,7 @@ const tabs = [
   { key: "DELIVERED", label: "Đã giao" },
   { key: "CANCELLED", label: "Đã hủy" },
 ];
+
 function OrdersContent() {
   const query = useSearchParams();
   const session = useProtectedSession();
@@ -39,10 +42,12 @@ function OrdersContent() {
   const [notice, setNotice] = useState("");
   const [actionId, setActionId] = useState("");
   const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     if (session.status !== "ready") return;
     const userId = session.user.userId;
     let active = true;
+
     async function load() {
       setLoading(true);
       setError("");
@@ -53,12 +58,14 @@ function OrdersContent() {
         });
         if (status) params.set("status", status);
         if (search.trim()) params.set("search", search.trim());
+
         const response = await fetch(`/api/orders?${params}`, {
           cache: "no-store",
         });
         const result = await response.json();
         if (!response.ok || !result.success)
           throw new Error(result.message || "Không thể tải đơn hàng.");
+
         const details = await Promise.all(
           result.data.items.map(async (order: BackendOrder) => {
             const res = await fetch(`/api/orders/${order.orderId}`, {
@@ -70,6 +77,7 @@ function OrdersContent() {
             return mapOrder(body.data);
           }),
         );
+
         if (active) {
           setOrders(details);
           setTotalPages(Math.max(1, result.data.meta.totalPages));
@@ -86,11 +94,13 @@ function OrdersContent() {
         if (active) setLoading(false);
       }
     }
+
     void load();
     return () => {
       active = false;
     };
   }, [session.status, session.user, page, status, search, attempt]);
+
   async function cancel(order: Order) {
     if (actionId || !confirm(`Hủy đơn ${order.orderCode}?`)) return;
     setActionId(order.orderId);
@@ -124,6 +134,7 @@ function OrdersContent() {
       setActionId("");
     }
   }
+
   async function reorder(item: Order["items"][number]) {
     if (actionId || busy) return;
     setActionId(String(item.variantId));
@@ -165,6 +176,7 @@ function OrdersContent() {
       setActionId("");
     }
   }
+
   if (session.status !== "ready")
     return (
       <main className={styles.main}>
@@ -180,6 +192,7 @@ function OrdersContent() {
         </div>
       </main>
     );
+
   return (
     <main className={styles.main}>
       <div className={styles.container}>
@@ -373,6 +386,7 @@ function OrdersContent() {
     </main>
   );
 }
+
 export default function OrdersPage() {
   return (
     <Suspense fallback={<p role="status">Đang tải đơn hàng…</p>}>

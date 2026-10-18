@@ -7,6 +7,7 @@ import { useCart } from "../../lib/context/CartContext";
 import { logoutCustomer } from "../../lib/logout-client";
 import CartDropdown from "../cart/CartDropdown";
 import NotificationBell from "./NotificationBell";
+import UserDropdown from "./UserDropdown";
 import styles from "./Header.module.css";
 
 type SessionUser = {
@@ -25,10 +26,8 @@ export default function Header() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [isRightHovered, setIsRightHovered] = useState(false);
-  const [isNavHovered, setIsNavHovered] = useState(false);
 
   const rightTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const navTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleRightMouseEnter = () => {
     if (rightTimerRef.current) clearTimeout(rightTimerRef.current);
@@ -41,20 +40,8 @@ export default function Header() {
     }, 220);
   };
 
-  const handleNavMouseEnter = () => {
-    if (navTimerRef.current) clearTimeout(navTimerRef.current);
-    setIsNavHovered(true);
-  };
-
-  const handleNavMouseLeave = () => {
-    navTimerRef.current = setTimeout(() => {
-      setIsNavHovered(false);
-    }, 220);
-  };
-
   const closeDropdowns = () => {
     setIsRightHovered(false);
-    setIsNavHovered(false);
   };
 
   // Close dropdown on route change or when cart drawer opens
@@ -132,6 +119,7 @@ export default function Header() {
             <span>TECHSTOREE</span>
           </Link>
 
+          {/* Menu giữa: Chỉ giữ Trang chủ và Sản phẩm. Giỏ hàng và Đơn hàng đã gộp sang góc phải */}
           <nav
             id="site-navigation"
             className={`${styles.nav} ${menuOpen ? styles.navOpen : ""}`}
@@ -140,37 +128,46 @@ export default function Header() {
             <Link
               href="/"
               className={`${styles.navLink} ${pathname === "/" ? styles.navLinkActive : ""}`}
+              onClick={() => setMenuOpen(false)}
             >
               Trang chủ
             </Link>
             <Link
               href="/products"
               className={`${styles.navLink} ${pathname.startsWith("/products") ? styles.navLinkActive : ""}`}
+              onClick={() => setMenuOpen(false)}
             >
               Sản phẩm
             </Link>
-            <div
-              className={styles.navCartWrapper}
-              onMouseEnter={handleNavMouseEnter}
-              onMouseLeave={handleNavMouseLeave}
-            >
-              <Link
-                href="/cart"
-                className={`${styles.navLink} ${pathname === "/cart" ? styles.navLinkActive : ""}`}
-                onClick={closeDropdowns}
-              >
-                Giỏ hàng
-              </Link>
-              {isNavHovered && !isCartOpen && (
-                <CartDropdown align="left" onClose={closeDropdowns} />
-              )}
-            </div>
-            <Link
-              href="/orders"
-              className={`${styles.navLink} ${pathname === "/orders" ? styles.navLinkActive : ""}`}
-            >
-              Đơn hàng
-            </Link>
+
+            {/* Mobile menu extras */}
+            {menuOpen && (
+              <div className={styles.mobileNavExtras}>
+                <Link
+                  href="/orders"
+                  className={`${styles.navLink} ${pathname === "/orders" ? styles.navLinkActive : ""}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Đơn hàng của tôi
+                </Link>
+                <Link
+                  href="/cart"
+                  className={`${styles.navLink} ${pathname === "/cart" ? styles.navLinkActive : ""}`}
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Giỏ hàng ({totalItems})
+                </Link>
+                {user && (
+                  <Link
+                    href="/profile"
+                    className={`${styles.navLink} ${pathname === "/profile" ? styles.navLinkActive : ""}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Hồ sơ ({user.fullName || user.username})
+                  </Link>
+                )}
+              </div>
+            )}
           </nav>
         </div>
 
@@ -185,6 +182,8 @@ export default function Header() {
           >
             {menuOpen ? "×" : "☰"}
           </button>
+
+          {/* Nút Giỏ hàng góc phải duy nhất: Hover mở Popover, Click mở Drawer */}
           <div
             className={styles.cartWrapper}
             onMouseEnter={handleRightMouseEnter}
@@ -225,24 +224,14 @@ export default function Header() {
           </div>
 
           {user && <NotificationBell key={user.userId} userId={user.userId} />}
+
+          {/* User Profile Dropdown: Gom nhóm Đơn hàng, Profile, Surveys, Logout */}
           {user ? (
-            <div className={styles.userInfo}>
-              <Link
-                href="/profile"
-                className={styles.userName}
-                title="Xem hồ sơ cá nhân"
-              >
-                {user.fullName || user.username}
-              </Link>
-              <button
-                type="button"
-                className={styles.logoutBtn}
-                disabled={loggingOut}
-                onClick={() => void handleLogout()}
-              >
-                {loggingOut ? "Đang đăng xuất…" : "Đăng xuất"}
-              </button>
-            </div>
+            <UserDropdown
+              user={user}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+            />
           ) : (
             <Link href="/login" className={styles.authLink}>
               Đăng nhập

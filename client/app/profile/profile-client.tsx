@@ -60,6 +60,7 @@ export default function ProfileClient({
   const [interests, setInterests] = useState<
     { key: string; displayName: string }[]
   >([]);
+
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/tech-interests", { signal: controller.signal })
@@ -71,6 +72,7 @@ export default function ProfileClient({
       .catch(() => {});
     return () => controller.abort();
   }, []);
+
   const nameInput = useRef<HTMLInputElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);

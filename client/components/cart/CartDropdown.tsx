@@ -124,6 +124,9 @@ export default function CartDropdown({
 }: CartDropdownProps) {
   const { items, totalItems, totalPrice, removeItem } = useCart();
 
+  const recentItems = items.slice(-5).reverse();
+  const hasMore = items.length > 5;
+
   return (
     <div
       className={`${styles.dropdown} ${
@@ -134,7 +137,7 @@ export default function CartDropdown({
     >
       <div className={styles.header}>
         <div className={styles.headerTitle}>
-          <span>Giỏ hàng</span>
+          <span>Giỏ hàng nhỏ</span>
           {totalItems > 0 && (
             <span className={styles.countBadge}>{totalItems}</span>
           )}
@@ -176,16 +179,23 @@ export default function CartDropdown({
             </Link>
           </div>
         ) : (
-          <ul className={styles.itemList}>
-            {items.map((item) => (
-              <CartDropdownItem
-                key={item.cartItemId}
-                item={item}
-                onRemove={() => removeItem(item.cartItemId)}
-                onClose={onClose}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className={styles.itemList}>
+              {recentItems.map((item) => (
+                <CartDropdownItem
+                  key={item.cartItemId}
+                  item={item}
+                  onRemove={() => removeItem(item.cartItemId)}
+                  onClose={onClose}
+                />
+              ))}
+            </ul>
+            {hasMore && (
+              <div className={styles.moreItemsNotice}>
+                + còn {items.length - 5} sản phẩm khác trong giỏ hàng
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -200,14 +210,28 @@ export default function CartDropdown({
 
           <div className={styles.actions}>
             <Link href="/cart" className={styles.viewCartBtn} onClick={onClose}>
-              Xem giỏ hàng
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+                <path d="M3 6h18" />
+                <path d="M16 10a4 4 0 0 1-8 0" />
+              </svg>
+              <span>Xem tất cả / Đi đến giỏ hàng</span>
             </Link>
             <Link
               href="/checkout"
               className={styles.checkoutBtn}
               onClick={onClose}
             >
-              <span>Thanh toán</span>
+              <span>Thanh toán ngay</span>
               <svg
                 width="14"
                 height="14"
