@@ -96,13 +96,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 22),
                     ),
                     const SizedBox(width: 12),
-                    Text(
-                      'TechStoree Admin',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
-                        letterSpacing: -0.3,
+                    Expanded(
+                      child: Text(
+                        'TechStoree Admin',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                          letterSpacing: -0.3,
+                        ),
                       ),
                     ),
                   ],

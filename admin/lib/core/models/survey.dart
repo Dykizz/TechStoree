@@ -2,6 +2,7 @@ import 'voucher.dart';
 
 enum SurveyQuestionType {
   SINGLE_CHOICE,
+  MULTI_CHOICE,
   TEXT,
 }
 
@@ -10,6 +11,8 @@ extension SurveyQuestionTypeExt on SurveyQuestionType {
     switch (this) {
       case SurveyQuestionType.SINGLE_CHOICE:
         return 'SINGLE_CHOICE';
+      case SurveyQuestionType.MULTI_CHOICE:
+        return 'MULTI_CHOICE';
       case SurveyQuestionType.TEXT:
         return 'TEXT';
     }
@@ -18,15 +21,28 @@ extension SurveyQuestionTypeExt on SurveyQuestionType {
   String get displayName {
     switch (this) {
       case SurveyQuestionType.SINGLE_CHOICE:
-        return 'Trắc nghiệm';
+        return 'Trắc nghiệm (1 đáp án)';
+      case SurveyQuestionType.MULTI_CHOICE:
+        return 'Trắc nghiệm (Nhiều đáp án)';
       case SurveyQuestionType.TEXT:
         return 'Tự luận / Ý kiến đóng góp';
     }
   }
 
+  bool get isChoiceBased =>
+      this == SurveyQuestionType.SINGLE_CHOICE ||
+      this == SurveyQuestionType.MULTI_CHOICE;
+
   static SurveyQuestionType fromString(String val) {
-    if (val.toUpperCase() == 'TEXT') {
+    final v = val.trim().toUpperCase();
+    if (v == 'TEXT') {
       return SurveyQuestionType.TEXT;
+    }
+    if (v == 'MULTI_CHOICE' ||
+        v == 'MULTIPLE_CHOICE' ||
+        v == 'CHECKBOX' ||
+        v == 'MULTI') {
+      return SurveyQuestionType.MULTI_CHOICE;
     }
     return SurveyQuestionType.SINGLE_CHOICE;
   }
@@ -449,7 +465,9 @@ class CreateSurveyQuestion {
       'isRequired': isRequired,
       'orderNum': orderNum,
     };
-    if (questionType == SurveyQuestionType.SINGLE_CHOICE && options != null) {
+    if ((questionType == SurveyQuestionType.SINGLE_CHOICE ||
+            questionType == SurveyQuestionType.MULTI_CHOICE) &&
+        options != null) {
       data['options'] = options!.map((o) => o.toJson()).toList();
     }
     return data;

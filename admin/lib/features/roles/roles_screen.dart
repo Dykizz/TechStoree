@@ -58,9 +58,7 @@ class _RolesScreenState extends State<RolesScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Lazy load: Chỉ gọi API khi tab được chọn lần đầu tiên để tránh eager load thừa từ IndexedStack
-    final navProvider = Provider.of<NavigationProvider>(context);
-    if (!_initialized && navProvider.currentIndex == 10) {
+    if (!_initialized) {
       _initialized = true;
       _loadInitialData();
     }

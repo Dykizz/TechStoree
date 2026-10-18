@@ -9,6 +9,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/models/invoice.dart';
+import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -367,6 +369,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  void _showInvoiceForCurrentOrder() async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+
+    final invoice = await apiService.getInvoiceByOrderId(_currentOrder.orderId, token: token);
+    if (!mounted) return;
+
+    if (invoice != null) {
+      showDialog(
+        context: context,
+        builder: (ctx) => InvoiceDetailDialog(invoice: invoice),
+      );
+    } else {
+      // Fallback create virtual invoice from current order
+      final virtualInvoice = Invoice(
+        invoiceId: _currentOrder.orderId,
+        invoiceCode: 'INV-${_currentOrder.orderCode}',
+        orderId: _currentOrder.orderId,
+        orderCode: _currentOrder.orderCode,
+        userId: _currentOrder.userId,
+        customerName: _currentOrder.receiverName,
+        totalAmount: _currentOrder.totalAmount,
+        status: _currentOrder.paymentStatus.toUpperCase() == 'PAID' ? 'PAID' : 'UNPAID',
+        paymentMethod: _currentOrder.paymentMethod,
+        paidAt: _currentOrder.paidAt,
+        createdAt: _currentOrder.createdAt ?? DateTime.now(),
+        note: _currentOrder.notes,
+      );
+      showDialog(
+        context: context,
+        builder: (ctx) => InvoiceDetailDialog(invoice: virtualInvoice),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -446,6 +483,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                         Row(
                           children: [
+                            AppButton(
+                              label: 'Xem hóa đơn',
+                              icon: Icons.receipt_long_rounded,
+                              variant: AppButtonVariant.outline,
+                              onPressed: _showInvoiceForCurrentOrder,
+                            ),
+                            const SizedBox(width: 8),
                             if (_currentOrder.orderStatus != 'DELIVERED' && _currentOrder.orderStatus != 'CANCELLED') ...[
                               AppButton(
                                 label: 'Cập nhật tiến trình',
