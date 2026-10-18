@@ -36,17 +36,6 @@ public class User
     [MaxLength(15)]
     public string? Phone { get; set; }
 
-    [Column("date_of_birth")]
-    public DateTime? DateOfBirth { get; set; }
-
-    [Column("tech_interest")]
-    [MaxLength(100)]
-    public string? TechInterest { get; set; }
-
-    [Column("address")]
-    [MaxLength(255)]
-    public string? Address { get; set; }
-
     [Column("is_locked")]
     public bool IsLocked { get; set; } = false;
 
@@ -69,4 +58,10 @@ public class User
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 
     public Cart? Cart { get; set; }
+
+    public Customer? Customer { get; set; }
+
+    public Employee? Employee { get; set; }
+
+    public Admin? Admin { get; set; }
 }

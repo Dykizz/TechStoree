@@ -22,6 +22,17 @@ namespace WebBanHang.Api.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Admin", b =>
+                {
+                    b.Property<int>("AdminId")
+                        .HasColumnType("integer")
+                        .HasColumnName("admin_id");
+
+                    b.HasKey("AdminId");
+
+                    b.ToTable("admins", (string)null);
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Cart", b =>
                 {
                     b.Property<int>("CartId")
@@ -145,6 +156,71 @@ namespace WebBanHang.Api.Migrations
                             CategoryName = "Nhà thông minh (SmartHome)",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
                         });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.Customer", b =>
+                {
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("customer_id");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("address");
+
+                    b.Property<DateTime?>("DateOfBirth")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("date_of_birth");
+
+                    b.Property<string>("TechInterest")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tech_interest");
+
+                    b.HasKey("CustomerId");
+
+                    b.ToTable("customers", (string)null);
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.Employee", b =>
+                {
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("employee_id");
+
+                    b.Property<decimal>("BaseSalary")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(12,0)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("base_salary");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("employee_code");
+
+                    b.Property<string>("EmploymentType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("FULL_TIME")
+                        .HasColumnName("employment_type");
+
+                    b.Property<decimal>("HourlyRate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(10,0)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("hourly_rate");
+
+                    b.HasKey("EmployeeId");
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.ToTable("employees", (string)null);
                 });
 
             modelBuilder.Entity("WebBanHang.Api.Models.Invoice", b =>
@@ -1285,11 +1361,6 @@ namespace WebBanHang.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserId"));
 
-                    b.Property<string>("Address")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("address");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1297,10 +1368,6 @@ namespace WebBanHang.Api.Migrations
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("integer")
                         .HasColumnName("created_by_user_id");
-
-                    b.Property<DateTime?>("DateOfBirth")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("date_of_birth");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -1337,11 +1404,6 @@ namespace WebBanHang.Api.Migrations
                     b.Property<DateTime?>("RefreshTokenExpiryTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("refresh_token_expiry_time");
-
-                    b.Property<string>("TechInterest")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tech_interest");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -1564,6 +1626,17 @@ namespace WebBanHang.Api.Migrations
                     b.ToTable("promotion_variants", (string)null);
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.Admin", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithOne("Admin")
+                        .HasForeignKey("WebBanHang.Api.Models.Admin", "AdminId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.Cart", b =>
                 {
                     b.HasOne("WebBanHang.Api.Models.User", "User")
@@ -1592,6 +1665,28 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Cart");
 
                     b.Navigation("Variant");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.Customer", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithOne("Customer")
+                        .HasForeignKey("WebBanHang.Api.Models.Customer", "CustomerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.Employee", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithOne("Employee")
+                        .HasForeignKey("WebBanHang.Api.Models.Employee", "EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("WebBanHang.Api.Models.Invoice", b =>
@@ -1962,7 +2057,13 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.User", b =>
                 {
+                    b.Navigation("Admin");
+
                     b.Navigation("Cart");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Employee");
 
                     b.Navigation("UserRoles");
                 });
