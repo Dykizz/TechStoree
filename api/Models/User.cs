@@ -53,6 +53,12 @@ public class User
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    [Column("created_by_user_id")]
+    public int? CreatedByUserId { get; set; }
+
+    [ForeignKey("CreatedByUserId")]
+    public User? CreatedByUser { get; set; }
+
     [Column("refresh_token")]
     [MaxLength(255)]
     public string? RefreshToken { get; set; }
@@ -60,13 +66,7 @@ public class User
     [Column("refresh_token_expiry_time")]
     public DateTime? RefreshTokenExpiryTime { get; set; }
 
-    [Required]
-    [Column("role_id")]
-    [MaxLength(20)]
-    public string RoleId { get; set; } = "USER";
-
-    [ForeignKey("RoleId")]
-    public Role? Role { get; set; }
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 
     public Cart? Cart { get; set; }
 }

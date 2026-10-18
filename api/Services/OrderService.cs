@@ -3,6 +3,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Orders;
 using WebBanHang.Api.DTOs.Vouchers;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
@@ -10,7 +11,7 @@ using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services;
 
-public class OrderService(AppDbContext dbContext, IVoucherService voucherService) : IOrderService
+public class OrderService(AppDbContext dbContext, IVoucherService voucherService, IInvoiceService invoiceService) : IOrderService
 {
     public async Task<CheckoutPreviewDto> PreviewCheckoutAsync(int userId, CheckoutPreviewRequestDto request)
     {
@@ -252,6 +253,9 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         dbContext.Orders.Add(order);
         await dbContext.SaveChangesAsync();
 
+        // 5 Tự động tạo Hóa đơn (Invoice) cho đơn hàng qua InvoiceService
+        await invoiceService.CreateInvoiceForOrderAsync(order, now);
+
         // Gắn order_id vào user_voucher sau khi đã sinh order.OrderId
         if (userVoucher != null)
         {
@@ -278,6 +282,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         var query = dbContext.Orders
             .AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.UpdatedByUser)
             .Where(o => o.UserId == userId);
 
         query = ApplyOrderFilter(query, filter);
@@ -289,6 +294,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         var query = dbContext.Orders
             .AsNoTracking()
             .Include(o => o.Items)
+            .Include(o => o.UpdatedByUser)
             .AsQueryable();
 
         query = ApplyOrderFilter(query, filter);
@@ -380,11 +386,18 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         order.CancelledAt = now;
         order.CancellationReason = request.Reason.Trim();
         order.UpdatedAt = now;
+        if (userId.HasValue)
+        {
+            order.UpdatedByUserId = userId.Value;
+        }
 
         if (order.PaymentStatus == PaymentStatus.PAID)
         {
             order.PaymentStatus = PaymentStatus.REFUNDED;
         }
+
+        // 4. Đồng bộ trạng thái Hóa đơn sang CANCELLED qua InvoiceService
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
 
         await dbContext.SaveChangesAsync();
         await transaction.CommitAsync();
@@ -392,7 +405,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         return (await GetOrderByIdAsync(order.OrderId))!;
     }
 
-    public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request)
+    public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null)
     {
         var order = await dbContext.Orders
             .Include(o => o.Items)
@@ -416,15 +429,19 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         // Nếu chuyển sang CANCELLED, gọi qua nghiệp vụ CancelOrderAsync để hoàn kho và voucher
         if (request.Status == OrderStatus.CANCELLED)
         {
-            return await CancelOrderAsync(orderId, null, new CancelOrderRequestDto
+            return await CancelOrderAsync(orderId, updatedByUserId, new CancelOrderRequestDto
             {
-                Reason = request.Reason ?? "Quản trị viên hủy đơn hàng"
+                Reason = request.Reason ?? "Quản trị viên / Nhân viên bán hàng hủy đơn hàng"
             }, isAdmin: true);
         }
 
         var now = DateTime.UtcNow;
         order.OrderStatus = request.Status;
         order.UpdatedAt = now;
+        if (updatedByUserId.HasValue)
+        {
+            order.UpdatedByUserId = updatedByUserId.Value;
+        }
 
         if (request.PaymentStatus.HasValue)
         {
@@ -439,6 +456,9 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             order.PaymentStatus = PaymentStatus.PAID;
             order.PaidAt = now;
         }
+
+        // Đồng bộ trạng thái Hóa đơn liên kết qua InvoiceService
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
 
         await dbContext.SaveChangesAsync();
         return (await GetOrderByIdAsync(order.OrderId))!;
@@ -552,10 +572,12 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         };
     }
 
-    /// Truy vấn cơ bản chi tiết đơn hàng (kèm User và Items)
+    /// Truy vấn cơ bản chi tiết đơn hàng (kèm User, UpdatedByUser và Items)
     private IQueryable<Order> BuildOrderDetailQuery() =>
         dbContext.Orders
             .AsNoTracking()
             .Include(o => o.User)
-            .Include(o => o.Items);
+            .Include(o => o.UpdatedByUser)
+            .Include(o => o.Items)
+            .Include(o => o.Invoice);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { OrderItem } from "../../lib/types/order";
 import styles from "./ReviewModal.module.css";
 
@@ -82,7 +83,12 @@ export default function ReviewModal({
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className={styles.overlay}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2 className={styles.headerTitle}>Đánh Giá Sản Phẩm</h2>
@@ -101,7 +107,10 @@ export default function ReviewModal({
             <div className={styles.productCard}>
               <div className={styles.productImageWrap}>
                 {imageSrc ? (
-                  <img
+                  <Image
+                    width={80}
+                    height={80}
+                    unoptimized
                     src={imageSrc}
                     alt={item.productName}
                     className={styles.productImage}
@@ -189,7 +198,14 @@ export default function ReviewModal({
             </div>
 
             <div className={styles.verifiedBadge}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span>Xác nhận đã mua hàng tại TechStoree</span>

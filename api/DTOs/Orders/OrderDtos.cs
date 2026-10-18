@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Auth;
+using WebBanHang.Api.DTOs.Invoices;
 
 namespace WebBanHang.Api.DTOs.Orders;
 
@@ -134,6 +135,18 @@ public class OrderBaseDto
     public DateTime UpdatedAt { get; set; }
 
     /// <summary>
+    /// Mã ID người dùng / nhân viên cập nhật trạng thái gần nhất
+    /// </summary>
+    /// <example>2</example>
+    public int? UpdatedByUserId { get; set; }
+
+    /// <summary>
+    /// Tên tài khoản của người dùng / nhân viên cập nhật gần nhất
+    /// </summary>
+    /// <example>sales_staff_01</example>
+    public string? UpdatedByUsername { get; set; }
+
+    /// <summary>
     /// Thời điểm thanh toán thành công (nếu đã thanh toán)
     /// </summary>
     /// <example>null</example>
@@ -166,6 +179,11 @@ public class OrderDetailDto : OrderBaseDto
     /// Danh sách chi tiết các mặt hàng trong đơn hàng (Dữ liệu Snapshot lịch sử)
     /// </summary>
     public List<OrderItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// Hóa đơn liên kết với đơn hàng
+    /// </summary>
+    public InvoiceDto? Invoice { get; set; }
 }
 
 /// <summary>

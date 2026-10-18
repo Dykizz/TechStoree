@@ -10,7 +10,10 @@ interface ProductCardProps {
 
 export default function ProductCard({ product }: ProductCardProps) {
   const isOutOfStock = product.totalStock <= 0;
-  const promo = product.promotion && product.promotion.hasPromotion ? product.promotion : null;
+  const promo =
+    product.promotion && product.promotion.hasPromotion
+      ? product.promotion
+      : null;
 
   const displayOriginalPrice = () => {
     if (product.minPrice === product.maxPrice) {
@@ -58,8 +61,12 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         <span className={styles.badge}>{product.categoryName}</span>
-        {promo && <span className={styles.saleBadge}>{discountBadgeText()}</span>}
-        {isOutOfStock && <span className={styles.outOfStockBadge}>Tạm hết</span>}
+        {promo && (
+          <span className={styles.saleBadge}>{discountBadgeText()}</span>
+        )}
+        {isOutOfStock && (
+          <span className={styles.outOfStockBadge}>Tạm hết</span>
+        )}
       </div>
 
       <div className={styles.content}>
@@ -70,20 +77,24 @@ export default function ProductCard({ product }: ProductCardProps) {
 
         <div className={styles.footer}>
           <div className={styles.priceWrapper}>
-            <span className={styles.priceLabel}>{promo ? "Giá ưu đãi" : "Giá từ"}</span>
+            <span className={styles.priceLabel}>
+              {promo ? "Giá ưu đãi" : "Giá bán"}
+            </span>
             {promo ? (
               <div className={styles.priceRow}>
-                <span className={styles.promoPrice}>{displayPromotionalPrice()}</span>
-                <span className={styles.originalPrice}>{displayOriginalPrice()}</span>
+                <span className={styles.promoPrice}>
+                  {displayPromotionalPrice()}
+                </span>
+                <span className={styles.originalPrice}>
+                  {displayOriginalPrice()}
+                </span>
               </div>
             ) : (
               <span className={styles.price}>{displayOriginalPrice()}</span>
             )}
           </div>
 
-          <span className={styles.viewDetails}>
-            Chi tiết &rarr;
-          </span>
+          <span className={styles.viewDetails}>Chi tiết &rarr;</span>
         </div>
       </div>
     </Link>

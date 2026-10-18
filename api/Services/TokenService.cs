@@ -24,10 +24,34 @@ public class TokenService(IConfiguration config) : ITokenService
         {
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.RoleId), // "ADMIN", "USER"
             new Claim(ClaimTypes.Email, user.Email),
             new Claim("fullName", user.FullName)
         };
+
+        // Gán tất cả vai trò của tài khoản vào claims (ASP.NET Core RBAC hỗ trợ nhiều ClaimTypes.Role)
+        var roles = user.UserRoles?.Select(ur => ur.RoleId.ToString()).Distinct().ToList() ?? new List<string>();
+        if (roles.Count == 0)
+        {
+            roles.Add(WebBanHang.Api.Enums.UserRoleTypeExtensions.User);
+        }
+
+        foreach (var r in roles)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, r));
+        }
+
+        // Gán tất cả quyền (PBAC) của tài khoản vào claims
+        var permissions = user.UserRoles?
+            .Where(ur => ur.Role != null && ur.Role.RolePermissions != null)
+            .SelectMany(ur => ur.Role!.RolePermissions)
+            .Select(rp => rp.PermissionId)
+            .Distinct()
+            .ToList() ?? new List<string>();
+
+        foreach (var p in permissions)
+        {
+            claims.Add(new Claim("permission", p));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

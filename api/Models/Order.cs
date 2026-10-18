@@ -112,6 +112,12 @@ public class Order
     [Column("updated_at")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    [Column("updated_by_user_id")]
+    public int? UpdatedByUserId { get; set; }
+
+    [ForeignKey("UpdatedByUserId")]
+    public User? UpdatedByUser { get; set; }
+
     [Column("paid_at")]
     public DateTime? PaidAt { get; set; }
 
@@ -124,4 +130,7 @@ public class Order
 
     // Danh sách sản phẩm trong đơn hàng
     public ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+
+    // Hóa đơn liên kết 1-1 với đơn hàng
+    public Invoice? Invoice { get; set; }
 }

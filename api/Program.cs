@@ -1,9 +1,11 @@
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.Middlewares;
 using WebBanHang.Api.Services;
@@ -62,7 +64,9 @@ builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IPromotionService, PromotionService>();
 builder.Services.AddScoped<IVoucherService, VoucherService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ISurveyService, SurveyService>();
+builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 
@@ -113,6 +117,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
+// 5.1 Danh mục quyền hạn: quét alias [HasPermission] trên endpoint và đồng bộ xuống CSDL.
+//     PermissionCatalogState là singleton để tầng nghiệp vụ tra cứu snapshot mà không quét lại.
+builder.Services.AddScoped<PermissionCatalogBuilder>();
+builder.Services.AddSingleton<PermissionCatalogState>();
 
 // 6. Cấu hình Swagger / OpenAPI kèm XML Documentation & JWT Bearer Authentication
 builder.Services.AddEndpointsApiExplorer();
@@ -149,13 +160,28 @@ var app = builder.Build();
 // 7. Kích hoạt Global Exception Handling Middleware đầu tiên trong pipeline
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// 8. Tự động kiểm tra và thực thi Migration CSDL khi khởi động
+// 8. Tự động kiểm tra và thực thi Migration CSDL & Khởi tạo Admin mặc định khi khởi động
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var catalogBuilder = scope.ServiceProvider.GetRequiredService<PermissionCatalogBuilder>();
+
+    // 8.1 Quét alias phân quyền và đối chiếu với AppPermissions.Catalog. Bước này không cần CSDL
+    //     nên đặt ngoài try/catch: cấu hình sai phải làm app dừng ngay thay vì lỗi 403 âm thầm.
+    var catalogSnapshot = catalogBuilder.DiscoverAndValidate();
+    scope.ServiceProvider.GetRequiredService<PermissionCatalogState>().Initialize(catalogSnapshot);
+
+    // 8.2 Migration CSDL, đồng bộ danh mục quyền và seed dữ liệu mẫu (cần CSDL)
     try
     {
         dbContext.Database.Migrate();
+
+        // CSDL trắng trước khi đồng bộ = lần cài đặt đầu tiên, thời điểm duy nhất được áp
+        // bộ quyền mặc định cho vai trò hệ thống.
+        var syncResult = await catalogBuilder.SyncToDatabaseAsync(catalogSnapshot);
+        var isFirstInstall = syncResult.ExistingCountBefore == 0 && catalogSnapshot.Catalog.Count > 0;
+
+        await DbInitializer.SeedAsync(dbContext, app.Logger, isFirstInstall);
     }
     catch (Exception ex)
     {

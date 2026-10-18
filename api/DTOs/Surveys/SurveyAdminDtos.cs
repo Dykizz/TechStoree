@@ -170,7 +170,7 @@ public class CreateSurveyQuestionDto
     public int OrderNum { get; set; } = 1;
 
     /// <summary>
-    /// Danh sách đáp án (Bắt buộc nếu là SINGLE_CHOICE)
+    /// Danh sách đáp án (Bắt buộc nếu là SINGLE_CHOICE hoặc MULTI_CHOICE)
     /// </summary>
     public List<CreateSurveyOptionDto>? Options { get; set; }
 }
@@ -274,7 +274,7 @@ public class QuestionStatisticsDto
     public int TotalAnswers { get; set; }
 
     /// <summary>
-    /// Thống kê tỷ lệ các đáp án (Dành cho câu SINGLE_CHOICE để vẽ PieChart / BarChart)
+    /// Thống kê tỷ lệ các đáp án (Dành cho câu SINGLE_CHOICE hoặc MULTI_CHOICE để vẽ PieChart / BarChart)
     /// </summary>
     public List<OptionStatisticsDto> OptionStats { get; set; } = new();
 

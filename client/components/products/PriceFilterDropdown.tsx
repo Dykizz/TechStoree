@@ -22,12 +22,46 @@ interface PricePreset {
 
 const PRESETS: PricePreset[] = [
   { id: "all", label: "Tất cả mức giá", desc: "Toàn bộ dải giá" },
-  { id: "under-2m", label: "Dưới 2 triệu", desc: "< 2.000.000 ₫", max: 2000000 },
-  { id: "2m-5m", label: "2 - 5 triệu", desc: "2.000.000 - 5.000.000 ₫", min: 2000000, max: 5000000 },
-  { id: "2m-10m", label: "2 - 10 triệu", desc: "2.000.000 - 10.000.000 ₫", min: 2000000, max: 10000000 },
-  { id: "5m-10m", label: "5 - 10 triệu", desc: "5.000.000 - 10.000.000 ₫", min: 5000000, max: 10000000 },
-  { id: "10m-20m", label: "10 - 20 triệu", desc: "10.000.000 - 20.000.000 ₫", min: 10000000, max: 20000000 },
-  { id: "above-20m", label: "Trên 20 triệu", desc: "> 20.000.000 ₫", min: 20000000 },
+  {
+    id: "under-2m",
+    label: "Dưới 2 triệu",
+    desc: "< 2.000.000 ₫",
+    max: 2000000,
+  },
+  {
+    id: "2m-5m",
+    label: "2 - 5 triệu",
+    desc: "2.000.000 - 5.000.000 ₫",
+    min: 2000000,
+    max: 5000000,
+  },
+  {
+    id: "2m-10m",
+    label: "2 - 10 triệu",
+    desc: "2.000.000 - 10.000.000 ₫",
+    min: 2000000,
+    max: 10000000,
+  },
+  {
+    id: "5m-10m",
+    label: "5 - 10 triệu",
+    desc: "5.000.000 - 10.000.000 ₫",
+    min: 5000000,
+    max: 10000000,
+  },
+  {
+    id: "10m-20m",
+    label: "10 - 20 triệu",
+    desc: "10.000.000 - 20.000.000 ₫",
+    min: 10000000,
+    max: 20000000,
+  },
+  {
+    id: "above-20m",
+    label: "Trên 20 triệu",
+    desc: "> 20.000.000 ₫",
+    min: 20000000,
+  },
 ];
 
 function formatNumberInput(value: string): string {
@@ -53,21 +87,14 @@ export default function PriceFilterDropdown({
 }: PriceFilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMin, setInputMin] = useState(
-    minPrice !== undefined ? minPrice.toLocaleString("vi-VN") : ""
+    minPrice !== undefined ? minPrice.toLocaleString("vi-VN") : "",
   );
   const [inputMax, setInputMax] = useState(
-    maxPrice !== undefined ? maxPrice.toLocaleString("vi-VN") : ""
+    maxPrice !== undefined ? maxPrice.toLocaleString("vi-VN") : "",
   );
   const [errorMsg, setErrorMsg] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Sync state if props change externally (e.g. Reset All Filters)
-  useEffect(() => {
-    setInputMin(minPrice !== undefined ? minPrice.toLocaleString("vi-VN") : "");
-    setInputMax(maxPrice !== undefined ? maxPrice.toLocaleString("vi-VN") : "");
-    setErrorMsg("");
-  }, [minPrice, maxPrice]);
 
   // Click outside and escape key handling
   useEffect(() => {
@@ -177,7 +204,14 @@ export default function PriceFilterDropdown({
       <button
         type="button"
         className={`${styles.triggerBtn} ${hasFilter ? styles.triggerBtnActive : ""}`}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          if (!isOpen) {
+            setInputMin(minPrice?.toLocaleString("vi-VN") ?? "");
+            setInputMax(maxPrice?.toLocaleString("vi-VN") ?? "");
+            setErrorMsg("");
+          }
+          setIsOpen((prev) => !prev);
+        }}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         title="Lọc sản phẩm theo khoảng giá"
@@ -236,7 +270,11 @@ export default function PriceFilterDropdown({
 
       {/* Popover Content */}
       {isOpen && (
-        <div className={styles.popover} role="dialog" aria-label="Bộ lọc khoảng giá">
+        <div
+          className={styles.popover}
+          role="dialog"
+          aria-label="Bộ lọc khoảng giá"
+        >
           <div className={styles.popoverHeader}>
             <span className={styles.popoverTitle}>
               <svg
@@ -268,9 +306,13 @@ export default function PriceFilterDropdown({
             <div className={styles.systemPriceHint}>
               <span>💡 Dải giá hệ thống:</span>
               <strong>
-                {systemMinPrice !== undefined ? formatPrice(systemMinPrice) : "0 ₫"}
+                {systemMinPrice !== undefined
+                  ? formatPrice(systemMinPrice)
+                  : "0 ₫"}
                 {" - "}
-                {systemMaxPrice !== undefined ? formatPrice(systemMaxPrice) : "cao nhất"}
+                {systemMaxPrice !== undefined
+                  ? formatPrice(systemMaxPrice)
+                  : "cao nhất"}
               </strong>
             </div>
           )}
@@ -347,7 +389,14 @@ export default function PriceFilterDropdown({
 
             {errorMsg && (
               <div className={styles.errorMessage} role="alert">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
