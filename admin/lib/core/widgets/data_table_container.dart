@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
 import '../providers/theme_provider.dart';
+import 'scrollable_table_wrapper.dart';
 
 class DataTableContainer extends StatelessWidget {
   final Widget child;
+  final bool isScrollableTable;
 
   const DataTableContainer({
     super.key,
     required this.child,
+    this.isScrollableTable = false,
   });
 
   @override
@@ -26,7 +29,9 @@ class DataTableContainer extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: child,
+        child: isScrollableTable
+            ? ScrollableTableWrapper(child: child)
+            : child,
       ),
     );
   }

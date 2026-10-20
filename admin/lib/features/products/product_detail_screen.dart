@@ -179,7 +179,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     final token = Provider.of<AuthProvider>(context, listen: false).token;
 
     final nameCtrl = TextEditingController(text: isEditing ? (existingVariant.variantNameAttr ?? '') : '');
-    final priceCtrl = TextEditingController(text: isEditing ? existingVariant.price.toInt().toString() : '');
+    final initialPriceText = isEditing
+        ? NumberFormat('#,###', 'en_US').format(existingVariant.price.toInt())
+        : '';
+    final priceCtrl = TextEditingController(text: initialPriceText);
     final varImageCtrl = TextEditingController(text: isEditing ? (existingVariant.imageUrl ?? '') : '');
     bool varIsActive = isEditing ? existingVariant.isActive : true;
 
@@ -236,7 +239,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     AppTextField(
                       controller: priceCtrl,
                       labelText: 'Giá bán (VNĐ) (*)',
+                      hintText: 'VD: 10,000,000',
                       keyboardType: TextInputType.number,
+                      inputFormatters: [CurrencyInputFormatter()],
                     ),
                     const SizedBox(height: AppTokens.space16),
 
@@ -383,22 +388,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                       children: [
                         if (varImageCtrl.text.trim().isNotEmpty)
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(6),
                             child: Image.network(
                               varImageCtrl.text.trim(),
-                              width: 48,
-                              height: 48,
+                              width: 56,
+                              height: 56,
                               fit: BoxFit.cover,
-                              errorBuilder: (c, e, s) => Container(width: 48, height: 48, color: Colors.black12, child: const Icon(Icons.image_not_supported, size: 20)),
+                              errorBuilder: (c, e, s) => Container(
+                                width: 56,
+                                height: 56,
+                                color: Colors.black12,
+                                child: const Icon(Icons.image_not_supported, size: 22),
+                              ),
                             ),
                           )
                         else
-                          Container(width: 48, height: 48, decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)), child: const Icon(Icons.image, size: 20, color: Colors.grey)),
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.image, size: 24, color: Colors.grey),
+                          ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: AppTextField(
                             controller: varImageCtrl,
                             hintText: 'Nhập URL ảnh biến thể hoặc tải lên...',
+                            onChanged: (_) => setDialogState(() {}),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -458,7 +477,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                 label: isEditing ? 'Lưu biến thể' : 'Tạo biến thể',
                 variant: AppButtonVariant.primary,
                 onPressed: () async {
-                  final priceVal = double.tryParse(priceCtrl.text) ?? 0;
+                  final rawPrice = priceCtrl.text.replaceAll(RegExp(r'[^\d]'), '');
+                  final priceVal = double.tryParse(rawPrice) ?? 0;
                   final stockVal = isEditing ? existingVariant.stockQuantity : 0;
 
                   Map<String, String> finalAttrs = {};

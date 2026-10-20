@@ -218,8 +218,18 @@ class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  q.questionType == SurveyQuestionType.SINGLE_CHOICE ? 'TRẮC NGHIỆM' : 'TỰ LUẬN',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textSecondary),
+                  q.questionType == SurveyQuestionType.SINGLE_CHOICE
+                      ? 'TRẮC NGHIỆM (1 ĐÁP ÁN)'
+                      : (q.questionType == SurveyQuestionType.MULTI_CHOICE
+                          ? 'TRẮC NGHIỆM NHIỀU ĐÁP ÁN'
+                          : 'TỰ LUẬN'),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: q.questionType == SurveyQuestionType.MULTI_CHOICE
+                        ? const Color(0xFF0284C7)
+                        : textSecondary,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -244,8 +254,23 @@ class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
           ),
           const SizedBox(height: 14),
 
-          // SINGLE_CHOICE Visual Chart & Data Table
-          if (q.questionType == SurveyQuestionType.SINGLE_CHOICE) ...[
+          // SINGLE_CHOICE & MULTI_CHOICE Visual Chart & Data Table
+          if (q.questionType == SurveyQuestionType.SINGLE_CHOICE ||
+              q.questionType == SurveyQuestionType.MULTI_CHOICE) ...[
+            if (q.questionType == SurveyQuestionType.MULTI_CHOICE)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 14, color: Color(0xFF0284C7)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Câu hỏi cho phép chọn nhiều phương án. Tỷ lệ % tính theo số lượng người tham gia trả lời.',
+                      style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: textSecondary),
+                    ),
+                  ],
+                ),
+              ),
             if (q.totalAnswers == 0 || q.optionStats.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(16),

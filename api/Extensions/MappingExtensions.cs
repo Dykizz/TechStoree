@@ -12,6 +12,7 @@ using WebBanHang.Api.DTOs.Surveys;
 using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.DTOs.Variants;
 using WebBanHang.Api.DTOs.Vouchers;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Models;
 
 namespace WebBanHang.Api.Extensions;
@@ -55,9 +56,9 @@ public static class MappingExtensions
             Email = user.Email,
             FullName = user.FullName,
             Phone = user.Phone,
-            DateOfBirth = user.DateOfBirth,
-            TechInterest = user.TechInterest,
-            Address = user.Address,
+            DateOfBirth = user.Customer?.DateOfBirth,
+            TechInterest = user.Customer?.TechInterest,
+            Address = user.Customer?.Address,
             Roles = user.ExtractRoles(),
             Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,
@@ -67,6 +68,10 @@ public static class MappingExtensions
 
     public static UserDto ToUserDto(this User user)
     {
+        var userType = user.Admin != null
+            ? UserType.ADMIN
+            : (user.Employee != null ? UserType.EMPLOYEE : UserType.CUSTOMER);
+
         return new UserDto
         {
             UserId = user.UserId,
@@ -74,9 +79,14 @@ public static class MappingExtensions
             FullName = user.FullName,
             Email = user.Email,
             Phone = user.Phone,
-            DateOfBirth = user.DateOfBirth,
-            TechInterest = user.TechInterest,
-            Address = user.Address,
+            DateOfBirth = user.Customer?.DateOfBirth,
+            TechInterest = user.Customer?.TechInterest,
+            Address = user.Customer?.Address,
+            EmployeeCode = user.Employee?.EmployeeCode,
+            EmploymentType = user.Employee?.EmploymentType,
+            BaseSalary = user.Employee?.BaseSalary,
+            HourlyRate = user.Employee?.HourlyRate,
+            UserType = userType,
             Roles = user.ExtractRoles(),
             Permissions = user.ExtractPermissions(),
             IsLocked = user.IsLocked,

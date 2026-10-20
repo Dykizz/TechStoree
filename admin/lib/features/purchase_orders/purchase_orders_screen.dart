@@ -17,6 +17,7 @@ import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class PurchaseOrdersScreen extends StatefulWidget {
@@ -177,15 +178,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                     message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
                                     icon: Icons.inventory_2_outlined,
                                   )
-                                : LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return SingleChildScrollView(
-                                        scrollDirection: Axis.vertical,
-                                        child: SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          child: ConstrainedBox(
-                                            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                                            child: DataTable(
+                                : ScrollableTableWrapper(
+                                    child: DataTable(
                                               headingRowHeight: 40,
                                               dataRowMinHeight: 50,
                                               dataRowMaxHeight: 54,
@@ -289,12 +283,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                                   ],
                                                 );
                                               }).toList(),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
+                                             ),
+                                ),
                           ),
                           if (totalItems > 0)
                             AppPagination(
@@ -425,11 +415,44 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: _buildInfoItem('Nhà cung cấp', po.supplierName, textPrimary, textSecondary)),
-                    Expanded(child: _buildInfoItem('Người tạo', po.createdByName.isNotEmpty ? po.createdByName : 'Admin', textPrimary, textSecondary)),
                     Expanded(child: _buildInfoItem('Ngày tạo', dateFormat.format(po.createdAt), textPrimary, textSecondary)),
+                    const Spacer(), // Balance layout
                   ],
+                ),
+                const SizedBox(height: AppTokens.space12),
+                
+                // Quy trình 3 bước - Audit Trail
+                Container(
+                  padding: const EdgeInsets.all(AppTokens.space12),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.history_rounded, size: 16, color: AppColors.primary),
+                          SizedBox(width: 6),
+                          Text('Quy trình & Dấu vết kiểm toán kho', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary)),
+                        ],
+                      ),
+                      const Divider(),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildInfoItem('1. Người tạo (Yêu cầu)', po.createdByName.isNotEmpty ? po.createdByName : 'Thủ kho', textPrimary, textSecondary)),
+                          Expanded(child: _buildInfoItem('2. Người duyệt (QL/Ngân sách)', po.approvedByName ?? 'Chưa duyệt', textPrimary, textSecondary)),
+                          Expanded(child: _buildInfoItem('3. Người nhận (Kiểm đếm)', po.receivedByName ?? 'Chưa nhận hàng', textPrimary, textSecondary)),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 if (po.note.isNotEmpty) ...[
                   const SizedBox(height: AppTokens.space8),
@@ -448,6 +471,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                 const SizedBox(height: AppTokens.space8),
 
                 DataTableContainer(
+                  isScrollableTable: true,
                   child: DataTable(
                     columnSpacing: 14,
                     horizontalMargin: 12,

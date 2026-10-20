@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/product.dart';
 import 'base_api_service.dart';
 
@@ -109,10 +108,10 @@ mixin ProductApiService on BaseApiService {
 
   Future<List<Product>> getProducts({String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/products'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
@@ -145,10 +144,10 @@ mixin ProductApiService on BaseApiService {
 
   Future<Product?> getProductById(String id, {String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/products/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null && data is Map<String, dynamic>) {
@@ -162,11 +161,11 @@ mixin ProductApiService on BaseApiService {
 
   Future<ApiResult> createProduct(Product product, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/products'),
-        headers: headers(token),
+        token: token,
         body: json.encode(product.toCreateJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -181,11 +180,11 @@ mixin ProductApiService on BaseApiService {
 
   Future<ApiResult> updateProduct(Product product, {String? token}) async {
     try {
-      final response = await http.put(
+      final response = await httpPut(
         Uri.parse('$baseUrl/products/${product.id}'),
-        headers: headers(token),
+        token: token,
         body: json.encode(product.toUpdateJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -200,10 +199,10 @@ mixin ProductApiService on BaseApiService {
 
   Future<ApiResult> toggleProductStatus(String id, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/products/$id/status'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -218,10 +217,10 @@ mixin ProductApiService on BaseApiService {
 
   Future<ApiResult> deleteProduct(String id, {String? token}) async {
     try {
-      final response = await http.delete(
+      final response = await httpDelete(
         Uri.parse('$baseUrl/products/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();

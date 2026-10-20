@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using WebBanHang.Api.Enums;
 
 namespace WebBanHang.Api.DTOs.Users;
 
@@ -61,6 +62,30 @@ public class CreateUserRequestDto
     /// </summary>
     /// <example>Quận 1, TP. Hồ Chí Minh</example>
     public string? Address { get; set; }
+
+    /// <summary>
+    /// Mã nhân viên (Nếu là nhân viên; nếu để trống hệ thống sẽ tự sinh)
+    /// </summary>
+    /// <example>NV001</example>
+    public string? EmployeeCode { get; set; }
+
+    /// <summary>
+    /// Hình thức làm việc: FULL_TIME hoặc PART_TIME (mặc định FULL_TIME)
+    /// </summary>
+    /// <example>FULL_TIME</example>
+    public EmploymentType? EmploymentType { get; set; }
+
+    /// <summary>
+    /// Lương cơ bản hàng tháng (Áp dụng cho nhân viên Full-time)
+    /// </summary>
+    /// <example>8000000</example>
+    public decimal? BaseSalary { get; set; }
+
+    /// <summary>
+    /// Tiền công theo giờ (Áp dụng cho nhân viên Part-time)
+    /// </summary>
+    /// <example>30000</example>
+    public decimal? HourlyRate { get; set; }
 
     /// <summary>
     /// Danh sách các vai trò gán cho tài khoản (Ví dụ: ["WAREHOUSE_STAFF", "SALES_STAFF"]).

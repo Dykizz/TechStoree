@@ -13,7 +13,7 @@ namespace WebBanHang.Api.Controllers;
 public class UsersController(IUserService userService) : BaseApiController
 { 
     /// <summary>
-    /// Lấy danh sách người dùng có phân trang và bộ lọc vai trò, trạng thái khóa
+    /// Lấy danh sách người dùng có phân trang và bộ lọc (vai trò, userType, employmentType, trạng thái khóa, từ khóa)
     /// </summary>
     /// <param name="filter">Bộ lọc danh sách người dùng</param>
     [HttpGet]

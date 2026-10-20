@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/product.dart';
 import '../models/purchase_order.dart';
 import 'base_api_service.dart';
@@ -21,7 +20,7 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
       }
 
       final uri = Uri.parse('$baseUrl/purchase-orders').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: headers(token));
+      final response = await httpGet(uri, token: token);
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -41,7 +40,7 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
   Future<PurchaseOrder?> getPurchaseOrderById(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders/$id');
-      final response = await http.get(uri, headers: headers(token));
+      final response = await httpGet(uri, token: token);
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -108,9 +107,9 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
   Future<ApiResult> createPurchaseOrder(PurchaseOrder po, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders');
-      final response = await http.post(
+      final response = await httpPost(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(po.toCreateJson()),
       );
 
@@ -135,9 +134,9 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
   Future<ApiResult> updatePurchaseOrder(int id, PurchaseOrder po, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders/$id');
-      final response = await http.put(
+      final response = await httpPut(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(po.toCreateJson()),
       );
 
@@ -162,7 +161,7 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
   Future<ApiResult> deletePurchaseOrder(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders/$id');
-      final response = await http.delete(uri, headers: headers(token));
+      final response = await httpDelete(uri, token: token);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {

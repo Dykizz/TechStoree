@@ -97,6 +97,8 @@ class Order {
   final DateTime? cancelledAt;
   final String? cancellationReason;
   final Map<String, dynamic>? user;
+  final String? createdByName;
+  final String? updatedByName;
   final List<OrderItem> items;
 
   Order({
@@ -125,6 +127,8 @@ class Order {
     this.cancelledAt,
     this.cancellationReason,
     this.user,
+    this.createdByName,
+    this.updatedByName,
     this.items = const [],
   });
 
@@ -227,6 +231,8 @@ class Order {
       cancelledAt: parseDate(json['cancelledAt']),
       cancellationReason: json['cancellationReason']?.toString(),
       user: json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : null,
+      createdByName: json['createdByName']?.toString(),
+      updatedByName: json['updatedByName']?.toString(),
       items: parsedItems,
     );
   }

@@ -553,7 +553,9 @@ class _SurveyFormViewState extends State<SurveyFormView> {
                             if (val != null) {
                               setState(() {
                                 q.type = val;
-                                if (val == SurveyQuestionType.SINGLE_CHOICE && q.options.isEmpty) {
+                                if ((val == SurveyQuestionType.SINGLE_CHOICE ||
+                                        val == SurveyQuestionType.MULTI_CHOICE) &&
+                                    q.options.isEmpty) {
                                   q.options = [
                                     _OptionDraft(textCtrl: TextEditingController()),
                                     _OptionDraft(textCtrl: TextEditingController()),
@@ -588,17 +590,61 @@ class _SurveyFormViewState extends State<SurveyFormView> {
               // OPTIONS EDITOR / TEXT HINT (Section 11 & 12)
               const SizedBox(height: 14),
 
-              if (q.type == SurveyQuestionType.SINGLE_CHOICE) ...[
-                Text(
-                  'Lựa chọn đáp án',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textSecondary),
+              if (q.type == SurveyQuestionType.SINGLE_CHOICE ||
+                  q.type == SurveyQuestionType.MULTI_CHOICE) ...[
+                Row(
+                  children: [
+                    Text(
+                      q.type == SurveyQuestionType.MULTI_CHOICE
+                          ? 'Lựa chọn đáp án (Nhiều đáp án - Hộp kiểm Checkbox)'
+                          : 'Lựa chọn đáp án (Một đáp án - Nút tròn Radio)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: q.type == SurveyQuestionType.MULTI_CHOICE
+                            ? const Color(0xFF0284C7).withOpacity(0.12)
+                            : AppColors.primary.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        q.type == SurveyQuestionType.MULTI_CHOICE
+                            ? 'Cho phép chọn nhiều'
+                            : 'Chỉ chọn một',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: q.type == SurveyQuestionType.MULTI_CHOICE
+                              ? const Color(0xFF0284C7)
+                              : AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
 
                 ...q.options.asMap().entries.map((optEntry) {
                   final optIdx = optEntry.key;
                   final opt = optEntry.value;
-                  return _buildOptionRow(q, optIdx, opt, isDark, borderColor, textPrimary, textSecondary);
+                  return _buildOptionRow(
+                    q,
+                    optIdx,
+                    opt,
+                    isDark,
+                    borderColor,
+                    textPrimary,
+                    textSecondary,
+                  );
                 }),
 
                 const SizedBox(height: 6),
@@ -606,10 +652,18 @@ class _SurveyFormViewState extends State<SurveyFormView> {
                 if (!hasResponses)
                   TextButton.icon(
                     onPressed: () => _addOption(q),
-                    icon: const Icon(Icons.add_rounded, size: 15, color: AppColors.primary),
+                    icon: const Icon(
+                      Icons.add_rounded,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
                     label: const Text(
                       'Thêm đáp án',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
                     ),
                   ),
               ],
@@ -646,12 +700,21 @@ class _SurveyFormViewState extends State<SurveyFormView> {
     Color textPrimary,
     Color textSecondary,
   ) {
+    final isMulti = q.type == SurveyQuestionType.MULTI_CHOICE;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       height: 38,
       child: Row(
         children: [
-          Icon(Icons.radio_button_unchecked_rounded, size: 16, color: AppColors.primary.withOpacity(0.7)),
+          Icon(
+            isMulti
+                ? Icons.check_box_outline_blank_rounded
+                : Icons.radio_button_unchecked_rounded,
+            size: 16,
+            color: isMulti
+                ? const Color(0xFF0284C7)
+                : AppColors.primary.withOpacity(0.7),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: AppTextField(
@@ -659,7 +722,9 @@ class _SurveyFormViewState extends State<SurveyFormView> {
               readOnly: hasResponses,
               hintText: 'Đáp án ${optIdx + 1}',
               validator: (val) {
-                if (q.type == SurveyQuestionType.SINGLE_CHOICE && (val == null || val.trim().isEmpty)) {
+                if ((q.type == SurveyQuestionType.SINGLE_CHOICE ||
+                        q.type == SurveyQuestionType.MULTI_CHOICE) &&
+                    (val == null || val.trim().isEmpty)) {
                   return 'Đáp án không được để trống!';
                 }
                 return null;
@@ -812,11 +877,18 @@ class _SurveyFormViewState extends State<SurveyFormView> {
 
     for (int i = 0; i < _questionDrafts.length; i++) {
       final q = _questionDrafts[i];
-      if (q.type == SurveyQuestionType.SINGLE_CHOICE) {
+      if (q.type == SurveyQuestionType.SINGLE_CHOICE ||
+          q.type == SurveyQuestionType.MULTI_CHOICE) {
         final validOpts = q.options.where((o) => o.textCtrl.text.trim().isNotEmpty).toList();
         if (validOpts.length < 2) {
+          final typeName = q.type == SurveyQuestionType.MULTI_CHOICE
+              ? 'Trắc nghiệm nhiều đáp án'
+              : 'Trắc nghiệm';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Câu ${i + 1} (Trắc nghiệm) phải có ít nhất 2 đáp án!'), backgroundColor: AppColors.danger),
+            SnackBar(
+              content: Text('Câu ${i + 1} ($typeName) phải có ít nhất 2 đáp án!'),
+              backgroundColor: AppColors.danger,
+            ),
           );
           return;
         }
@@ -832,7 +904,8 @@ class _SurveyFormViewState extends State<SurveyFormView> {
       final qDraft = qEntry.value;
 
       List<CreateSurveyOption>? optionDtos;
-      if (qDraft.type == SurveyQuestionType.SINGLE_CHOICE) {
+      if (qDraft.type == SurveyQuestionType.SINGLE_CHOICE ||
+          qDraft.type == SurveyQuestionType.MULTI_CHOICE) {
         optionDtos = qDraft.options.asMap().entries.map((oEntry) {
           final oIdx = oEntry.key;
           final oDraft = oEntry.value;

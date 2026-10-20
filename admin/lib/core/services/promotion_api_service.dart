@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/promotion.dart';
 import 'base_api_service.dart';
 
@@ -84,7 +83,7 @@ mixin PromotionApiService on BaseApiService {
       }
 
       final uri = Uri.parse('$baseUrl/promotions').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpGet(uri, token: token);
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
@@ -99,7 +98,7 @@ mixin PromotionApiService on BaseApiService {
   Future<Promotion?> getPromotionById(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/promotions/$id');
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpGet(uri, token: token);
 
       final data = parseApiResponse(response);
       if (data != null && data is Map<String, dynamic>) {
@@ -116,11 +115,11 @@ mixin PromotionApiService on BaseApiService {
   Future<ApiResult> createPromotion(Promotion promo, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/promotions');
-      final response = await http.post(
+      final response = await httpPost(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(promo.toUpsertJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 201 || response.statusCode == 200) {
@@ -142,11 +141,11 @@ mixin PromotionApiService on BaseApiService {
   Future<ApiResult> updatePromotion(int id, Promotion promo, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/promotions/$id');
-      final response = await http.put(
+      final response = await httpPut(
         uri,
-        headers: headers(token),
+        token: token,
         body: jsonEncode(promo.toUpsertJson()),
-      ).timeout(const Duration(seconds: 5));
+      );
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
@@ -169,7 +168,7 @@ mixin PromotionApiService on BaseApiService {
   Future<ApiResult> deletePromotion(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/promotions/$id');
-      final response = await http.delete(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpDelete(uri, token: token);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
@@ -187,7 +186,7 @@ mixin PromotionApiService on BaseApiService {
   Future<ApiResult> togglePromotionActive(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/promotions/$id/toggle-active');
-      final response = await http.patch(uri, headers: headers(token)).timeout(const Duration(seconds: 4));
+      final response = await httpPatch(uri, token: token);
       final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {

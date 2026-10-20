@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/survey.dart';
 import 'base_api_service.dart';
 
@@ -45,7 +44,7 @@ mixin SurveyApiService on BaseApiService {
       }
 
       final uri = Uri.parse('$baseUrl/surveys/admin').replace(queryParameters: queryParams);
-      final response = await http.get(uri, headers: headers(token)).timeout(const Duration(seconds: 5));
+      final response = await httpGet(uri, token: token);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
@@ -79,10 +78,10 @@ mixin SurveyApiService on BaseApiService {
 
   Future<SurveyAdminDetail?> getSurveyById(int id, {String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/surveys/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 5));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
@@ -98,11 +97,12 @@ mixin SurveyApiService on BaseApiService {
 
   Future<ApiResult> createSurvey(CreateSurveyRequest req, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/surveys'),
-        headers: headers(token),
+        token: token,
         body: json.encode(req.toJson()),
-      ).timeout(const Duration(seconds: 6));
+        timeout: const Duration(seconds: 6),
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -126,11 +126,12 @@ mixin SurveyApiService on BaseApiService {
 
   Future<ApiResult> updateSurvey(int id, UpdateSurveyRequest req, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/surveys/$id'),
-        headers: headers(token),
+        token: token,
         body: json.encode(req.toJson()),
-      ).timeout(const Duration(seconds: 6));
+        timeout: const Duration(seconds: 6),
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -154,10 +155,10 @@ mixin SurveyApiService on BaseApiService {
 
   Future<bool> toggleSurveyActive(int id, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/surveys/$id/toggle-active'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -171,10 +172,10 @@ mixin SurveyApiService on BaseApiService {
 
   Future<ApiResult> deleteSurvey(int id, {String? token}) async {
     try {
-      final response = await http.delete(
+      final response = await httpDelete(
         Uri.parse('$baseUrl/surveys/$id'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 5));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -189,11 +190,12 @@ mixin SurveyApiService on BaseApiService {
 
   Future<ApiResult> assignSurvey(int id, AssignSurveyRequest req, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/surveys/$id/assign'),
-        headers: headers(token),
+        token: token,
         body: json.encode(req.toJson()),
-      ).timeout(const Duration(seconds: 6));
+        timeout: const Duration(seconds: 6),
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();
@@ -217,10 +219,10 @@ mixin SurveyApiService on BaseApiService {
 
   Future<SurveyStatistics?> getSurveyStatistics(int id, {String? token}) async {
     try {
-      final response = await http.get(
+      final response = await httpGet(
         Uri.parse('$baseUrl/surveys/$id/statistics'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 5));
+        token: token,
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
@@ -236,10 +238,11 @@ mixin SurveyApiService on BaseApiService {
 
   Future<ApiResult> cloneSurvey(int id, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
         Uri.parse('$baseUrl/surveys/$id/clone'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 6));
+        token: token,
+        timeout: const Duration(seconds: 6),
+      );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         notifyListeners();

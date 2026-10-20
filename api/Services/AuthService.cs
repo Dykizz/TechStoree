@@ -40,11 +40,15 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
             Email = dto.Email.Trim().ToLower(),
             FullName = dto.FullName.Trim(),
             Phone = dto.Phone?.Trim(),
-            DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
-            TechInterest = dto.TechInterest?.Trim(),
-            Address = dto.Address?.Trim(),
             IsLocked = false,
             CreatedAt = DateTime.UtcNow
+        };
+
+        newUser.Customer = new Customer
+        {
+            DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
+            TechInterest = dto.TechInterest?.Trim(),
+            Address = dto.Address?.Trim()
         };
 
         // 5. Gán mặc định vai trò USER (Khách hàng) vào bảng trung gian user_roles
@@ -62,8 +66,11 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
 
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto dto)
     {
-        // 1. Tìm tài khoản theo email kèm danh sách các vai trò và quyền hạn
+        // 1. Tìm tài khoản theo email kèm danh sách các vai trò, quyền hạn và hồ sơ thực thể
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r!.RolePermissions)
@@ -107,6 +114,9 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
 
         // 1. Tìm tài khoản sở hữu refresh token này kèm danh sách vai trò
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r!.RolePermissions)
@@ -154,6 +164,9 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
     public async Task<UserInfoDto> GetCurrentUserProfileAsync(int userId)
     {
         var user = await context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
                     .ThenInclude(r => r!.RolePermissions)

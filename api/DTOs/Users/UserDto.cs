@@ -1,3 +1,5 @@
+using WebBanHang.Api.Enums;
+
 namespace WebBanHang.Api.DTOs.Users;
 
 public class UserDto
@@ -51,10 +53,38 @@ public class UserDto
     public string? TechInterest { get; set; }
 
     /// <summary>
-    /// Địa chỉ cư trú
+    /// Địa chỉ cư trú (Khách hàng)
     /// </summary>
     /// <example>456 Nguyễn Huệ, Q.1, TP.HCM</example>
     public string? Address { get; set; }
+
+    /// <summary>
+    /// Mã nhân viên (nếu là nhân viên)
+    /// </summary>
+    /// <example>NV001</example>
+    public string? EmployeeCode { get; set; }
+
+    /// <summary>
+    /// Hình thức làm việc: FULL_TIME hoặc PART_TIME
+    /// </summary>
+    /// <example>FULL_TIME</example>
+    public EmploymentType? EmploymentType { get; set; }
+
+    /// <summary>
+    /// Lương cơ bản hàng tháng (Full-time)
+    /// </summary>
+    public decimal? BaseSalary { get; set; }
+
+    /// <summary>
+    /// Tiền công theo giờ (Part-time)
+    /// </summary>
+    public decimal? HourlyRate { get; set; }
+
+    /// <summary>
+    /// Loại thực thể người dùng: CUSTOMER, EMPLOYEE, ADMIN
+    /// </summary>
+    /// <example>CUSTOMER</example>
+    public UserType UserType { get; set; } = UserType.CUSTOMER;
 
     /// <summary>
     /// Danh sách vai trò của người dùng (RBAC)

@@ -9,6 +9,8 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/models/invoice.dart';
+import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -367,6 +369,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  void _showInvoiceForCurrentOrder() async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+
+    final invoice = await apiService.getInvoiceByOrderId(_currentOrder.orderId, token: token);
+    if (!mounted) return;
+
+    if (invoice != null) {
+      showDialog(
+        context: context,
+        builder: (ctx) => InvoiceDetailDialog(invoice: invoice),
+      );
+    } else {
+      // Fallback create virtual invoice from current order
+      final virtualInvoice = Invoice(
+        invoiceId: _currentOrder.orderId,
+        invoiceCode: 'INV-${_currentOrder.orderCode}',
+        orderId: _currentOrder.orderId,
+        orderCode: _currentOrder.orderCode,
+        userId: _currentOrder.userId,
+        customerName: _currentOrder.receiverName,
+        totalAmount: _currentOrder.totalAmount,
+        status: _currentOrder.paymentStatus.toUpperCase() == 'PAID' ? 'PAID' : 'UNPAID',
+        paymentMethod: _currentOrder.paymentMethod,
+        paidAt: _currentOrder.paidAt,
+        createdAt: _currentOrder.createdAt ?? DateTime.now(),
+        note: _currentOrder.notes,
+      );
+      showDialog(
+        context: context,
+        builder: (ctx) => InvoiceDetailDialog(invoice: virtualInvoice),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -446,6 +483,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                         Row(
                           children: [
+                            AppButton(
+                              label: 'Xem hóa đơn',
+                              icon: Icons.receipt_long_rounded,
+                              variant: AppButtonVariant.outline,
+                              onPressed: _showInvoiceForCurrentOrder,
+                            ),
+                            const SizedBox(width: 8),
                             if (_currentOrder.orderStatus != 'DELIVERED' && _currentOrder.orderStatus != 'CANCELLED') ...[
                               AppButton(
                                 label: 'Cập nhật tiến trình',
@@ -535,6 +579,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   const SizedBox(height: AppTokens.space12),
 
                                   DataTableContainer(
+                                    isScrollableTable: true,
                                     child: DataTable(
                                       headingRowHeight: 38,
                                       dataRowMinHeight: 50,
@@ -790,6 +835,33 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                             ],
+                            const SizedBox(height: AppTokens.space16),
+
+                            // Section H: AUDIT TRAIL
+                            Container(
+                              padding: const EdgeInsets.all(AppTokens.space16),
+                              decoration: BoxDecoration(
+                                color: surfaceColor,
+                                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.history_rounded, color: AppColors.primary, size: 18),
+                                      const SizedBox(width: 6),
+                                      Text('Dấu vết kiểm toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
+                                    ],
+                                  ),
+                                  const Divider(height: 20),
+
+                                  _buildInfoRow('Người tạo:', _currentOrder.createdByName ?? 'Khách hàng tự đặt', textPrimary, textSecondary),
+                                  _buildInfoRow('Cập nhật lần cuối:', _currentOrder.updatedByName ?? 'Hệ thống', textPrimary, textSecondary),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
                       ),

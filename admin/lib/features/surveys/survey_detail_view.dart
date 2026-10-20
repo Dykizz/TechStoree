@@ -386,21 +386,39 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
               else
                 const ContainerBadge(label: 'Tùy chọn', color: Colors.grey),
               const SizedBox(width: 6),
-              ContainerBadge(label: q.questionType.displayName, color: AppColors.primary),
+              ContainerBadge(
+                label: q.questionType.displayName,
+                color: q.questionType == SurveyQuestionType.MULTI_CHOICE
+                    ? const Color(0xFF0284C7)
+                    : (q.questionType == SurveyQuestionType.SINGLE_CHOICE
+                        ? AppColors.primary
+                        : AppColors.warning),
+              ),
             ],
           ),
 
-          if (q.questionType == SurveyQuestionType.SINGLE_CHOICE && q.options.isNotEmpty) ...[
+          if ((q.questionType == SurveyQuestionType.SINGLE_CHOICE ||
+                  q.questionType == SurveyQuestionType.MULTI_CHOICE) &&
+              q.options.isNotEmpty) ...[
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.only(left: 32),
               child: Column(
                 children: q.options.map((opt) {
+                  final isMulti = q.questionType == SurveyQuestionType.MULTI_CHOICE;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        const Icon(Icons.radio_button_unchecked, size: 14, color: AppColors.primary),
+                        Icon(
+                          isMulti
+                              ? Icons.check_box_outline_blank
+                              : Icons.radio_button_unchecked,
+                          size: 14,
+                          color: isMulti
+                              ? const Color(0xFF0284C7)
+                              : AppColors.primary,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(child: Text(opt.optionText, style: TextStyle(fontSize: 12, color: textPrimary))),
                         if (opt.voteCount > 0)

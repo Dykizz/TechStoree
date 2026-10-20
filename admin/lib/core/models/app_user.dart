@@ -3,7 +3,8 @@ class AppUser {
   final String userName; // Username đăng nhập
   final String fullName; // Họ và tên
   final String email;
-  final String role; // 'ADMIN', 'USER', 'STAFF'
+  final String role; // Primary role (e.g., 'ADMIN', 'USER', 'WAREHOUSE_STAFF')
+  final List<String> roles; // All roles
   final String status; // 'Hoạt động', 'Tạm khóa'
   final bool isLocked;
   final String phone;
@@ -18,6 +19,7 @@ class AppUser {
     String? fullName,
     required this.email,
     required this.role,
+    this.roles = const [],
     required this.status,
     this.isLocked = false,
     this.phone = '',
@@ -34,7 +36,19 @@ class AppUser {
     final rawUsername = (json['username'] ?? json['userName'] ?? json['fullName'] ?? json['hoTen'])?.toString() ?? '';
     final rawFullName = (json['fullName'] ?? json['hoTen'] ?? json['userName'] ?? json['username'])?.toString() ?? '';
     final rawEmail = json['email']?.toString() ?? '';
-    final rawRole = (json['role'] ?? json['vaiTro'] ?? 'USER')?.toString() ?? 'USER';
+    
+    List<String> parsedRoles = [];
+    if (json['roles'] != null && json['roles'] is List) {
+      parsedRoles = List<String>.from(json['roles']);
+    } else if (json['vaiTro'] != null && json['vaiTro'] is List) {
+      parsedRoles = List<String>.from(json['vaiTro']);
+    }
+
+    final rawRole = json['primaryRole']?.toString() ?? json['role']?.toString() ?? (parsedRoles.isNotEmpty ? parsedRoles.first : 'USER');
+    if (parsedRoles.isEmpty && rawRole.isNotEmpty) {
+      parsedRoles = [rawRole];
+    }
+
     final rawPhone = (json['phone'] ?? json['soDienThoai'] ?? '')?.toString() ?? '';
     final rawTechInterest = json['techInterest']?.toString();
     final rawAddress = json['address']?.toString();
@@ -60,6 +74,7 @@ class AppUser {
       fullName: fName,
       email: rawEmail,
       role: rawRole,
+      roles: parsedRoles,
       status: locked ? 'Tạm khóa' : 'Hoạt động',
       isLocked: locked,
       phone: rawPhone,
@@ -77,6 +92,7 @@ class AppUser {
       'fullName': fullName,
       'email': email,
       'role': role,
+      'roles': roles,
       'status': status,
       'isLocked': isLocked,
       'phone': phone,

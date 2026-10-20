@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import '../models/app_user.dart';
 import 'base_api_service.dart';
 
@@ -52,12 +51,19 @@ mixin UserApiService on BaseApiService {
     ),
   ];
 
-  Future<List<AppUser>> getUsers({String? token}) async {
+  Future<List<AppUser>> getUsers({String? token, bool? isStaffOnly}) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/users'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+      final queryParams = <String, String>{};
+      if (isStaffOnly != null) {
+        queryParams['isStaffOnly'] = isStaffOnly.toString();
+      }
+      final uri = Uri.parse('$baseUrl/users').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
+      final response = await httpGet(
+        uri,
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -77,14 +83,44 @@ mixin UserApiService on BaseApiService {
     } catch (e) {
       debugPrint('API Error getUsers: $e');
     }
-    return mockUsers.map((u) => _userCache[u.id] ?? u).toList();
+    var list = mockUsers.map((u) => _userCache[u.id] ?? u).toList();
+    if (isStaffOnly != null) {
+      if (isStaffOnly) {
+        list = list.where((u) => u.role.toUpperCase() != 'USER' || u.roles.any((r) => r.toUpperCase() != 'USER')).toList();
+      } else {
+        list = list.where((u) => u.role.toUpperCase() == 'USER' && (u.roles.isEmpty || u.roles.every((r) => r.toUpperCase() == 'USER'))).toList();
+      }
+    }
+    return list;
   }
 
   Future<ApiResult> createUser(AppUser user, String password, {String? token}) async {
     try {
-      final response = await http.post(
+      final response = await httpPost(
+        Uri.parse('$baseUrl/users'),
+        token: token,
+        body: json.encode({
+          'username': user.userName.isNotEmpty ? user.userName : user.fullName.toLowerCase().replaceAll(' ', '_'),
+          'email': user.email,
+          'password': password,
+          'fullName': user.fullName,
+          'phone': user.phone,
+          'techInterest': user.techInterest,
+          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+          'address': user.address,
+          'roles': user.roles.isNotEmpty ? user.roles : [user.role],
+        }),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        notifyListeners();
+        return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
+      }
+
+      // Fallback sang /auth/register nếu cần
+      final fallback = await httpPost(
         Uri.parse('$baseUrl/auth/register'),
-        headers: headers(token),
+        token: token,
         body: json.encode({
           'username': user.userName.isNotEmpty ? user.userName : user.fullName.toLowerCase().replaceAll(' ', '_'),
           'email': user.email,
@@ -95,12 +131,12 @@ mixin UserApiService on BaseApiService {
           'dateOfBirth': user.dateOfBirth?.toIso8601String(),
           'address': user.address,
         }),
-      ).timeout(const Duration(seconds: 5));
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
+      );
+      if (fallback.statusCode >= 200 && fallback.statusCode < 300) {
         notifyListeners();
         return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
       }
+
       return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
       debugPrint('API Error createUser: $e');
@@ -119,13 +155,17 @@ mixin UserApiService on BaseApiService {
     }
 
     try {
-      // 1. Cập nhật role qua backend API nếu role thay đổi
-      await updateUserRole(user.id, user.role, token: token);
+      // 1. Cập nhật các roles qua backend API
+      if (user.roles.isNotEmpty) {
+        await updateUserRoles(user.id, user.roles, token: token);
+      } else {
+        await updateUserRole(user.id, user.role, token: token);
+      }
 
       // 2. Cập nhật profile qua API /users/profile (nếu khớp với user token)
-      await http.put(
+      await httpPut(
         Uri.parse('$baseUrl/users/profile'),
-        headers: headers(token),
+        token: token,
         body: json.encode({
           'fullName': user.fullName,
           'phone': user.phone,
@@ -133,7 +173,7 @@ mixin UserApiService on BaseApiService {
           'techInterest': user.techInterest,
           'address': user.address,
         }),
-      ).timeout(const Duration(seconds: 4));
+      );
     } catch (e) {
       debugPrint('API Update User (backend call warning): $e');
     }
@@ -144,10 +184,10 @@ mixin UserApiService on BaseApiService {
 
   Future<bool> toggleUserLock(String userId, {String? token}) async {
     try {
-      final response = await http.patch(
+      final response = await httpPatch(
         Uri.parse('$baseUrl/users/$userId/toggle-lock'),
-        headers: headers(token),
-      ).timeout(const Duration(seconds: 4));
+        token: token,
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -166,6 +206,7 @@ mixin UserApiService on BaseApiService {
         fullName: old.fullName,
         email: old.email,
         role: old.role,
+        roles: old.roles,
         status: old.isLocked ? 'Hoạt động' : 'Tạm khóa',
         isLocked: !old.isLocked,
         phone: old.phone,
@@ -182,12 +223,21 @@ mixin UserApiService on BaseApiService {
   }
 
   Future<bool> updateUserRole(String userId, String roleId, {String? token}) async {
+    return updateUserRoles(userId, [roleId], token: token);
+  }
+
+  Future<bool> updateUserRoles(String userId, List<String> roles, {String? token}) async {
+    final primaryRole = roles.isNotEmpty ? roles.first : 'USER';
     try {
-      final response = await http.patch(
-        Uri.parse('$baseUrl/users/$userId/role'),
-        headers: headers(token),
-        body: json.encode({'roleId': roleId}),
-      ).timeout(const Duration(seconds: 4));
+      final response = await httpPatch(
+        Uri.parse('$baseUrl/users/$userId/roles'),
+        token: token,
+        body: json.encode({
+          'roles': roles,
+          'roleId': primaryRole,
+          'role': primaryRole,
+        }),
+      );
 
       final data = parseApiResponse(response);
       if (data != null) {
@@ -195,8 +245,9 @@ mixin UserApiService on BaseApiService {
         return true;
       }
     } catch (e) {
-      debugPrint('API Error updateUserRole: $e');
+      debugPrint('API Error updateUserRoles: $e');
     }
+
     final idx = mockUsers.indexWhere((u) => u.id == userId);
     if (idx != -1) {
       final old = mockUsers[idx];
@@ -205,7 +256,8 @@ mixin UserApiService on BaseApiService {
         userName: old.userName,
         fullName: old.fullName,
         email: old.email,
-        role: roleId,
+        role: primaryRole,
+        roles: roles,
         status: old.status,
         isLocked: old.isLocked,
         phone: old.phone,
