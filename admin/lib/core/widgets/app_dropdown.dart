@@ -28,6 +28,7 @@ class AppDropdown<T> extends StatelessWidget {
     return SizedBox(
       height: 44,
       child: DropdownButtonFormField<T>(
+        isExpanded: true,
         initialValue: value,
         dropdownColor: backgroundColor,
         icon: Icon(Icons.arrow_drop_down, size: 20, color: textSecondary),

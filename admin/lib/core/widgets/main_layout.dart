@@ -63,7 +63,7 @@ class MainLayout extends StatelessWidget {
       'Sản phẩm',
       'Đơn hàng',
       'Hóa đơn',
-      'Danh mục',
+      'Loại sản phẩm',
       'Nhà cung cấp',
       'Phiếu nhập hàng',
       'Khuyến mãi & Giảm giá',
