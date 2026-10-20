@@ -87,10 +87,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageHeader(
-                title: 'Danh Mục Sản Phẩm',
-                subtitle: 'Quản lý cấu trúc danh mục và phân loại thiết bị điện tử',
+                title: 'Loại sản phẩm',
+                subtitle: 'Quản lý cấu trúc loại sản phẩm và phân loại thiết bị điện tử',
                 action: AppButton(
-                  label: 'Tạo Danh Mục Mới',
+                  label: 'Thêm loại sản phẩm',
                   icon: Icons.add_rounded,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
                 ),
@@ -136,12 +136,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                       ),
                                       columns: [
-                                        DataColumn(label: Text('MÃ DANH MỤC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('TÊN DANH MỤC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('MÔ TẢ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('SỐ LƯỢNG SP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Mã loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Tên loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Mô tả', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Số lượng SP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedCategories.map((cat) {
                                         return DataRow(

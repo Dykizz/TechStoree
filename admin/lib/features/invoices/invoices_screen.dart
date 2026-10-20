@@ -8,6 +8,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
@@ -29,11 +30,14 @@ class InvoicesScreen extends StatefulWidget {
 class _InvoicesScreenState extends State<InvoicesScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+  final dateFormatDate = DateFormat('dd/MM/yyyy');
 
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   String _selectedStatus = 'ALL';
   String _selectedPaymentMethod = 'ALL';
+  DateTimeRange? _selectedDateRange;
+  String _selectedSort = 'createdAt_desc';
 
   int _currentPage = 1;
   int _pageSize = 10;
@@ -61,12 +65,20 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
     setState(() => _isLoading = true);
 
+    final sortParts = _selectedSort.split('_');
+    final sortBy = sortParts[0];
+    final isAscending = sortParts.length > 1 && sortParts[1] == 'asc';
+
     final result = await apiService.getAllInvoices(
       page: _currentPage,
       pageSize: _pageSize,
       status: _selectedStatus,
       paymentMethod: _selectedPaymentMethod,
       search: _searchQuery,
+      fromDate: _selectedDateRange?.start,
+      toDate: _selectedDateRange?.end,
+      sortBy: sortBy,
+      isAscending: isAscending,
       token: token,
     );
 
@@ -80,6 +92,41 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await showAppDateRangePicker(
+      context: context,
+      initialDateRange: _selectedDateRange,
+      helpText: 'Khoảng thời gian lập hóa đơn',
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDateRange = picked;
+        _currentPage = 1;
+      });
+      _loadInvoices();
+    }
+  }
+
+  bool get _hasActiveFilters =>
+      _searchQuery.isNotEmpty ||
+      _selectedStatus != 'ALL' ||
+      _selectedPaymentMethod != 'ALL' ||
+      _selectedDateRange != null ||
+      _selectedSort != 'createdAt_desc';
+
+  void _resetFilters() {
+    setState(() {
+      _searchCtrl.clear();
+      _searchQuery = '';
+      _selectedStatus = 'ALL';
+      _selectedPaymentMethod = 'ALL';
+      _selectedDateRange = null;
+      _selectedSort = 'createdAt_desc';
+      _currentPage = 1;
+    });
+    _loadInvoices();
   }
 
   void _showInvoiceDetail(Invoice invoice) {
@@ -223,50 +270,155 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               },
             ),
             filters: [
-              SizedBox(
-                width: 170,
-                child: AppDropdown<String>(
-                  value: _selectedStatus,
-                  items: const [
-                    DropdownMenuItem(value: 'ALL', child: Text('Trạng thái: Tất cả')),
-                    DropdownMenuItem(value: 'PAID', child: Text('Đã thanh toán')),
-                    DropdownMenuItem(value: 'UNPAID', child: Text('Chờ thanh toán')),
-                    DropdownMenuItem(value: 'CANCELLED', child: Text('Đã hủy')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedStatus = val;
-                        _currentPage = 1;
-                      });
-                      _loadInvoices();
-                    }
-                  },
-                ),
+              AppDropdown<String>(
+                value: _selectedStatus,
+                items: const [
+                  DropdownMenuItem(value: 'ALL', child: Text('Trạng thái: Tất cả')),
+                  DropdownMenuItem(value: 'PAID', child: Text('Đã thanh toán')),
+                  DropdownMenuItem(value: 'UNPAID', child: Text('Chờ thanh toán')),
+                  DropdownMenuItem(value: 'CANCELLED', child: Text('Đã hủy')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedStatus = val;
+                      _currentPage = 1;
+                    });
+                    _loadInvoices();
+                  }
+                },
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 170,
-                child: AppDropdown<String>(
-                  value: _selectedPaymentMethod,
-                  items: const [
-                    DropdownMenuItem(value: 'ALL', child: Text('Thanh toán: Tất cả')),
-                    DropdownMenuItem(value: 'COD', child: Text('COD (Tiền mặt)')),
-                    DropdownMenuItem(value: 'VNPAY', child: Text('Cổng VNPay')),
-                    DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Chuyển khoản NH')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedPaymentMethod = val;
-                        _currentPage = 1;
-                      });
-                      _loadInvoices();
-                    }
-                  },
-                ),
+              AppDropdown<String>(
+                value: _selectedPaymentMethod,
+                items: const [
+                  DropdownMenuItem(value: 'ALL', child: Text('Thanh toán: Tất cả')),
+                  DropdownMenuItem(value: 'COD', child: Text('COD (Tiền mặt)')),
+                  DropdownMenuItem(value: 'VNPAY', child: Text('Cổng VNPay')),
+                  DropdownMenuItem(value: 'BANK_TRANSFER', child: Text('Chuyển khoản NH')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _selectedPaymentMethod = val;
+                      _currentPage = 1;
+                    });
+                    _loadInvoices();
+                  }
+                },
               ),
             ],
+            secondaryRow: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // Date Range Button
+                InkWell(
+                  onTap: _pickDateRange,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    height: 38,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: _selectedDateRange != null
+                            ? AppColors.primary
+                            : (isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
+                        width: _selectedDateRange != null ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.date_range_rounded,
+                          size: 16,
+                          color: _selectedDateRange != null ? AppColors.primary : textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _selectedDateRange != null
+                              ? '${dateFormatDate.format(_selectedDateRange!.start)} - ${dateFormatDate.format(_selectedDateRange!.end)}'
+                              : 'Khoảng ngày: Tất cả',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: _selectedDateRange != null ? FontWeight.w600 : FontWeight.normal,
+                            color: _selectedDateRange != null ? textPrimary : textSecondary,
+                          ),
+                        ),
+                        if (_selectedDateRange != null) ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedDateRange = null;
+                                _currentPage = 1;
+                              });
+                              _loadInvoices();
+                            },
+                            child: const Icon(Icons.close_rounded, size: 16, color: AppColors.danger),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Sort Dropdown
+                SizedBox(
+                  width: 210,
+                  child: AppDropdown<String>(
+                    value: _selectedSort,
+                    items: const [
+                      DropdownMenuItem(value: 'createdAt_desc', child: Text('Sắp xếp: Mới nhất')),
+                      DropdownMenuItem(value: 'createdAt_asc', child: Text('Sắp xếp: Cũ nhất')),
+                      DropdownMenuItem(value: 'totalAmount_desc', child: Text('Tổng tiền: Cao → Thấp')),
+                      DropdownMenuItem(value: 'totalAmount_asc', child: Text('Tổng tiền: Thấp → Cao')),
+                      DropdownMenuItem(value: 'invoiceCode_asc', child: Text('Mã HĐ: A → Z')),
+                      DropdownMenuItem(value: 'invoiceCode_desc', child: Text('Mã HĐ: Z → A')),
+                      DropdownMenuItem(value: 'status_asc', child: Text('Trạng thái: A → Z')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() {
+                          _selectedSort = val;
+                          _currentPage = 1;
+                        });
+                        _loadInvoices();
+                      }
+                    },
+                  ),
+                ),
+
+                // Reset Filters Button
+                if (_hasActiveFilters)
+                  OutlinedButton.icon(
+                    onPressed: _resetFilters,
+                    icon: const Icon(Icons.filter_alt_off_rounded, size: 15, color: AppColors.danger),
+                    label: const Text('Đặt lại bộ lọc', style: TextStyle(fontSize: 12, color: AppColors.danger, fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.dangerBorder),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+
+                // Total items badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withAlpha(20),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Tổng: $_totalItems hóa đơn',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                  ),
+                ),
+              ],
+            ),
           ),
 
           const SizedBox(height: 12),

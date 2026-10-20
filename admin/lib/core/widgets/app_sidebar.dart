@@ -30,7 +30,7 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2_rounded, label: 'Sản phẩm', index: 1),
       _NavItem(icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag_rounded, label: 'Đơn hàng', index: 2),
       _NavItem(icon: Icons.receipt_outlined, activeIcon: Icons.receipt_rounded, label: 'Hóa đơn', index: 3),
-      _NavItem(icon: Icons.category_outlined, activeIcon: Icons.category_rounded, label: 'Danh mục', index: 4),
+      _NavItem(icon: Icons.category_outlined, activeIcon: Icons.category_rounded, label: 'Loại sản phẩm', index: 4),
       _NavItem(icon: Icons.domain_outlined, activeIcon: Icons.domain_rounded, label: 'Nhà cung cấp', index: 5),
       _NavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Phiếu nhập hàng', index: 6),
       _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & Giảm giá', index: 7),

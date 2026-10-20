@@ -57,14 +57,21 @@ mixin InvoiceApiService on BaseApiService {
       final uri = Uri.parse('$baseUrl/invoices/admin/all').replace(queryParameters: queryParams);
       final response = await httpGet(uri, token: token);
 
-      final body = parseApiResponse(response);
-      if (body != null && body is Map<String, dynamic>) {
-        final itemsData = body['items'];
-        final metaData = body['meta'];
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true) {
+          final data = jsonRes['data'];
+          List<dynamic> itemsData = [];
+          Map<String, dynamic>? metaData;
 
-        List<Invoice> items = [];
-        if (itemsData is List) {
-          items = itemsData
+          if (data is Map<String, dynamic>) {
+            if (data['items'] is List) itemsData = data['items'] as List;
+            if (data['meta'] is Map<String, dynamic>) metaData = data['meta'] as Map<String, dynamic>;
+          } else if (data is List) {
+            itemsData = data;
+          }
+
+          final items = itemsData
               .map((j) => Invoice.fromJson(j as Map<String, dynamic>))
               .toList();
 
@@ -75,29 +82,33 @@ mixin InvoiceApiService on BaseApiService {
           bool hasPrev = false;
           bool hasNext = false;
 
-          if (metaData is Map<String, dynamic>) {
+          if (metaData != null) {
             p = (metaData['page'] as num?)?.toInt() ?? p;
             ps = (metaData['pageSize'] as num?)?.toInt() ?? ps;
             totItems = (metaData['totalItems'] as num?)?.toInt() ?? totItems;
             totPages = (metaData['totalPages'] as num?)?.toInt() ?? totPages;
             hasPrev = metaData['hasPreviousPage'] as bool? ?? (p > 1);
             hasNext = metaData['hasNextPage'] as bool? ?? (p < totPages);
+          } else {
+            totPages = ps > 0 ? (totItems / ps).ceil() : 1;
+            if (totPages == 0) totPages = 1;
+            hasPrev = p > 1;
+            hasNext = p < totPages;
           }
 
-          // Nếu CSDL thực sự đã có dữ liệu hóa đơn, trả về dữ liệu thật
-          if (items.isNotEmpty || (totItems == 0 && (search != null || status != null))) {
-            isConnected = true;
-            return (
-              items: items,
-              page: p,
-              pageSize: ps,
-              totalItems: totItems,
-              totalPages: totPages,
-              hasPreviousPage: hasPrev,
-              hasNextPage: hasNext,
-            );
-          }
+          isConnected = true;
+          return (
+            items: items,
+            page: p,
+            pageSize: ps,
+            totalItems: totItems,
+            totalPages: totPages,
+            hasPreviousPage: hasPrev,
+            hasNextPage: hasNext,
+          );
         }
+      } else {
+        debugPrint('[InvoiceApiService] Backend trả về HTTP ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
       debugPrint('[InvoiceApiService] Lỗi getAllInvoices: $e');
@@ -155,9 +166,12 @@ mixin InvoiceApiService on BaseApiService {
         token: token,
       );
 
-      final body = parseApiResponse(response);
-      if (body != null && body is Map<String, dynamic>) {
-        return Invoice.fromJson(body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        final data = jsonRes is Map<String, dynamic> ? jsonRes['data'] : null;
+        if (data is Map<String, dynamic>) {
+          return Invoice.fromJson(data);
+        }
       }
     } catch (e) {
       debugPrint('[InvoiceApiService] Lỗi getInvoiceById($id): $e');
@@ -179,9 +193,12 @@ mixin InvoiceApiService on BaseApiService {
         token: token,
       );
 
-      final body = parseApiResponse(response);
-      if (body != null && body is Map<String, dynamic>) {
-        return Invoice.fromJson(body);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        final data = jsonRes is Map<String, dynamic> ? jsonRes['data'] : null;
+        if (data is Map<String, dynamic>) {
+          return Invoice.fromJson(data);
+        }
       }
     } catch (e) {
       debugPrint('[InvoiceApiService] Lỗi getInvoiceByOrderId($orderId): $e');
