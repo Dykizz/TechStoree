@@ -135,6 +135,50 @@ function OrdersContent() {
     }
   }
 
+  async function confirmPayment(order: Order) {
+    if (actionId) return;
+    setActionId(`pay-${order.orderId}`);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/orders/${order.orderId}/confirm-payment`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Không thể cập nhật thanh toán.");
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId ? { ...o, paymentStatus: "PAID" } : o,
+        ),
+      );
+      setNotice(
+        `Đơn hàng ${order.orderCode} đã được ghi nhận ĐÃ THANH TOÁN (Admin đã ghi nhận).`,
+      );
+      if (session.user?.userId) {
+        publishNotification(session.user.userId, {
+          id: `payment:${order.orderId}`,
+          kind: "order",
+          title: "Thanh toán thành công",
+          message: `Đơn hàng ${order.orderCode} đã được xác nhận thanh toán chuyển khoản thành công.`,
+          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+        });
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Không thể xác nhận thanh toán. Vui lòng thử lại.",
+      );
+    } finally {
+      setActionId("");
+    }
+  }
+
   async function reorder(item: Order["items"][number]) {
     if (actionId || busy) return;
     setActionId(String(item.variantId));
@@ -327,21 +371,44 @@ function OrdersContent() {
                             ? "Thanh toán khi nhận hàng"
                             : "Chuyển khoản"}{" "}
                           ·{" "}
-                          {order.paymentStatus === "PAID"
-                            ? "Đã thanh toán"
-                            : "Chưa thanh toán"}
-                        </p>
-                        {["PENDING", "CONFIRMED"].includes(order.status) && (
-                          <button
-                            className={styles.actionBtnContact}
-                            disabled={!!actionId}
-                            onClick={() => void cancel(order)}
+                          <span
+                            className={
+                              order.paymentStatus === "PAID"
+                                ? styles.paidBadge
+                                : styles.unpaidBadge
+                            }
                           >
-                            {actionId === order.orderId
-                              ? "Đang hủy…"
-                              : "Hủy đơn"}
-                          </button>
-                        )}
+                            {order.paymentStatus === "PAID"
+                              ? "✓ Đã thanh toán"
+                              : "Chờ chuyển khoản"}
+                          </span>
+                        </p>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
+                          {order.paymentMethod !== "COD" &&
+                            order.paymentStatus !== "PAID" &&
+                            order.status !== "CANCELLED" && (
+                              <button
+                                className={styles.actionBtnPay}
+                                disabled={!!actionId}
+                                onClick={() => void confirmPayment(order)}
+                              >
+                                {actionId === `pay-${order.orderId}`
+                                  ? "Đang xử lý…"
+                                  : "✓ Báo đã thanh toán"}
+                              </button>
+                            )}
+                          {["PENDING", "CONFIRMED"].includes(order.status) && (
+                            <button
+                              className={styles.actionBtnContact}
+                              disabled={!!actionId}
+                              onClick={() => void cancel(order)}
+                            >
+                              {actionId === order.orderId
+                                ? "Đang hủy…"
+                                : "Hủy đơn"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className={styles.priceSummary}>
                         <div className={styles.priceRow}>

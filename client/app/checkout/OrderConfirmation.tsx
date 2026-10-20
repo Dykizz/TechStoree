@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { publishNotification } from "../../lib/customer-notifications";
 import { formatPrice } from "../../lib/products-client";
 import type { Order } from "../../lib/types/order";
 import styles from "./checkout.module.css";
@@ -16,18 +17,77 @@ const orderStatuses: Record<Order["status"], string> = {
   CANCELLED: "Đã hủy",
 };
 
-export default function OrderConfirmation({ order }: { order: Order }) {
+export default function OrderConfirmation({
+  order,
+  customBank,
+}: {
+  order: Order;
+  customBank?: {
+    bin: string;
+    name: string;
+    account: string;
+    accountName: string;
+  };
+}) {
   const heading = useRef<HTMLHeadingElement>(null);
   const receipt = useRef<HTMLElement>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
   const isBanking = order.paymentMethod === "BANKING";
   const isPaid = order.paymentStatus === "PAID";
-  const bankBin = process.env.NEXT_PUBLIC_BANK_BIN;
-  const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT;
-  const bankAccountName = process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME;
+  const [paymentConfirmed, setPaymentConfirmed] = useState(isPaid);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmError, setConfirmError] = useState("");
+
+  const effectivePaid = isPaid || paymentConfirmed;
+
+  const bankBin = customBank?.bin || process.env.NEXT_PUBLIC_BANK_BIN || "970422";
+  const bankName = customBank?.name || process.env.NEXT_PUBLIC_BANK_NAME || "MBBank";
+  const bankAccount = customBank?.account || process.env.NEXT_PUBLIC_BANK_ACCOUNT || "0372933562";
+  const bankAccountName = customBank?.accountName || process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "NGUYEN HONG SON";
   const bankConfigured = !!(bankBin && bankAccount && bankAccountName);
   const qrUrl = bankConfigured
     ? `https://img.vietqr.io/image/${bankBin}-${bankAccount}-compact2.png?amount=${order.totalAmount}&addInfo=${encodeURIComponent(order.orderCode)}&accountName=${encodeURIComponent(bankAccountName)}`
     : null;
+
+  const copyToClipboard = (text: string, key: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      void navigator.clipboard.writeText(text);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey((prev) => (prev === key ? null : prev)), 2000);
+    }
+  };
+
+  const handleConfirmPayment = async () => {
+    if (effectivePaid || isConfirming) return;
+    setIsConfirming(true);
+    setConfirmError("");
+    try {
+      const res = await fetch(`/api/orders/${order.orderId}/confirm-payment`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Không thể cập nhật trạng thái thanh toán.");
+      }
+      setPaymentConfirmed(true);
+      if (order.userId) {
+        publishNotification(order.userId, {
+          id: `payment:${order.orderId}`,
+          kind: "order",
+          title: "Thanh toán thành công",
+          message: `Đơn hàng ${order.orderCode} đã được ghi nhận thanh toán chuyển khoản thành công.`,
+          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+        });
+      }
+    } catch (err: unknown) {
+      setConfirmError(
+        err instanceof Error ? err.message : "Lỗi khi xác nhận thanh toán.",
+      );
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -76,9 +136,9 @@ export default function OrderConfirmation({ order }: { order: Order }) {
           <div className={styles.receiptAmount}>
             <p className={styles.amountLabel}>Tổng tiền đơn hàng</p>
             <p className={styles.amountValue}>{formatPrice(order.totalAmount)}</p>
-            <span className={`${styles.paymentStatus} ${isPaid ? styles.paidStatus : ""}`}>
+            <span className={`${styles.paymentStatus} ${effectivePaid ? styles.paidStatus : ""}`}>
               <span aria-hidden="true" />
-              {isPaid ? "Đã thanh toán" : isBanking ? "Chờ xác nhận chuyển khoản" : "Thanh toán khi nhận hàng"}
+              {effectivePaid ? "Đã thanh toán (PAID)" : isBanking ? "Chờ chuyển khoản" : "Thanh toán khi nhận hàng"}
             </span>
             <dl className={styles.amountBreakdown}>
               <div><dt>Tạm tính</dt><dd>{formatPrice(order.subtotalAmount)}</dd></div>
@@ -87,22 +147,36 @@ export default function OrderConfirmation({ order }: { order: Order }) {
               )}
             </dl>
             <p className={styles.paymentExplanation}>
-              {isPaid
-                ? "Hệ thống đã xác nhận thanh toán cho đơn hàng này."
+              {effectivePaid
+                ? "Hệ thống đã xác nhận thanh toán cho đơn hàng này. Quản trị viên (Admin) và cửa hàng đã nhận được trạng thái ĐÃ THANH TOÁN."
                 : isBanking
-                  ? "Đơn đã được tạo, nhưng chưa được xác nhận thanh toán. Hiển thị hoặc quét QR không tự đổi trạng thái này."
+                  ? "Đơn đã được tạo. Vui lòng quét mã VietQR bên dưới để chuyển khoản, sau đó nhấn nút 'Tôi đã thanh toán' để báo tín hiệu cho hệ thống."
                   : "Đơn hàng chưa thanh toán. Bạn sẽ thanh toán khi nhận hàng."}
             </p>
           </div>
         </div>
       </div>
 
-      {isBanking && !isPaid && (
+      {isBanking && effectivePaid && (
+        <section className={styles.transferSection} aria-labelledby="transfer-title">
+          <div className={styles.paidSuccessCard}>
+            <div className={styles.paidSuccessIcon}>✓</div>
+            <div>
+              <h3 className={styles.paidSuccessTitle}>Đã ghi nhận thanh toán thành công!</h3>
+              <p className={styles.paidSuccessDesc}>
+                Đơn hàng <strong>{order.orderCode}</strong> đã ở trạng thái <strong>ĐÃ THANH TOÁN (PAID)</strong>. Quản trị viên (Admin) và hệ thống xử lý đơn hàng đã ghi nhận thành công.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {isBanking && !effectivePaid && (
         <section className={styles.transferSection} aria-labelledby="transfer-title">
           <div className={styles.transferHeading}>
             <p className={styles.eyebrow}>HOÀN TẤT THANH TOÁN</p>
             <h2 id="transfer-title">Thông tin chuyển khoản</h2>
-            <p>Chuyển đúng số tiền và giữ nguyên mã đơn hàng trong nội dung chuyển khoản.</p>
+            <p>Quét mã VietQR bằng ứng dụng ngân hàng hoặc sao chép thông tin để chuyển khoản nhanh 24/7.</p>
           </div>
           {qrUrl ? (
             <div className={styles.transferGrid}>
@@ -111,18 +185,80 @@ export default function OrderConfirmation({ order }: { order: Order }) {
                 <span>Quét bằng ứng dụng ngân hàng</span>
               </div>
               <dl className={`${styles.detailList} ${styles.transferDetails}`}>
-                <div><dt>Ngân hàng / mã BIN</dt><dd>{bankBin}</dd></div>
-                <div><dt>Số tài khoản</dt><dd>{bankAccount}</dd></div>
-                <div><dt>Chủ tài khoản</dt><dd>{bankAccountName}</dd></div>
-                <div><dt>Số tiền</dt><dd className={styles.transferValue}>{formatPrice(order.totalAmount)}</dd></div>
-                <div><dt>Nội dung</dt><dd className={styles.transferValue}>{order.orderCode}</dd></div>
+                <div>
+                  <dt>Ngân hàng</dt>
+                  <dd>{bankName} (BIN: {bankBin})</dd>
+                </div>
+                <div>
+                  <dt>Số tài khoản</dt>
+                  <dd>
+                    <strong>{bankAccount}</strong>
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard(bankAccount, "account")}
+                    >
+                      {copiedKey === "account" ? "✓ Đã chép" : "Sao chép"}
+                    </button>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Chủ tài khoản</dt>
+                  <dd>{bankAccountName}</dd>
+                </div>
+                <div>
+                  <dt>Số tiền</dt>
+                  <dd className={styles.transferValue}>
+                    {formatPrice(order.totalAmount)}
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard(String(order.totalAmount), "amount")}
+                    >
+                      {copiedKey === "amount" ? "✓ Đã chép" : "Sao chép"}
+                    </button>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Nội dung</dt>
+                  <dd className={styles.transferValue}>
+                    {order.orderCode}
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard(order.orderCode, "code")}
+                    >
+                      {copiedKey === "code" ? "✓ Đã chép" : "Sao chép"}
+                    </button>
+                  </dd>
+                </div>
               </dl>
             </div>
           ) : (
             <p className={styles.transferUnavailable} role="status">
-              Chưa có đủ thông tin tài khoản nhận tiền để hiển thị QR. Đơn đã được lưu; vui lòng theo dõi đơn hàng và chờ thông tin thanh toán được cấu hình.
+              Chưa có đủ thông tin tài khoản nhận tiền để hiển thị QR.
             </p>
           )}
+
+          <div className={styles.confirmPaymentBox}>
+            <p className={styles.confirmPaymentHeading}>
+              ⚡ Đã quét mã và chuyển tiền thành công?
+            </p>
+            <p className={styles.confirmPaymentSub}>
+              Bấm nút bên dưới để báo tín hiệu đã thanh toán cho hệ thống. Đơn hàng sẽ lập tức chuyển sang trạng thái <strong>Đã thanh toán</strong> và Quản trị viên (Admin) sẽ thấy ngay!
+            </p>
+            <button
+              type="button"
+              className={styles.confirmPaymentBtn}
+              onClick={handleConfirmPayment}
+              disabled={isConfirming}
+            >
+              {isConfirming ? "Đang xử lý xác nhận..." : "✓ Tôi đã thanh toán (Báo tín hiệu chuyển khoản)"}
+            </button>
+            {confirmError && (
+              <p className={styles.confirmErrorText}>{confirmError}</p>
+            )}
+          </div>
         </section>
       )}
 

@@ -16,10 +16,14 @@ interface CartDropdownProps {
 function CartDropdownItem({
   item,
   onRemove,
+  onUpdateQty,
+  busy,
   onClose,
 }: {
   item: CartItem;
   onRemove: () => void;
+  onUpdateQty: (newQty: number) => void;
+  busy: boolean;
   onClose?: () => void;
 }) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -85,7 +89,35 @@ function CartDropdownItem({
 
         <div className={styles.itemMeta}>
           <span className={styles.itemPrice}>{formatPrice(item.price)}</span>
-          <span className={styles.itemQuantity}>×{item.quantity}</span>
+          <div className={styles.qtyControl}>
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              disabled={busy}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onUpdateQty(item.quantity - 1);
+              }}
+              aria-label="Giảm số lượng"
+            >
+              -
+            </button>
+            <span className={styles.qtyValue}>{item.quantity}</span>
+            <button
+              type="button"
+              className={styles.qtyBtn}
+              disabled={busy || item.quantity >= item.stockQuantity}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onUpdateQty(item.quantity + 1);
+              }}
+              aria-label="Tăng số lượng"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
@@ -122,7 +154,8 @@ export default function CartDropdown({
   align = "right",
   onClose,
 }: CartDropdownProps) {
-  const { items, totalItems, totalPrice, removeItem } = useCart();
+  const { items, totalItems, totalPrice, removeItem, updateQuantity, busy } =
+    useCart();
 
   const recentItems = items.slice(-5).reverse();
   const hasMore = items.length > 5;
@@ -186,6 +219,10 @@ export default function CartDropdown({
                   key={item.cartItemId}
                   item={item}
                   onRemove={() => removeItem(item.cartItemId)}
+                  onUpdateQty={(newQty) =>
+                    updateQuantity(item.cartItemId, newQty)
+                  }
+                  busy={busy}
                   onClose={onClose}
                 />
               ))}

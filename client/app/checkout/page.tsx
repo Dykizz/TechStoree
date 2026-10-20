@@ -29,6 +29,19 @@ const PROVINCES = [
   "Tỉnh / Thành khác",
 ];
 
+export const SUPPORTED_BANKS = [
+  { bin: "970422", shortName: "MBBank", name: "MBBank (Ngân hàng TMCP Quân Đội)" },
+  { bin: "970436", shortName: "Vietcombank", name: "Vietcombank (Ngân hàng Ngoại Thương)" },
+  { bin: "970407", shortName: "Techcombank", name: "Techcombank (Ngân hàng Kỹ Thương)" },
+  { bin: "970416", shortName: "ACB", name: "ACB (Ngân hàng Á Châu)" },
+  { bin: "970432", shortName: "VPBank", name: "VPBank (Ngân hàng Việt Nam Thịnh Vượng)" },
+  { bin: "970423", shortName: "TPBank", name: "TPBank (Ngân hàng Tiên Phong)" },
+  { bin: "970418", shortName: "BIDV", name: "BIDV (Ngân hàng Đầu tư & Phát triển)" },
+  { bin: "970415", shortName: "VietinBank", name: "VietinBank (Ngân hàng Công Thương)" },
+  { bin: "970403", shortName: "Sacombank", name: "Sacombank (Ngân hàng Sài Gòn Thương Tín)" },
+  { bin: "970448", shortName: "OCB", name: "OCB (Ngân hàng Phương Đông)" },
+];
+
 export default function CheckoutPage() {
   const session = useProtectedSession();
   const {
@@ -48,35 +61,75 @@ export default function CheckoutPage() {
   const [shippingAddress, setShippingAddress] = useState("");
   const [note, setNote] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [selectedBankBin, setSelectedBankBin] = useState<string>(
+    process.env.NEXT_PUBLIC_BANK_BIN || "970422",
+  );
+  const [bankAccount, setBankAccount] = useState<string>(
+    process.env.NEXT_PUBLIC_BANK_ACCOUNT || "0372933562",
+  );
+  const [bankAccountName, setBankAccountName] = useState<string>(
+    process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "NGUYEN HONG SON",
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const submitting = useRef(false);
+
+  const activeBank =
+    SUPPORTED_BANKS.find((b) => b.bin === selectedBankBin) || SUPPORTED_BANKS[0];
 
   // Dynamic shipping fee calculation
   const shippingFee = 0; // Backend does not currently calculate delivery fees.
 
   const grandTotal = finalPrice + shippingFee;
 
-  // Auto-fill logged in user info if available
+  // Auto-fill logged in user info (including phone number and address) if available
   useEffect(() => {
-    async function loadUser() {
+    if (session.status !== "ready") return;
+
+    if (session.user) {
+      const u = session.user;
+      if (u.fullName || u.username) {
+        setRecipientName((prev) => prev || u.fullName || u.username);
+      }
+      if (u.phone) {
+        setRecipientPhone((prev) => prev || u.phone!.trim());
+      }
+      if (u.address) {
+        setShippingAddress((prev) => prev || u.address!.trim());
+      }
+    }
+
+    let active = true;
+    async function loadFreshProfile() {
       try {
-        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        const res = await fetch("/api/auth/profile", { cache: "no-store" });
+        if (!active) return;
         if (res.ok) {
           const data = await res.json();
-          if (data && data.user) {
-            setRecipientName(
-              (prev) => prev || data.user.fullName || data.user.username,
-            );
+          const p = data?.profile;
+          if (p) {
+            if (p.fullName || p.username) {
+              setRecipientName((prev) => prev || p.fullName || p.username);
+            }
+            if (p.phone) {
+              setRecipientPhone((prev) => prev || p.phone.trim());
+            }
+            if (p.address) {
+              setShippingAddress((prev) => prev || p.address.trim());
+            }
           }
         }
       } catch {
-        // Optional
+        // Silently continue
       }
     }
-    void loadUser();
-  }, []);
+    void loadFreshProfile();
+
+    return () => {
+      active = false;
+    };
+  }, [session.status, session.user]);
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -120,6 +173,12 @@ export default function CheckoutPage() {
         .filter((id): id is number => typeof id === "number" && id > 0);
       if (backendCartIds.length !== items.length)
         throw new Error("Giỏ hàng chưa đồng bộ. Vui lòng tải lại.");
+      let formattedNotes = note.trim();
+      if (paymentMethod === "BANKING") {
+        const bankTag = `[VIETQR | ${activeBank.shortName} - STK: ${bankAccount.trim()} - ${bankAccountName.trim().toUpperCase()}]`;
+        formattedNotes = formattedNotes ? `${bankTag} ${formattedNotes}` : bankTag;
+      }
+
       const response = await fetch("/api/orders/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,7 +186,7 @@ export default function CheckoutPage() {
           receiverName: recipientName.trim(),
           receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
           shippingAddress: fullAddress,
-          notes: note.trim() || undefined,
+          notes: formattedNotes ? formattedNotes.slice(0, 500) : undefined,
           paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : "COD",
           voucherCode: appliedVoucher?.code || undefined,
           cartItemIds: backendCartIds,
@@ -191,7 +250,15 @@ export default function CheckoutPage() {
     return (
       <main className={styles.main}>
         <div className={styles.container}>
-          <OrderConfirmation order={createdOrder} />
+          <OrderConfirmation
+            order={createdOrder}
+            customBank={{
+              bin: selectedBankBin,
+              name: activeBank.name,
+              account: bankAccount,
+              accountName: bankAccountName,
+            }}
+          />
         </div>
       </main>
     );
@@ -430,11 +497,6 @@ export default function CheckoutPage() {
                     type="radio"
                     name="paymentMethod"
                     value="BANKING"
-                    disabled={
-                      !process.env.NEXT_PUBLIC_BANK_BIN ||
-                      !process.env.NEXT_PUBLIC_BANK_ACCOUNT ||
-                      !process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME
-                    }
                     checked={paymentMethod === "BANKING"}
                     onChange={() => setPaymentMethod("BANKING")}
                     className={styles.radioInput}
@@ -444,27 +506,54 @@ export default function CheckoutPage() {
                       Chuyển khoản ngân hàng qua mã QR (VietQR 24/7)
                     </div>
                     <div className={styles.paymentDesc}>
-                      {process.env.NEXT_PUBLIC_BANK_ACCOUNT
-                        ? "Mã QR hiển thị thông tin chuyển khoản. Trạng thái thanh toán chỉ cập nhật khi hệ thống xác nhận."
-                        : "Chưa cấu hình tài khoản nhận tiền. Vui lòng chọn COD."}
+                      Quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để chuyển khoản nhanh 24/7.
                     </div>
                     {paymentMethod === "BANKING" && (
                       <div className={styles.bankQrBox}>
-                        <p>
-                          <strong>Ngân hàng thụ hưởng:</strong> Ngân hàng đã cấu
-                          hình
-                        </p>
-                        <p>
-                          <strong>Số tài khoản:</strong>{" "}
-                          {process.env.NEXT_PUBLIC_BANK_ACCOUNT}
-                        </p>
-                        <p>
-                          <strong>Chủ tài khoản:</strong>{" "}
-                          {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME}
-                        </p>
-                        <p style={{ marginTop: "8px", color: "#166534" }}>
-                          Mã QR sẽ hiển thị ngay sau khi bạn bấm Xác Nhận Đặt
-                          Hàng.
+                        <div className={styles.bankConfigField}>
+                          <label className={styles.bankFieldLabel}>
+                            Ngân hàng thụ hưởng:
+                          </label>
+                          <select
+                            className={styles.bankSelect}
+                            value={selectedBankBin}
+                            onChange={(e) => setSelectedBankBin(e.target.value)}
+                          >
+                            {SUPPORTED_BANKS.map((b) => (
+                              <option key={b.bin} value={b.bin}>
+                                {b.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className={styles.bankConfigGrid}>
+                          <div className={styles.bankConfigField}>
+                            <label className={styles.bankFieldLabel}>
+                              Số tài khoản nhận tiền:
+                            </label>
+                            <input
+                              type="text"
+                              className={styles.bankInput}
+                              value={bankAccount}
+                              onChange={(e) => setBankAccount(e.target.value)}
+                              placeholder="Nhập số tài khoản"
+                            />
+                          </div>
+                          <div className={styles.bankConfigField}>
+                            <label className={styles.bankFieldLabel}>
+                              Tên chủ tài khoản:
+                            </label>
+                            <input
+                              type="text"
+                              className={styles.bankInput}
+                              value={bankAccountName}
+                              onChange={(e) => setBankAccountName(e.target.value)}
+                              placeholder="Nhập tên chủ tài khoản"
+                            />
+                          </div>
+                        </div>
+                        <p style={{ marginTop: "10px", color: "#166534", fontSize: "12px", lineHeight: "1.5" }}>
+                          ✓ Hệ thống sẽ tạo mã VietQR chuẩn theo ngân hàng &amp; số tài khoản bạn chọn. Khi bấm "Xác nhận đặt hàng", mã QR sẽ hiển thị kèm nút báo tín hiệu đã thanh toán.
                         </p>
                       </div>
                     )}

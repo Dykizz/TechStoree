@@ -287,15 +287,61 @@
 
 .itemMeta {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  margin-top: 2px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .itemPrice {
   font-size: 0.86rem;
   font-weight: 600;
   color: #111111;
+}
+
+.qtyControl {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.qtyBtn {
+  background: none;
+  border: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #444444;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  padding: 0;
+  user-select: none;
+}
+
+.qtyBtn:hover:not(:disabled) {
+  background-color: #f0f0f0;
+  color: #111111;
+}
+
+.qtyBtn:disabled {
+  color: #cccccc;
+  cursor: not-allowed;
+}
+
+.qtyValue {
+  min-width: 22px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #111111;
+  padding: 0 4px;
 }
 
 .itemQuantity {

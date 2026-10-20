@@ -20,6 +20,7 @@ export default function CartDrawer() {
     closeCart,
     updateQuantity,
     removeItem,
+    busy,
   } = useCart();
 
   // Close drawer if user is on /cart or /checkout
@@ -183,6 +184,7 @@ export default function CartDrawer() {
                         <button
                           type="button"
                           className={styles.qtyBtn}
+                          disabled={busy}
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity - 1)
                           }
@@ -194,7 +196,7 @@ export default function CartDrawer() {
                         <button
                           type="button"
                           className={styles.qtyBtn}
-                          disabled={item.quantity >= item.stockQuantity}
+                          disabled={busy || item.quantity >= item.stockQuantity}
                           onClick={() =>
                             updateQuantity(item.cartItemId, item.quantity + 1)
                           }

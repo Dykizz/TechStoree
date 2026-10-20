@@ -269,6 +269,13 @@
   cursor: not-allowed;
 }
 
+.addToCartSuccess {
+  background-color: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+  transition: all 0.2s ease-in-out;
+}
+
 .buyNowBtn {
   background-color: var(--brand);
   border: 2px solid var(--brand);
