@@ -490,7 +490,72 @@
           "uid": "37058152-e2d69534-c4b1-491c-a6b4-4b89d28e882f"
         },
         {
-          "name": "4. Khóa / Mở khóa tài khoản (PATCH /api/users/:id/toggle-lock)",
+          "name": "4. Cập nhật thông tin người dùng (PUT /api/users/:id)",
+          "id": "a1b2c3d4-e5f6-47a8-9b0c-1d2e3f4a5b6c",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Trần Văn Kho (Cập Nhật)\",\n  \"phone\": \"0988776655\",\n  \"address\": \"789 Đường Lê Lợi, Q.1, TP.HCM\",\n  \"techInterest\": \"Laptop\",\n  \"employmentType\": \"FULL_TIME\",\n  \"baseSalary\": 13500000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{createdStaffId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "users",
+                "{{createdStaffId}}"
+              ]
+            },
+            "description": "[Yêu cầu quyền Users.Update hoặc ADMIN] Cập nhật thông tin tài khoản người dùng / nhân viên theo ID (họ tên, email, sđt, địa chỉ, sở thích công nghệ, thông tin lương, nhân sự, mật khẩu mới, vai trò)."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200 OK\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"User info updated successfully\", function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.success).to.be.true;",
+                  "    pm.expect(json.data.fullName).to.eql(\"Trần Văn Kho (Cập Nhật)\");",
+                  "    pm.expect(json.data.phone).to.eql(\"0988776655\");",
+                  "    pm.expect(json.data.baseSalary).to.eql(13500000);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Khóa / Mở khóa tài khoản (PATCH /api/users/:id/toggle-lock)",
           "id": "0c63dda4-b4e8-486e-aaa2-f6a3da980c3d",
           "request": {
             "auth": {
@@ -6537,7 +6602,7 @@
                 "status"
               ]
             },
-            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang CONFIRMED. Tự động ghi nhận nhân viên thao tác vào `updatedByUserId` và `updatedByUsername`."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang CONFIRMED. Tự động ghi nhận nhân viên thao tác vào `updatedByUserId` và `updatedByUsername`. Trạng thái thanh toán (PaymentStatus) được tự động suy ra/giữ nguyên từ trạng thái trước đó (PENDING)."
           },
           "event": [
             {
@@ -6548,10 +6613,11 @@
                   "pm.test(\"Status code is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test(\"Status updated to CONFIRMED and staff audit tracked\", function () {",
+                  "pm.test(\"Status updated to CONFIRMED, paymentStatus preserved, staff audit tracked\", function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.orderStatus).to.eql(\"CONFIRMED\");",
+                  "    pm.expect(json.data.paymentStatus).to.eql(\"PENDING\");",
                   "    pm.expect(json.data.updatedByUserId).to.be.a(\"number\");",
                   "});"
                 ]
@@ -6605,7 +6671,7 @@
                 "status"
               ]
             },
-            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang SHIPPING."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang SHIPPING. Trạng thái thanh toán (PaymentStatus) được tự động suy ra/giữ nguyên từ trạng thái trước đó (PENDING)."
           },
           "event": [
             {
@@ -6616,10 +6682,11 @@
                   "pm.test(\"Status code is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test(\"Status updated to SHIPPING\", function () {",
+                  "pm.test(\"Status updated to SHIPPING and paymentStatus preserved\", function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.orderStatus).to.eql(\"SHIPPING\");",
+                  "    pm.expect(json.data.paymentStatus).to.eql(\"PENDING\");",
                   "});"
                 ]
               }
@@ -6672,7 +6739,7 @@
                 "status"
               ]
             },
-            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang DELIVERED."
+            "description": "[ADMIN / SALES_STAFF] Cập nhật trạng thái sang DELIVERED. PaymentStatus tự động được suy ra thành PAID khi giao hàng thành công (không cần gửi paymentStatus trong request body) và tự động ghi nhận PaidAt."
           },
           "event": [
             {
@@ -6683,11 +6750,12 @@
                   "pm.test(\"Status code is 200 OK\", function () {",
                   "    pm.response.to.have.status(200);",
                   "});",
-                  "pm.test(\"Status updated to DELIVERED and PaymentStatus is PAID\", function () {",
+                  "pm.test(\"Status updated to DELIVERED and PaymentStatus is auto inferred to PAID\", function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.success).to.be.true;",
                   "    pm.expect(json.data.orderStatus).to.eql(\"DELIVERED\");",
                   "    pm.expect(json.data.paymentStatus).to.eql(\"PAID\");",
+                  "    pm.expect(json.data.paidAt).to.not.be.null;",
                   "});"
                 ]
               }

@@ -98,37 +98,13 @@ public class UserService(AppDbContext context) : IUserService
 
     public async Task<UserDto> GetUserByIdAsync(int id)
     {
-        var user = await context.Users
-            .AsNoTracking()
-            .Include(u => u.Customer)
-            .Include(u => u.Employee)
-            .Include(u => u.Admin)
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.UserId == id);
-
-        if (user == null)
-        {
-            throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
-        }
-
+        var user = await FindUserWithDetailsAsync(id, asNoTracking: true);
         return user.ToUserDto();
     }
 
     public async Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto)
     {
-        var user = await context.Users
-            .Include(u => u.Customer)
-            .Include(u => u.Employee)
-            .Include(u => u.Admin)
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.UserId == id);
-
-        if (user == null)
-        {
-            throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
-        }
+        var user = await FindUserWithDetailsAsync(id);
 
         // Cập nhật trạng thái khóa: nếu client chỉ định IsLocked thì gán, ngược lại tự động đảo chiều (toggle)
         user.IsLocked = dto?.IsLocked ?? !user.IsLocked;
@@ -259,30 +235,172 @@ public class UserService(AppDbContext context) : IUserService
 
     public async Task<UserDto> UpdateRoleAsync(int operatorUserId, int id, UpdateRoleRequestDto dto)
     {
-        var user = await context.Users
-            .Include(u => u.Customer)
-            .Include(u => u.Employee)
-            .Include(u => u.Admin)
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.UserId == id);
-
-        if (user == null)
-        {
-            throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
-        }
+        var user = await FindUserWithDetailsAsync(id);
 
         // Hỗ trợ cả danh sách Roles mới lẫn RoleId đơn lẻ (tương thích ngược)
         var requestedRoles = (dto.Roles != null && dto.Roles.Count > 0)
             ? dto.Roles
             : (!string.IsNullOrWhiteSpace(dto.RoleId) ? new List<string> { dto.RoleId } : new List<string>());
 
-        if (requestedRoles.Count == 0)
+        await AssignRolesAndSyncEntitiesAsync(user, requestedRoles, operatorUserId);
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateUserAsync(int operatorUserId, int id, UpdateUserRequestDto dto)
+    {
+        var user = await FindUserWithDetailsAsync(id);
+
+        await ValidateAndApplyEmailAsync(user, dto.Email);
+        user.FullName = dto.FullName.Trim();
+        user.Phone = dto.Phone?.Trim();
+
+        ApplyPasswordIfProvided(user, dto.Password);
+        ApplyCustomerDetails(user, dto);
+        await ValidateAndApplyEmployeeAsync(user, dto);
+
+        if (dto.Roles != null)
+        {
+            await AssignRolesAndSyncEntitiesAsync(user, dto.Roles, operatorUserId, dto.EmploymentType, dto.BaseSalary, dto.HourlyRate);
+        }
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto)
+    {
+        var user = await FindUserWithDetailsAsync(userId);
+
+        user.FullName = dto.FullName.Trim();
+        user.Phone = dto.Phone?.Trim();
+
+        user.Customer ??= new Customer();
+        user.Customer.DateOfBirth = dto.DateOfBirth.HasValue
+            ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc)
+            : null;
+        user.Customer.TechInterest = dto.TechInterest?.Trim();
+        user.Customer.Address = dto.Address?.Trim();
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    private async Task<User> FindUserWithDetailsAsync(int id, bool asNoTracking = false)
+    {
+        IQueryable<User> query = context.Users
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role);
+
+        if (asNoTracking)
+        {
+            query = query.AsNoTracking();
+        }
+
+        return await query.FirstOrDefaultAsync(u => u.UserId == id)
+            ?? throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
+    }
+
+    private async Task ValidateAndApplyEmailAsync(User user, string? newEmail)
+    {
+        if (string.IsNullOrWhiteSpace(newEmail)) return;
+
+        var emailTrimmed = newEmail.Trim().ToLower();
+        if (user.Email.ToLower() == emailTrimmed) return;
+
+        var emailExists = await context.Users
+            .AnyAsync(u => u.UserId != user.UserId && u.Email.ToLower() == emailTrimmed);
+        if (emailExists)
+        {
+            throw new BadRequestException("Địa chỉ email này đã được sử dụng bởi tài khoản khác.");
+        }
+
+        user.Email = emailTrimmed;
+    }
+
+    private static void ApplyPasswordIfProvided(User user, string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password)) return;
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+    }
+
+    private static void ApplyCustomerDetails(User user, UpdateUserRequestDto dto)
+    {
+        if (user.Customer == null && !dto.DateOfBirth.HasValue && string.IsNullOrWhiteSpace(dto.TechInterest) && string.IsNullOrWhiteSpace(dto.Address))
+        {
+            return;
+        }
+
+        user.Customer ??= new Customer();
+        if (dto.DateOfBirth.HasValue)
+        {
+            user.Customer.DateOfBirth = DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc);
+        }
+        if (dto.TechInterest != null)
+        {
+            user.Customer.TechInterest = dto.TechInterest.Trim();
+        }
+        if (dto.Address != null)
+        {
+            user.Customer.Address = dto.Address.Trim();
+        }
+    }
+
+    private async Task ValidateAndApplyEmployeeAsync(User user, UpdateUserRequestDto dto)
+    {
+        if (user.Employee == null && string.IsNullOrWhiteSpace(dto.EmployeeCode) && !dto.EmploymentType.HasValue && !dto.BaseSalary.HasValue && !dto.HourlyRate.HasValue)
+        {
+            return;
+        }
+
+        user.Employee ??= new Employee
+        {
+            EmployeeCode = !string.IsNullOrWhiteSpace(dto.EmployeeCode)
+                ? dto.EmployeeCode.Trim().ToUpper()
+                : $"NV{user.UserId:D4}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(dto.EmployeeCode))
+        {
+            var empCodeTrimmed = dto.EmployeeCode.Trim().ToUpper();
+            if (user.Employee.EmployeeCode != empCodeTrimmed)
+            {
+                var codeExists = await context.Employees
+                    .AnyAsync(e => e.EmployeeId != user.UserId && e.EmployeeCode.ToLower() == empCodeTrimmed.ToLower());
+                if (codeExists)
+                {
+                    throw new BadRequestException($"Mã nhân viên '{empCodeTrimmed}' đã được sử dụng bởi nhân viên khác.");
+                }
+                user.Employee.EmployeeCode = empCodeTrimmed;
+            }
+        }
+
+        if (dto.EmploymentType.HasValue) user.Employee.EmploymentType = dto.EmploymentType.Value;
+        if (dto.BaseSalary.HasValue) user.Employee.BaseSalary = dto.BaseSalary.Value;
+        if (dto.HourlyRate.HasValue) user.Employee.HourlyRate = dto.HourlyRate.Value;
+    }
+
+    private async Task AssignRolesAndSyncEntitiesAsync(
+        User user,
+        IEnumerable<string> requestedRoles,
+        int operatorUserId,
+        EmploymentType? defaultEmploymentType = null,
+        decimal? defaultSalary = null,
+        decimal? defaultHourlyRate = null)
+    {
+        var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
+        if (cleanRoles.Count == 0)
         {
             throw new BadRequestException("Danh sách vai trò không được để trống.");
         }
 
-        var cleanRoles = requestedRoles.Select(r => r.Trim().ToUpper()).Distinct().ToList();
         var existingRoles = await context.Roles
             .Where(r => cleanRoles.Contains(r.RoleId))
             .Select(r => r.RoleId)
@@ -294,7 +412,6 @@ public class UserService(AppDbContext context) : IUserService
             throw new BadRequestException($"Các vai trò không tồn tại trong hệ thống: {string.Join(", ", invalidRoles)}.");
         }
 
-        // Xóa các vai trò cũ và gán các vai trò mới
         context.UserRoles.RemoveRange(user.UserRoles);
         user.UserRoles.Clear();
 
@@ -309,7 +426,6 @@ public class UserService(AppDbContext context) : IUserService
             });
         }
 
-        // Đồng bộ thực thể khi cập nhật vai trò
         var hasNewAdmin = existingRoles.Any(r => r.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase));
         if (hasNewAdmin && user.Admin == null)
         {
@@ -324,9 +440,9 @@ public class UserService(AppDbContext context) : IUserService
             user.Employee = new Employee
             {
                 EmployeeCode = $"NV{user.UserId:D4}",
-                EmploymentType = EmploymentType.FULL_TIME,
-                BaseSalary = 0,
-                HourlyRate = 0
+                EmploymentType = defaultEmploymentType ?? EmploymentType.FULL_TIME,
+                BaseSalary = defaultSalary ?? 0,
+                HourlyRate = defaultHourlyRate ?? 0
             };
         }
 
@@ -335,41 +451,6 @@ public class UserService(AppDbContext context) : IUserService
         {
             user.Customer = new Customer();
         }
-
-        await context.SaveChangesAsync();
-        return user.ToUserDto();
-    }
-
-    public async Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto)
-    {
-        var user = await context.Users
-            .Include(u => u.Customer)
-            .Include(u => u.Employee)
-            .Include(u => u.Admin)
-            .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.UserId == userId);
-
-        if (user == null)
-        {
-            throw new NotFoundException("Không tìm thấy thông tin tài khoản người dùng.");
-        }
-
-        user.FullName = dto.FullName.Trim();
-        user.Phone = dto.Phone?.Trim();
-
-        if (user.Customer == null)
-        {
-            user.Customer = new Customer();
-        }
-        user.Customer.DateOfBirth = dto.DateOfBirth.HasValue
-            ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc)
-            : null;
-        user.Customer.TechInterest = dto.TechInterest?.Trim();
-        user.Customer.Address = dto.Address?.Trim();
-
-        await context.SaveChangesAsync();
-        return user.ToUserDto();
     }
 
     public List<TechInterestOptionDto> GetTechInterests()

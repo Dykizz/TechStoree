@@ -10,6 +10,7 @@ public interface IUserService
     Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto);
     Task<UserDto> CreateUserAsync(int creatorUserId, CreateUserRequestDto dto);
     Task<UserDto> UpdateRoleAsync(int operatorUserId, int id, UpdateRoleRequestDto dto);
+    Task<UserDto> UpdateUserAsync(int operatorUserId, int id, UpdateUserRequestDto dto);
     Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto);
     Task<DemographicsReportDto> GetDemographicsReportAsync();
     List<TechInterestOptionDto> GetTechInterests();
