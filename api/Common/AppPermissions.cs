@@ -88,6 +88,14 @@ public static class AppPermissions
         public const string Delete = "Roles.Delete";
     }
 
+    public static class Reviews
+    {
+        public const string View = "Reviews.View";
+        public const string Reply = "Reviews.Reply";
+        public const string Hide = "Reviews.Hide";
+        public const string Delete = "Reviews.Delete";
+    }
+
     // Tên phân hệ hiển thị cho Quản trị viên
     private const string MCategories = "Quản lý danh mục";
     private const string MProducts = "Quản lý sản phẩm";
@@ -99,6 +107,7 @@ public static class AppPermissions
     private const string MSurveys = "Khảo sát & CRM";
     private const string MUsers = "Quản lý tài khoản";
     private const string MRoles = "Phân quyền hệ thống";
+    private const string MReviews = "Quản lý đánh giá";
 
     // Quy ước Reserved: false -> bắt buộc có endpoint dùng alias, nếu không app từ chối khởi động.
     //                   true  -> chủ ý chưa gắn endpoint nào.
@@ -144,7 +153,11 @@ public static class AppPermissions
         new(Roles.View, MRoles, "Xem vai trò", "Xem danh sách vai trò và quyền hạn"),
         new(Roles.Create, MRoles, "Tạo vai trò", "Tạo vai trò mới và phân quyền"),
         new(Roles.Update, MRoles, "Sửa vai trò", "Chỉnh sửa tên vai trò và danh sách quyền"),
-        new(Roles.Delete, MRoles, "Xóa vai trò", "Xóa vai trò tùy chỉnh")
+        new(Roles.Delete, MRoles, "Xóa vai trò", "Xóa vai trò tùy chỉnh"),
+        new(Reviews.View, MReviews, "Xem đánh giá", "Xem danh sách và chi tiết đánh giá của khách hàng"),
+        new(Reviews.Reply, MReviews, "Phản hồi đánh giá", "Phản hồi bình luận đánh giá của khách hàng"),
+        new(Reviews.Hide, MReviews, "Ẩn / Hiện đánh giá", "Ẩn hoặc khôi phục hiển thị đánh giá vi phạm"),
+        new(Reviews.Delete, MReviews, "Xóa đánh giá", "Xóa hoàn toàn đánh giá khỏi hệ thống")
     ];
 
     /// <summary>Tra cứu nhanh metadata quyền hạn theo mã (không phân biệt hoa thường).</summary>
