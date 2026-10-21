@@ -60,6 +60,7 @@ export default function ProfileClient({
   const [interests, setInterests] = useState<
     { key: string; displayName: string }[]
   >([]);
+
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/tech-interests", { signal: controller.signal })
@@ -71,6 +72,7 @@ export default function ProfileClient({
       .catch(() => {});
     return () => controller.abort();
   }, []);
+
   const nameInput = useRef<HTMLInputElement>(null);
   const editButton = useRef<HTMLButtonElement>(null);
   const wasEditing = useRef(false);
@@ -221,6 +223,18 @@ export default function ProfileClient({
     }
   }
 
+  function handleFormKeyDown(event: React.KeyboardEvent<HTMLFormElement>) {
+    if (event.key === "Enter") {
+      const target = event.target as HTMLElement;
+      // Trong ô textarea (ví dụ Địa chỉ): cho phép Enter xuống dòng tự nhiên
+      if (target.tagName.toLowerCase() === "textarea") {
+        return;
+      }
+      // Trong các ô input/select: chặn hành vi submit form mặc định khi nhấn Enter
+      event.preventDefault();
+    }
+  }
+
   const initials =
     profile?.fullName
       .trim()
@@ -314,6 +328,7 @@ export default function ProfileClient({
               </div>
               <form
                 onSubmit={(event) => void save(event)}
+                onKeyDown={handleFormKeyDown}
                 aria-describedby="profile-edit-hint"
                 aria-busy={saving}
               >
@@ -401,7 +416,7 @@ export default function ProfileClient({
                   </div>
                   <div className={`${styles.field} ${styles.fullWidth}`}>
                     <label htmlFor="profile-address">ĐỊA CHỈ</label>
-                    <input
+                    <textarea
                       id="profile-address"
                       autoComplete="street-address"
                       value={form.address}
@@ -410,6 +425,7 @@ export default function ProfileClient({
                         change("address", event.target.value)
                       }
                       maxLength={255}
+                      rows={3}
                       placeholder="Chưa cập nhật"
                     />
                   </div>

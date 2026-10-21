@@ -133,7 +133,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem: CartContextType["addItem"] = async (
     item,
     quantity = 1,
-    openDrawer = true,
+    openDrawer = false,
   ) => {
     const ok = await mutate("/api/cart/items", "POST", {
       variantId: item.variantId,

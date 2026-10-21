@@ -15,17 +15,17 @@ type ProfileUpdate = Pick<
   "fullName" | "phone" | "dateOfBirth" | "techInterest" | "address"
 >;
 
-function publicProfile(data: ProfileData): ProfileData {
+function publicProfile(data: any): ProfileData {
   return {
-    userId: data.userId,
-    username: data.username,
-    fullName: data.fullName,
-    email: data.email,
-    role: data.role,
-    phone: data.phone,
-    dateOfBirth: data.dateOfBirth,
-    techInterest: data.techInterest,
-    address: data.address,
+    userId: data.userId ?? data.UserId,
+    username: data.username ?? data.Username,
+    fullName: data.fullName ?? data.FullName,
+    email: data.email ?? data.Email,
+    role: data.role ?? data.Role ?? "USER",
+    phone: data.phone ?? data.Phone ?? null,
+    dateOfBirth: data.dateOfBirth ?? data.DateOfBirth ?? null,
+    techInterest: data.techInterest ?? data.TechInterest ?? null,
+    address: data.address ?? data.Address ?? null,
   };
 }
 

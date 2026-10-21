@@ -624,3 +624,40 @@
 .itemImage {
   object-fit: contain;
 }
+
+.actionBtnPay {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background-color: #16a34a;
+  border: 1px solid #16a34a;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-top: 6px;
+}
+
+.actionBtnPay:hover:not(:disabled) {
+  background-color: #15803d;
+  border-color: #15803d;
+}
+
+.actionBtnPay:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.paidBadge {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.unpaidBadge {
+  color: #d97706;
+  font-weight: 600;
+}
+

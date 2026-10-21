@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
@@ -17,6 +18,7 @@ import {
 } from "../../lib/products-client";
 import type { Order } from "../../lib/types/order";
 import styles from "./orders.module.css";
+
 const tabs = [
   { key: "", label: "Tất cả" },
   { key: "PENDING", label: "Chờ xác nhận" },
@@ -25,6 +27,7 @@ const tabs = [
   { key: "DELIVERED", label: "Đã giao" },
   { key: "CANCELLED", label: "Đã hủy" },
 ];
+
 function OrdersContent() {
   const query = useSearchParams();
   const session = useProtectedSession();
@@ -39,10 +42,12 @@ function OrdersContent() {
   const [notice, setNotice] = useState("");
   const [actionId, setActionId] = useState("");
   const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
     if (session.status !== "ready") return;
     const userId = session.user.userId;
     let active = true;
+
     async function load() {
       setLoading(true);
       setError("");
@@ -53,12 +58,14 @@ function OrdersContent() {
         });
         if (status) params.set("status", status);
         if (search.trim()) params.set("search", search.trim());
+
         const response = await fetch(`/api/orders?${params}`, {
           cache: "no-store",
         });
         const result = await response.json();
         if (!response.ok || !result.success)
           throw new Error(result.message || "Không thể tải đơn hàng.");
+
         const details = await Promise.all(
           result.data.items.map(async (order: BackendOrder) => {
             const res = await fetch(`/api/orders/${order.orderId}`, {
@@ -70,6 +77,7 @@ function OrdersContent() {
             return mapOrder(body.data);
           }),
         );
+
         if (active) {
           setOrders(details);
           setTotalPages(Math.max(1, result.data.meta.totalPages));
@@ -86,11 +94,13 @@ function OrdersContent() {
         if (active) setLoading(false);
       }
     }
+
     void load();
     return () => {
       active = false;
     };
   }, [session.status, session.user, page, status, search, attempt]);
+
   async function cancel(order: Order) {
     if (actionId || !confirm(`Hủy đơn ${order.orderCode}?`)) return;
     setActionId(order.orderId);
@@ -124,6 +134,51 @@ function OrdersContent() {
       setActionId("");
     }
   }
+
+  async function confirmPayment(order: Order) {
+    if (actionId) return;
+    setActionId(`pay-${order.orderId}`);
+    setError("");
+    setNotice("");
+    try {
+      const response = await fetch(
+        `/api/orders/${order.orderId}/confirm-payment`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Không thể cập nhật thanh toán.");
+      }
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.orderId === order.orderId ? { ...o, paymentStatus: "PAID" } : o,
+        ),
+      );
+      setNotice(
+        `Đơn hàng ${order.orderCode} đã được ghi nhận ĐÃ THANH TOÁN (Admin đã ghi nhận).`,
+      );
+      if (session.user?.userId) {
+        publishNotification(session.user.userId, {
+          id: `payment:${order.orderId}`,
+          kind: "order",
+          title: "Thanh toán thành công",
+          message: `Đơn hàng ${order.orderCode} đã được xác nhận thanh toán chuyển khoản thành công.`,
+          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+        });
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Không thể xác nhận thanh toán. Vui lòng thử lại.",
+      );
+    } finally {
+      setActionId("");
+    }
+  }
+
   async function reorder(item: Order["items"][number]) {
     if (actionId || busy) return;
     setActionId(String(item.variantId));
@@ -165,6 +220,7 @@ function OrdersContent() {
       setActionId("");
     }
   }
+
   if (session.status !== "ready")
     return (
       <main className={styles.main}>
@@ -180,6 +236,7 @@ function OrdersContent() {
         </div>
       </main>
     );
+
   return (
     <main className={styles.main}>
       <div className={styles.container}>
@@ -314,21 +371,44 @@ function OrdersContent() {
                             ? "Thanh toán khi nhận hàng"
                             : "Chuyển khoản"}{" "}
                           ·{" "}
-                          {order.paymentStatus === "PAID"
-                            ? "Đã thanh toán"
-                            : "Chưa thanh toán"}
-                        </p>
-                        {["PENDING", "CONFIRMED"].includes(order.status) && (
-                          <button
-                            className={styles.actionBtnContact}
-                            disabled={!!actionId}
-                            onClick={() => void cancel(order)}
+                          <span
+                            className={
+                              order.paymentStatus === "PAID"
+                                ? styles.paidBadge
+                                : styles.unpaidBadge
+                            }
                           >
-                            {actionId === order.orderId
-                              ? "Đang hủy…"
-                              : "Hủy đơn"}
-                          </button>
-                        )}
+                            {order.paymentStatus === "PAID"
+                              ? "✓ Đã thanh toán"
+                              : "Chờ chuyển khoản"}
+                          </span>
+                        </p>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
+                          {order.paymentMethod !== "COD" &&
+                            order.paymentStatus !== "PAID" &&
+                            order.status !== "CANCELLED" && (
+                              <button
+                                className={styles.actionBtnPay}
+                                disabled={!!actionId}
+                                onClick={() => void confirmPayment(order)}
+                              >
+                                {actionId === `pay-${order.orderId}`
+                                  ? "Đang xử lý…"
+                                  : "✓ Báo đã thanh toán"}
+                              </button>
+                            )}
+                          {["PENDING", "CONFIRMED"].includes(order.status) && (
+                            <button
+                              className={styles.actionBtnContact}
+                              disabled={!!actionId}
+                              onClick={() => void cancel(order)}
+                            >
+                              {actionId === order.orderId
+                                ? "Đang hủy…"
+                                : "Hủy đơn"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div className={styles.priceSummary}>
                         <div className={styles.priceRow}>
@@ -373,6 +453,7 @@ function OrdersContent() {
     </main>
   );
 }
+
 export default function OrdersPage() {
   return (
     <Suspense fallback={<p role="status">Đang tải đơn hàng…</p>}>

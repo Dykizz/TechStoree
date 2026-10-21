@@ -339,3 +339,157 @@
     gap: 16px;
   }
 }
+
+/* =========================================================================
+   TYPO NOTICE BANNER (HIỂN THỊ KẾT QUẢ CHO TỪ KHÓA ĐÃ SỬA)
+   ========================================================================= */
+.typoNoticeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-left: 4px solid #eab308;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+  font-size: 0.92rem;
+  color: #854d0e;
+  box-shadow: 0 2px 8px rgba(234, 179, 8, 0.08);
+}
+
+.typoNoticeBanner strong {
+  color: #713f12;
+  font-weight: 700;
+}
+
+.typoOverrideBtn {
+  background: transparent;
+  border: none;
+  font-size: 0.84rem;
+  color: #92400e;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.typoOverrideBtn:hover {
+  color: #b45309;
+}
+
+/* =========================================================================
+   ZERO-RESULT / DEAD-END RESCUE UI (KHÔNG ĐỂ TRANG TRẮNG KHI 0 KẾT QUẢ)
+   ========================================================================= */
+.deadEndContainer {
+  background: #ffffff;
+  border: 1px solid #ebebeb;
+  border-radius: 16px;
+  padding: 48px 32px;
+  margin-bottom: 40px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+}
+
+.deadEndIcon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.deadEndTitle {
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.deadEndSubtitle {
+  font-size: 0.95rem;
+  color: #64748b;
+  max-width: 520px;
+  margin-bottom: 20px;
+}
+
+.deadEndTips {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin-bottom: 24px;
+  text-align: left;
+  max-width: 520px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tipItem {
+  font-size: 0.86rem;
+  color: #475569;
+}
+
+.deadEndActions {
+  margin-bottom: 32px;
+}
+
+.suggestedCategories {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+  width: 100%;
+}
+
+.suggestedCatTitle {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.suggestedCatPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.suggestedCatPill {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.suggestedCatPill:hover {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.featuredRescueSection {
+  width: 100%;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 32px;
+}
+
+.featuredRescueHeading {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 24px;
+  text-align: left;
+}

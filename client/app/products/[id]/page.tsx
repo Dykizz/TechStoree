@@ -31,6 +31,7 @@ export default function ProductDetailPage({
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [addedSuccess, setAddedSuccess] = useState(false);
 
   useEffect(() => {
     async function loadProduct() {
@@ -39,8 +40,10 @@ export default function ProductDetailPage({
         const data = await fetchProductById(productId);
         setProduct(data);
         if (data && data.variants && data.variants.length > 0) {
+          // Khởi tạo biến thể có giá thấp nhất còn hàng để khớp với giá niêm yết
+          const sortedByPrice = [...data.variants].sort((a, b) => a.price - b.price);
           const initial =
-            data.variants.find((v) => v.stockQuantity > 0) || data.variants[0];
+            sortedByPrice.find((v) => v.stockQuantity > 0) || sortedByPrice[0];
           setSelectedVariant(initial);
         }
       } catch {
@@ -114,10 +117,10 @@ export default function ProductDetailPage({
   const activeImage =
     (selectedVariant && selectedVariant.imageUrl) || product.imageUrl;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!selectedVariant || isOutOfStock || busy) return;
 
-    addItem(
+    const ok = await addItem(
       {
         productId: product.productId,
         productName: product.productName,
@@ -129,8 +132,13 @@ export default function ProductDetailPage({
         stockQuantity: selectedVariant.stockQuantity,
       },
       quantity,
-      true,
+      false, // Không tự động bật thanh task / drawer kế bên
     );
+
+    if (ok) {
+      setAddedSuccess(true);
+      setTimeout(() => setAddedSuccess(false), 2500);
+    }
   };
 
   const handleBuyNow = async () => {
@@ -297,25 +305,45 @@ export default function ProductDetailPage({
             <div className={styles.actions}>
               <button
                 type="button"
-                className={styles.addToCartBtn}
+                className={`${styles.addToCartBtn} ${addedSuccess ? styles.addToCartSuccess : ""}`}
                 disabled={isOutOfStock || !selectedVariant}
                 onClick={handleAddToCart}
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-                  <path d="M3 6h18" />
-                  <path d="M16 10a4 4 0 0 1-8 0" />
-                </svg>
-                <span>{isOutOfStock ? "Tạm hết hàng" : "Thêm vào giỏ"}</span>
+                {addedSuccess ? (
+                  <>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>Đã thêm vào giỏ hàng!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+                      <path d="M3 6h18" />
+                      <path d="M16 10a4 4 0 0 1-8 0" />
+                    </svg>
+                    <span>{isOutOfStock ? "Tạm hết hàng" : "Thêm vào giỏ"}</span>
+                  </>
+                )}
               </button>
 
               <button

@@ -29,6 +29,17 @@
   object-fit: contain;
   padding: 20px;
   transition: transform 0.4s ease;
+  font-size: 0;
+  color: transparent;
+}
+
+.placeholderWrap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f7f7f7;
 }
 
 .card:hover .image {

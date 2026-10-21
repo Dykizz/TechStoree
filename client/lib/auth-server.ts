@@ -19,6 +19,8 @@ export type SessionUser = {
   fullName: string;
   email: string;
   role: string;
+  phone?: string | null;
+  address?: string | null;
 };
 
 export type LoginData = {
@@ -65,13 +67,15 @@ export function backendRequest<T>(path: string, init: RequestInit) {
   return backendApiRequest<T>(`Auth/${path}`, init);
 }
 
-export function publicUser(user: SessionUser): SessionUser {
+export function publicUser(user: any): SessionUser {
   return {
-    userId: user.userId,
-    username: user.username,
-    fullName: user.fullName,
-    email: user.email,
-    role: user.role,
+    userId: user.userId ?? user.UserId,
+    username: user.username ?? user.Username,
+    fullName: user.fullName ?? user.FullName,
+    email: user.email ?? user.Email,
+    role: user.role ?? user.Role ?? "USER",
+    phone: user.phone ?? user.Phone ?? null,
+    address: user.address ?? user.Address ?? null,
   };
 }
 

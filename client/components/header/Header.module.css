@@ -293,14 +293,12 @@
     flex-direction: column;
     align-items: flex-end;
   }
-  .logoutBtn {
-    font-size: 10px;
-  }
-  .cartButton {
-    padding: 9px;
-  }
-  .navCartWrapper {
-    display: block;
+  .mobileNavExtras {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px dashed rgba(0, 0, 0, 0.1);
+    margin-top: 8px;
+    padding-top: 8px;
   }
 }
 @media (max-width: 450px) {

@@ -115,6 +115,142 @@
 .qrFrame span { color: var(--muted); font-size: 10px; line-height: 1.6; text-align: center; }
 .transferDetails { gap: 19px; }
 .transferDetails .transferValue { color: var(--brand); font-weight: 650; }
+.copyBtn {
+  margin-left: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid #d9d9df;
+  background: #f8f9fa;
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 150ms ease;
+  vertical-align: middle;
+}
+.copyBtn:hover {
+  background: #e9ecef;
+  border-color: #ced4da;
+}
+.bankConfigField {
+  margin-bottom: 12px;
+}
+.bankConfigGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 600px) {
+  .bankConfigGrid {
+    grid-template-columns: 1fr;
+  }
+}
+.bankFieldLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.bankSelect, .bankInput {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 150ms ease;
+  box-sizing: border-box;
+}
+.bankSelect:focus, .bankInput:focus {
+  border-color: var(--brand);
+}
+.confirmPaymentBox {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 14px;
+}
+.confirmPaymentHeading {
+  font-size: 14px;
+  font-weight: 650;
+  color: #166534;
+  margin-bottom: 6px;
+}
+.confirmPaymentSub {
+  font-size: 12px;
+  color: #15803d;
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.confirmPaymentBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 22px;
+  font-size: 13px;
+  font-weight: 650;
+  background: #16a34a;
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 180ms ease;
+  box-shadow: 0 2px 6px rgba(22, 163, 74, 0.25);
+}
+.confirmPaymentBtn:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(22, 163, 74, 0.35);
+}
+.confirmPaymentBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.confirmErrorText {
+  margin-top: 8px;
+  color: #dc2626;
+  font-size: 12px;
+}
+.paidSuccessCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+.paidSuccessIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 22px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+.paidSuccessTitle {
+  font-size: 16px;
+  font-weight: 650;
+  color: #166534;
+  margin-bottom: 4px;
+}
+.paidSuccessDesc {
+  font-size: 13px;
+  color: #15803d;
+  line-height: 1.6;
+  margin: 0;
+}
 .transferUnavailable { margin-top: 20px; padding: 16px; border-radius: 10px; background: #fff9ef; color: #805a1f; font-size: 13px; line-height: 1.75; }
 .successActions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 .trackOrderBtn, .continueShoppingBtn { display: inline-flex; gap: 24px; align-items: center; justify-content: center; min-height: 48px; padding: 13px 21px; border: 1px solid transparent; border-radius: 10px; text-decoration: none; font-size: 13px; font-weight: 600; line-height: 1.6; transition: background 180ms, transform 180ms; }

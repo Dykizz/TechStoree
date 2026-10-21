@@ -265,6 +265,50 @@
   opacity: 0.7;
   cursor: wait;
 }
+.field textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 84px;
+  padding: 12px 15px;
+  border: 1px solid #dedee3;
+  border-radius: 10px;
+  background: #fff;
+  color: #1d1d1f;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background-color 0.2s;
+}
+.field textarea:hover {
+  border-color: #b9b9c1;
+}
+.field textarea:focus {
+  border-color: #bd202d;
+  box-shadow: 0 0 0 3px #bd202d1c;
+}
+.field textarea::placeholder {
+  color: #aaaab1;
+}
+.field textarea[readonly] {
+  border-color: #e6e6e9;
+  background: #f5f5f6;
+  color: #4f4f57;
+  resize: none;
+}
+.field textarea[readonly]:focus {
+  border-color: #b9b9c1;
+  box-shadow: 0 0 0 3px #1d1d1f0a;
+}
+.field textarea:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
 .accountDetails {
   margin-top: 38px;
   padding: 25px 27px 22px;

@@ -142,6 +142,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       className={styles.qtyBtn}
+                      disabled={busy}
                       onClick={() =>
                         updateQuantity(item.cartItemId, item.quantity - 1)
                       }
@@ -149,7 +150,24 @@ export default function CartPage() {
                     >
                       -
                     </button>
-                    <span className={styles.qtyDisplay}>{item.quantity}</span>
+                    <input
+                      type="number"
+                      className={styles.qtyInput}
+                      value={item.quantity}
+                      min={1}
+                      max={item.stockQuantity}
+                      disabled={busy}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val >= 1) {
+                          updateQuantity(
+                            item.cartItemId,
+                            Math.min(val, item.stockQuantity),
+                          );
+                        }
+                      }}
+                      aria-label="Số lượng"
+                    />
                     <button
                       type="button"
                       className={styles.qtyBtn}
