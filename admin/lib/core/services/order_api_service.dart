@@ -204,7 +204,6 @@ mixin OrderApiService on BaseApiService {
   Future<({bool success, String message, Order? order})> updateOrderStatus(
     int orderId, {
     required String status,
-    String? paymentStatus,
     String? reason,
     String? token,
   }) async {
@@ -212,7 +211,6 @@ mixin OrderApiService on BaseApiService {
       final uri = Uri.parse('$baseUrl/Orders/$orderId/status');
       final payload = <String, dynamic>{
         'status': status,
-        if (paymentStatus != null) 'paymentStatus': paymentStatus,
         if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
       };
 
