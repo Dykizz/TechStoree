@@ -60,6 +60,24 @@ public class UsersController(IUserService userService) : BaseApiController
     }
 
     /// <summary>
+    /// Cập nhật thông tin tài khoản người dùng
+    /// </summary>
+    /// <param name="id">Mã ID người dùng</param>
+    /// <param name="dto">Dữ liệu thông tin tài khoản cập nhật</param>
+    [HttpPut("{id:int}")]
+    [HasPermission(AppPermissions.Users.Update)]
+    [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequestDto dto)
+    {
+        var result = await userService.UpdateUserAsync(CurrentUserId, id, dto);
+        return Success(result, "Cập nhật thông tin người dùng thành công.");
+    }
+
+    /// <summary>
     /// Khóa hoặc Mở khóa tài khoản người dùng
     /// </summary>
     /// <param name="id">Mã ID người dùng</param>

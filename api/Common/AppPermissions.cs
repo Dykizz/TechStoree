@@ -138,7 +138,7 @@ public static class AppPermissions
         new(Surveys.Assign, MSurveys, "Giao khảo sát", "Gán khảo sát cho khách hàng mục tiêu"),
         new(Users.View, MUsers, "Xem người dùng", "Xem danh sách tài khoản khách hàng và nhân viên"),
         new(Users.Create, MUsers, "Tạo tài khoản", "Tạo tài khoản nhân viên mới"),
-        new(Users.Update, MUsers, "Sửa người dùng", "Cập nhật thông tin tài khoản người dùng", Reserved: true),
+        new(Users.Update, MUsers, "Sửa người dùng", "Cập nhật thông tin tài khoản người dùng"),
         new(Users.Lock, MUsers, "Khóa / Mở khóa", "Khóa hoặc mở khóa tài khoản người dùng"),
         new(Users.AssignRoles, MUsers, "Gán vai trò", "Phân vai trò cho tài khoản"),
         new(Roles.View, MRoles, "Xem vai trò", "Xem danh sách vai trò và quyền hạn"),
