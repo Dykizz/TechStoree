@@ -443,18 +443,17 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             order.UpdatedByUserId = updatedByUserId.Value;
         }
 
-        if (request.PaymentStatus.HasValue)
+        // Tự động suy ra trạng thái thanh toán từ Status và PaymentStatus trước đó:
+        // - Khi giao hàng thành công (DELIVERED): đơn hàng được đánh dấu đã thanh toán (PAID)
+        // - Các trạng thái khác (CONFIRMED, SHIPPING): giữ nguyên trạng thái thanh toán trước đó
+        // (Trường hợp CANCELLED đã được xử lý hoàn tiền REFUNDED bên trong CancelOrderAsync nếu trước đó là PAID)
+        if (request.Status == OrderStatus.DELIVERED)
         {
-            order.PaymentStatus = request.PaymentStatus.Value;
-            if (order.PaymentStatus == PaymentStatus.PAID && !order.PaidAt.HasValue)
+            order.PaymentStatus = PaymentStatus.PAID;
+            if (!order.PaidAt.HasValue)
             {
                 order.PaidAt = now;
             }
-        }
-        else if (request.Status == OrderStatus.DELIVERED && order.PaymentMethod == PaymentMethod.COD)
-        {
-            order.PaymentStatus = PaymentStatus.PAID;
-            order.PaidAt = now;
         }
 
         // Đồng bộ trạng thái Hóa đơn liên kết qua InvoiceService
