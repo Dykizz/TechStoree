@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
 import '../../core/models/app_user.dart';
+import '../../core/models/role.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
@@ -33,6 +34,7 @@ class _StaffScreenState extends State<StaffScreen> {
   int _currentPage = 1;
   int _itemsPerPage = 8;
   late Future<List<AppUser>> _staffFuture;
+  List<RoleModel> _availableRoles = [];
 
   static const Map<String, String> roleLabels = {
     'ADMIN': 'Quản trị viên',
@@ -51,6 +53,11 @@ class _StaffScreenState extends State<StaffScreen> {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     _staffFuture = apiService.getUsers(token: token, isStaffOnly: true);
+    apiService.getRoles(token: token).then((roles) {
+      if (mounted && roles.isNotEmpty) {
+        setState(() => _availableRoles = roles);
+      }
+    }).catchError((_) {});
   }
 
   @override
@@ -294,7 +301,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                               tooltip: 'Xem thông tin nhân viên',
                                               onPressed: () => _showDetailDialog(context, u),
                                             ),
-                                            if (authProvider.isAdmin || authProvider.can('Users.Edit')) ...[
+                                            if (authProvider.isAdmin || authProvider.can('Users.AssignRoles') || authProvider.can('Users.Update') || authProvider.can('Users.Edit')) ...[
                                               IconButton(
                                                 icon: Icon(Icons.manage_accounts_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
@@ -357,7 +364,11 @@ class _StaffScreenState extends State<StaffScreen> {
 
   String _getRolesDisplay(AppUser u) {
     final list = u.roles.isNotEmpty ? u.roles : [u.role];
-    return list.map((r) => roleLabels[r] ?? r).join(', ');
+    return list.map((r) {
+      final found = _availableRoles.where((ar) => ar.roleId.toUpperCase() == r.toUpperCase()).firstOrNull;
+      if (found != null && found.roleName.isNotEmpty) return found.roleName;
+      return roleLabels[r] ?? r;
+    }).join(', ');
   }
 
   Widget _buildRolesBadges(AppUser u) {
@@ -506,12 +517,23 @@ class _StaffScreenState extends State<StaffScreen> {
 
     bool isLocked = isEditing ? existing.isLocked : false;
 
-    const Map<String, String> availableStaffRoles = {
+    final Map<String, String> availableStaffRoles = {
       'SALES_STAFF': 'Nhân viên bán hàng (SALES_STAFF)',
       'WAREHOUSE_STAFF': 'Thủ kho (WAREHOUSE_STAFF)',
       'SURVEY_STAFF': 'Nhân viên khảo sát & CRM (SURVEY_STAFF)',
       'ADMIN': 'Quản trị viên toàn hệ thống (ADMIN)',
     };
+
+    for (final r in _availableRoles) {
+      if (r.roleId.toUpperCase() != 'USER' && !availableStaffRoles.containsKey(r.roleId)) {
+        availableStaffRoles[r.roleId] = '${r.roleName} (${r.roleId})';
+      }
+    }
+    for (final r in selectedRoles) {
+      if (!availableStaffRoles.containsKey(r)) {
+        availableStaffRoles[r] = r;
+      }
+    }
 
     showDialog(
       context: context,
@@ -520,7 +542,6 @@ class _StaffScreenState extends State<StaffScreen> {
           final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
           final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
           final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-          final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
           return AlertDialog(
             backgroundColor: cardBg,

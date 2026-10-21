@@ -19,11 +19,7 @@ class AppSidebar extends StatelessWidget {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    final roles = authProvider.userRoles;
-    final isAdmin = roles.contains('ADMIN');
-    final isWarehouse = roles.contains('WAREHOUSE_STAFF');
-    final isSales = roles.contains('SALES_STAFF');
-    final isSurvey = roles.contains('SURVEY_STAFF');
+    final isAdmin = authProvider.isAdmin;
 
     final allNavItems = [
       _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Tổng quan', index: 0),
@@ -46,17 +42,17 @@ class AppSidebar extends StatelessWidget {
       if (isAdmin) return true;
       switch (item.index) {
         case 0: return true; // Let everyone see Dashboard
-        case 1: return authProvider.can('Products.View') || isWarehouse || isSales;
-        case 2: return authProvider.can('Orders.View') || isSales;
-        case 3: return authProvider.can('Orders.View') || isSales;
-        case 4: return authProvider.can('Categories.View') || isWarehouse;
-        case 5: return authProvider.can('Suppliers.View') || isWarehouse;
-        case 6: return authProvider.can('PurchaseOrders.View') || isWarehouse;
-        case 7: return authProvider.can('Promotions.View') || isSales;
-        case 8: return authProvider.can('Vouchers.View') || isSales;
-        case 9: return authProvider.can('Surveys.View') || isSurvey;
-        case 10: return authProvider.can('Users.View') || isSales || isSurvey;
-        case 11: return authProvider.can('Users.View') || isAdmin;
+        case 1: return authProvider.can('Products.View');
+        case 2: return authProvider.can('Orders.View');
+        case 3: return authProvider.can('Orders.View');
+        case 4: return authProvider.can('Categories.View');
+        case 5: return authProvider.can('Suppliers.View');
+        case 6: return authProvider.can('PurchaseOrders.View');
+        case 7: return authProvider.can('Promotions.View');
+        case 8: return authProvider.can('Vouchers.View');
+        case 9: return authProvider.can('Surveys.View');
+        case 10: return authProvider.can('Users.View');
+        case 11: return authProvider.can('Users.View');
         case 12: return authProvider.can('Roles.View');
         case 13: return false; // Only ADMIN
         default: return false;

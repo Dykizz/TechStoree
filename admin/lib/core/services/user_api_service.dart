@@ -76,7 +76,8 @@ mixin UserApiService on BaseApiService {
         if (itemsList.isNotEmpty) {
           return itemsList.map((json) {
             final user = AppUser.fromJson(json as Map<String, dynamic>);
-            return _userCache[user.id] ?? user;
+            _userCache[user.id] = user;
+            return user;
           }).toList();
         }
       }
@@ -148,6 +149,7 @@ mixin UserApiService on BaseApiService {
   }
 
   Future<ApiResult> updateUser(AppUser user, {String? token}) async {
+    final oldUser = _userCache[user.id] ?? mockUsers.where((u) => u.id == user.id).firstOrNull;
     _userCache[user.id] = user;
     final idx = mockUsers.indexWhere((u) => u.id == user.id);
     if (idx != -1) {
@@ -155,25 +157,32 @@ mixin UserApiService on BaseApiService {
     }
 
     try {
-      // 1. Cập nhật các roles qua backend API
+      // 1. Cập nhật các roles qua backend API: PATCH /users/{id}/role
       if (user.roles.isNotEmpty) {
         await updateUserRoles(user.id, user.roles, token: token);
       } else {
         await updateUserRole(user.id, user.role, token: token);
       }
 
-      // 2. Cập nhật profile qua API /users/profile (nếu khớp với user token)
-      await httpPut(
-        Uri.parse('$baseUrl/users/profile'),
-        token: token,
-        body: json.encode({
-          'fullName': user.fullName,
-          'phone': user.phone,
-          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
-          'techInterest': user.techInterest,
-          'address': user.address,
-        }),
-      );
+      // 2. Cập nhật trạng thái khóa nếu có thay đổi
+      if (oldUser != null && oldUser.isLocked != user.isLocked) {
+        await toggleUserLock(user.id, token: token);
+      }
+
+      // 3. Cập nhật profile qua API /users/profile nếu người sửa chính là tài khoản đang đăng nhập
+      if (authProvider != null && authProvider!.userEmail == user.email) {
+        await httpPut(
+          Uri.parse('$baseUrl/users/profile'),
+          token: token,
+          body: json.encode({
+            'fullName': user.fullName,
+            'phone': user.phone,
+            'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+            'techInterest': user.techInterest,
+            'address': user.address,
+          }),
+        );
+      }
     } catch (e) {
       debugPrint('API Update User (backend call warning): $e');
     }
@@ -230,12 +239,11 @@ mixin UserApiService on BaseApiService {
     final primaryRole = roles.isNotEmpty ? roles.first : 'USER';
     try {
       final response = await httpPatch(
-        Uri.parse('$baseUrl/users/$userId/roles'),
+        Uri.parse('$baseUrl/users/$userId/role'),
         token: token,
         body: json.encode({
           'roles': roles,
           'roleId': primaryRole,
-          'role': primaryRole,
         }),
       );
 

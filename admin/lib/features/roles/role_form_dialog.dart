@@ -126,7 +126,7 @@ class _RoleFormDialogState extends State<RoleFormDialog> {
         widget.existingRole!.roleId,
         roleName: name,
         description: desc.isNotEmpty ? desc : null,
-        permissions: widget.existingRole!.permissions,
+        permissions: _selectedPermissionIds.toList(),
         token: widget.token,
       );
 

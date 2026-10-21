@@ -323,7 +323,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                               tooltip: 'Xem hồ sơ khách hàng',
                                               onPressed: () => _showDetailDialog(context, u),
                                             ),
-                                            if (authProvider.isAdmin || authProvider.can('Users.Edit')) ...[
+                                            if (authProvider.isAdmin || authProvider.can('Users.Update') || authProvider.can('Users.Edit')) ...[
                                               IconButton(
                                                 icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,

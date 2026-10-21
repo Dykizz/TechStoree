@@ -8,6 +8,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
@@ -29,11 +30,13 @@ class VouchersScreen extends StatefulWidget {
 class _VouchersScreenState extends State<VouchersScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+  final dateFormatDate = DateFormat('dd/MM/yyyy');
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _searchQuery = '';
   String _selectedDiscountType = 'Tất cả';
   String _selectedStatus = 'Tất cả';
+  DateTimeRange? _selectedDateRange;
   int _currentPage = 1;
   int _itemsPerPage = 10;
 
@@ -85,6 +88,26 @@ class _VouchersScreenState extends State<VouchersScreen> {
     super.dispose();
   }
 
+  Future<void> _pickDateRange() async {
+    final picked = await showAppDateRangePicker(
+      context: context,
+      initialDateRange: _selectedDateRange,
+      helpText: 'Khoảng thời gian áp dụng voucher',
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDateRange = picked;
+        _currentPage = 1;
+      });
+    }
+  }
+
+  bool get _hasActiveFilters =>
+      _searchQuery.isNotEmpty ||
+      _selectedDiscountType != 'Tất cả' ||
+      _selectedStatus != 'Tất cả' ||
+      _selectedDateRange != null;
+
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
@@ -119,6 +142,27 @@ class _VouchersScreenState extends State<VouchersScreen> {
 
         if (_selectedStatus != 'Tất cả') {
           vouchers = vouchers.where((v) => v.status.toUpperCase() == _selectedStatus.toUpperCase()).toList();
+        }
+
+        if (_selectedDateRange != null) {
+          final rangeStart = DateTime(
+            _selectedDateRange!.start.year,
+            _selectedDateRange!.start.month,
+            _selectedDateRange!.start.day,
+            0, 0, 0,
+          );
+          final rangeEnd = DateTime(
+            _selectedDateRange!.end.year,
+            _selectedDateRange!.end.month,
+            _selectedDateRange!.end.day,
+            23, 59, 59, 999,
+          );
+
+          vouchers = vouchers.where((v) {
+            final overlaps = !v.startDate.isAfter(rangeEnd) && !v.endDate.isBefore(rangeStart);
+            final createdInRange = !v.createdAt.isBefore(rangeStart) && !v.createdAt.isAfter(rangeEnd);
+            return overlaps || createdInRange;
+          }).toList();
         }
 
         final totalItems = vouchers.length;
@@ -213,7 +257,59 @@ class _VouchersScreenState extends State<VouchersScreen> {
                       }
                     },
                   ),
+                  _buildDateRangeFilter(
+                    context: context,
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
                 ],
+                secondaryRow: _hasActiveFilters
+                    ? Row(
+                        children: [
+                          Text('Đang áp dụng lọc:', style: TextStyle(fontSize: 11.5, color: textSecondary, fontWeight: FontWeight.w500)),
+                          const SizedBox(width: 8),
+                          if (_selectedDateRange != null)
+                            Chip(
+                              label: Text(
+                                'Thời gian: ${dateFormatDate.format(_selectedDateRange!.start)} - ${dateFormatDate.format(_selectedDateRange!.end)}',
+                                style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600),
+                              ),
+                              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                              side: BorderSide.none,
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.primary),
+                              onDeleted: () {
+                                setState(() {
+                                  _selectedDateRange = null;
+                                  _currentPage = 1;
+                                });
+                              },
+                            ),
+                          const Spacer(),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.danger),
+                            label: const Text('Đặt lại bộ lọc', style: TextStyle(fontSize: 11.5, color: AppColors.danger)),
+                            onPressed: () {
+                              setState(() {
+                                _searchCtrl.clear();
+                                _searchQuery = '';
+                                _selectedDiscountType = 'Tất cả';
+                                _selectedStatus = 'Tất cả';
+                                _selectedDateRange = null;
+                                _currentPage = 1;
+                              });
+                            },
+                          ),
+                        ],
+                      )
+                    : null,
               ),
 
               // Data Table Container
@@ -273,7 +369,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                                         decoration: BoxDecoration(
                                                           color: AppColors.primaryLight,
                                                           borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                                                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                                                         ),
                                                         child: Text(
                                                           voucher.code,
@@ -483,6 +579,73 @@ class _VouchersScreenState extends State<VouchersScreen> {
       default:
         return StatusBadge(label: status);
     }
+  }
+
+  Widget _buildDateRangeFilter({
+    required BuildContext context,
+    required bool isDark,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    final borderColor = _selectedDateRange != null
+        ? AppColors.primary
+        : (isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder);
+    final fillColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF);
+
+    return InkWell(
+      onTap: _pickDateRange,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: fillColor,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: borderColor,
+            width: _selectedDateRange != null ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.date_range_rounded,
+              size: 18,
+              color: _selectedDateRange != null ? AppColors.primary : textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _selectedDateRange != null
+                    ? '${dateFormatDate.format(_selectedDateRange!.start)} - ${dateFormatDate.format(_selectedDateRange!.end)}'
+                    : 'Khoảng thời gian: Tất cả',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: _selectedDateRange != null ? FontWeight.w600 : FontWeight.normal,
+                  color: _selectedDateRange != null ? textPrimary : textSecondary,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (_selectedDateRange != null)
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _selectedDateRange = null;
+                    _currentPage = 1;
+                  });
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Icon(Icons.close, size: 16, color: textSecondary),
+                ),
+              )
+            else
+              Icon(Icons.arrow_drop_down, size: 20, color: textSecondary),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showVoucherFormDialog(BuildContext context, Voucher? voucher) {

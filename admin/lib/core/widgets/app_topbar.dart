@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../constants/app_colors.dart';
+import '../providers/navigation_provider.dart';
 import '../providers/theme_provider.dart';
 
 class AppTopbar extends StatelessWidget implements PreferredSizeWidget {
@@ -70,6 +71,18 @@ class AppTopbar extends StatelessWidget implements PreferredSizeWidget {
 
           const Spacer(),
 
+          IconButton(
+            icon: Icon(
+              Icons.refresh_rounded,
+              size: 16,
+              color: textSecondary,
+            ),
+            tooltip: 'Làm mới dữ liệu trang này (Refresh)',
+            onPressed: () {
+              Provider.of<NavigationProvider>(context, listen: false).refreshCurrentTab();
+            },
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: Icon(
               isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
