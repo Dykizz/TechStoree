@@ -71,23 +71,24 @@ mixin CategoryApiService on BaseApiService {
     return true;
   }
 
-  Future<bool> deleteCategory(String id, {String? token}) async {
+  Future<ApiResult> deleteCategory(String id, {String? token}) async {
     try {
       final response = await httpDelete(
         Uri.parse('$baseUrl/categories/$id'),
         token: token,
       );
 
-      final data = parseApiResponse(response);
-      if (data != null) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        mockCategories.removeWhere((c) => c.id == id);
         notifyListeners();
-        return true;
+        return ApiResult(success: true, message: 'Xóa loại sản phẩm thành công!');
       }
+
+      final errorMsg = extractErrorMessage(response);
+      return ApiResult(success: false, message: errorMsg);
     } catch (e) {
       debugPrint('API Error deleteCategory: $e');
+      return ApiResult(success: false, message: 'Lỗi kết nối máy chủ: $e');
     }
-    mockCategories.removeWhere((c) => c.id == id);
-    notifyListeners();
-    return true;
   }
 }

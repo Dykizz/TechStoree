@@ -4,10 +4,12 @@ import '../../core/constants/app_colors.dart';
 import '../../core/providers/theme_provider.dart';
 import '../customers/customers_screen.dart';
 import '../staff/staff_screen.dart';
+import 'demographics_report_view.dart';
 
-/// Màn hình Người dùng hợp nhất với 2 Tab riêng biệt:
+/// Màn hình Người dùng hợp nhất với 3 Tab riêng biệt:
 /// 1. Quản lý Khách hàng (CustomersScreen)
 /// 2. Quản lý Nhân viên (StaffScreen)
+/// 3. Báo cáo Nhân khẩu học & Thị hiếu (DemographicsReportView)
 class UsersScreen extends StatefulWidget {
   final int initialTabIndex;
 
@@ -24,9 +26,9 @@ class _UsersScreenState extends State<UsersScreen> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 2,
+      length: 3,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, 1),
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
     );
   }
 
@@ -83,6 +85,16 @@ class _UsersScreenState extends State<UsersScreen> with SingleTickerProviderStat
                       ],
                     ),
                   ),
+                  Tab(
+                    iconMargin: EdgeInsets.zero,
+                    child: Row(
+                      children: [
+                        Icon(Icons.insights_rounded, size: 16),
+                        SizedBox(width: 8),
+                        Text('Báo Cáo Nhân Khẩu Học'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -91,9 +103,10 @@ class _UsersScreenState extends State<UsersScreen> with SingleTickerProviderStat
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
+        children: [
           CustomersScreen(),
           StaffScreen(),
+          DemographicsReportView(),
         ],
       ),
     );

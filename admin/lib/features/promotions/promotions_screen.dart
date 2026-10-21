@@ -168,7 +168,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                 title: 'Khuyến Mãi & Giảm Giá',
                 subtitle: 'Quản lý các chương trình Flash Sale và giảm giá biến thể sản phẩm',
                 action: AppButton(
-                  label: 'Tạo Khuyến Mãi Mới',
+                  label: 'Tạo khuyến mãi mới',
                   icon: Icons.add_rounded,
                   onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token),
                 ),

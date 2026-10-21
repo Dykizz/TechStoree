@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/app_user.dart';
+import '../models/demographics_report.dart';
 import 'base_api_service.dart';
 
 mixin UserApiService on BaseApiService {
@@ -75,9 +76,29 @@ mixin UserApiService on BaseApiService {
         }
         if (itemsList.isNotEmpty) {
           return itemsList.map((json) {
-            final user = AppUser.fromJson(json as Map<String, dynamic>);
-            _userCache[user.id] = user;
-            return user;
+            final apiUser = AppUser.fromJson(json as Map<String, dynamic>);
+            final cached = _userCache[apiUser.id];
+            final finalUser = AppUser(
+              id: apiUser.id,
+              userName: apiUser.userName.isNotEmpty ? apiUser.userName : (cached?.userName ?? ''),
+              fullName: apiUser.fullName.isNotEmpty ? apiUser.fullName : (cached?.fullName ?? ''),
+              email: apiUser.email.isNotEmpty ? apiUser.email : (cached?.email ?? ''),
+              role: apiUser.role.isNotEmpty ? apiUser.role : (cached?.role ?? 'USER'),
+              roles: apiUser.roles.isNotEmpty ? apiUser.roles : (cached?.roles ?? const ['USER']),
+              status: apiUser.isLocked ? 'Tạm khóa' : 'Hoạt động',
+              isLocked: apiUser.isLocked,
+              phone: apiUser.phone.isNotEmpty ? apiUser.phone : (cached?.phone ?? ''),
+              techInterest: (apiUser.techInterest != null && apiUser.techInterest!.trim().isNotEmpty)
+                  ? apiUser.techInterest
+                  : cached?.techInterest,
+              dateOfBirth: apiUser.dateOfBirth ?? cached?.dateOfBirth,
+              address: (apiUser.address != null && apiUser.address!.trim().isNotEmpty)
+                  ? apiUser.address
+                  : cached?.address,
+              createdAt: apiUser.createdAt,
+            );
+            _userCache[finalUser.id] = finalUser;
+            return finalUser;
           }).toList();
         }
       }
@@ -93,6 +114,12 @@ mixin UserApiService on BaseApiService {
       }
     }
     return list;
+  }
+
+  Future<DemographicsReport> getDemographicsReport({String? token}) async {
+    // Luôn tổng hợp báo cáo trực tiếp từ dữ liệu khách hàng thực tế trong database
+    final users = await getUsers(token: token, isStaffOnly: false);
+    return DemographicsReport.fromUsers(users);
   }
 
   Future<ApiResult> createUser(AppUser user, String password, {String? token}) async {
@@ -166,7 +193,7 @@ mixin UserApiService on BaseApiService {
 
       // 2. Cập nhật trạng thái khóa nếu có thay đổi
       if (oldUser != null && oldUser.isLocked != user.isLocked) {
-        await toggleUserLock(user.id, token: token);
+        await toggleUserLock(user.id, isLocked: user.isLocked, token: token);
       }
 
       // 3. Cập nhật profile qua API /users/profile nếu người sửa chính là tài khoản đang đăng nhập
@@ -191,40 +218,89 @@ mixin UserApiService on BaseApiService {
     return ApiResult(success: true, message: 'Cập nhật thông tin người dùng thành công!');
   }
 
-  Future<bool> toggleUserLock(String userId, {String? token}) async {
+  Future<bool> toggleUserLock(String userId, {bool? isLocked, String? token}) async {
     try {
+      final body = isLocked != null ? json.encode({'isLocked': isLocked}) : null;
       final response = await httpPatch(
         Uri.parse('$baseUrl/users/$userId/toggle-lock'),
         token: token,
+        body: body,
       );
 
       final data = parseApiResponse(response);
       if (data != null) {
+        final existing = _userCache[userId] ?? mockUsers.where((u) => u.id == userId).firstOrNull;
+        final bool newLocked;
+        if (data is Map<String, dynamic> && data.containsKey('isLocked')) {
+          newLocked = data['isLocked'] == true;
+        } else {
+          newLocked = isLocked ?? !(existing?.isLocked ?? false);
+        }
+
+        final apiUser = (data is Map<String, dynamic>) ? AppUser.fromJson(data) : null;
+        final updated = AppUser(
+          id: userId,
+          userName: (apiUser != null && apiUser.userName.isNotEmpty)
+              ? apiUser.userName
+              : (existing?.userName ?? ''),
+          fullName: (apiUser != null && apiUser.fullName.isNotEmpty)
+              ? apiUser.fullName
+              : (existing?.fullName ?? ''),
+          email: (apiUser != null && apiUser.email.isNotEmpty)
+              ? apiUser.email
+              : (existing?.email ?? ''),
+          role: (apiUser != null && apiUser.role.isNotEmpty)
+              ? apiUser.role
+              : (existing?.role ?? 'USER'),
+          roles: (apiUser != null && apiUser.roles.isNotEmpty)
+              ? apiUser.roles
+              : (existing?.roles ?? const ['USER']),
+          status: newLocked ? 'Tạm khóa' : 'Hoạt động',
+          isLocked: newLocked,
+          phone: (apiUser != null && apiUser.phone.isNotEmpty)
+              ? apiUser.phone
+              : (existing?.phone ?? ''),
+          techInterest: (apiUser?.techInterest != null && apiUser!.techInterest!.trim().isNotEmpty)
+              ? apiUser.techInterest
+              : existing?.techInterest,
+          dateOfBirth: apiUser?.dateOfBirth ?? existing?.dateOfBirth,
+          address: (apiUser?.address != null && apiUser!.address!.trim().isNotEmpty)
+              ? apiUser.address
+              : existing?.address,
+          createdAt: apiUser?.createdAt ?? existing?.createdAt ?? DateTime.now(),
+        );
+
+        _userCache[userId] = updated;
+        final idx = mockUsers.indexWhere((u) => u.id == userId);
+        if (idx != -1) mockUsers[idx] = updated;
         notifyListeners();
         return true;
       }
     } catch (e) {
       debugPrint('API Error toggleUserLock: $e');
     }
+
+    // Fallback Offline / Mock
     final idx = mockUsers.indexWhere((u) => u.id == userId);
-    if (idx != -1) {
-      final old = mockUsers[idx];
+    final existing = idx != -1 ? mockUsers[idx] : _userCache[userId];
+    if (existing != null) {
+      final newLocked = isLocked ?? !existing.isLocked;
       final updated = AppUser(
-        id: old.id,
-        userName: old.userName,
-        fullName: old.fullName,
-        email: old.email,
-        role: old.role,
-        roles: old.roles,
-        status: old.isLocked ? 'Hoạt động' : 'Tạm khóa',
-        isLocked: !old.isLocked,
-        phone: old.phone,
-        techInterest: old.techInterest,
-        dateOfBirth: old.dateOfBirth,
-        address: old.address,
-        createdAt: old.createdAt,
+        id: existing.id,
+        userName: existing.userName,
+        fullName: existing.fullName,
+        email: existing.email,
+        role: existing.role,
+        roles: existing.roles,
+        status: newLocked ? 'Tạm khóa' : 'Hoạt động',
+        isLocked: newLocked,
+        phone: existing.phone,
+        techInterest: existing.techInterest,
+        dateOfBirth: existing.dateOfBirth,
+        address: existing.address,
+        createdAt: existing.createdAt,
       );
-      mockUsers[idx] = updated;
+      if (idx != -1) mockUsers[idx] = updated;
       _userCache[userId] = updated;
     }
     notifyListeners();

@@ -90,7 +90,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 title: 'Quản Lý Nhà Cung Cấp',
                 subtitle: 'Quản lý thông tin các nhà đối tác phân phối thiết bị và linh kiện',
                 action: AppButton(
-                  label: 'Tạo Nhà Cung Cấp Mới',
+                  label: 'Tạo nhà cung cấp mới',
                   icon: Icons.add_rounded,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
                 ),
@@ -243,7 +243,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           backgroundColor: cardBg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Text(
-            isEditing ? 'Sửa Nhà Cung Cấp: ${existing.name}' : 'Tạo Nhà Cung Cấp Mới',
+            isEditing ? 'Sửa Nhà Cung Cấp: ${existing.name}' : 'Tạo nhà cung cấp mới',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
           ),
           content: SizedBox(

@@ -186,7 +186,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                 title: 'Quản Lý Voucher Giảm Giá',
                 subtitle: 'Tạo và quản lý các mã giảm giá bill áp dụng khi khách hàng thanh toán',
                 action: AppButton(
-                  label: 'Tạo Voucher Mới',
+                  label: 'Tạo voucher mới',
                   icon: Icons.add_rounded,
                   onPressed: () => _showVoucherFormDialog(context, null),
                 ),
