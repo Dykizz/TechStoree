@@ -28,11 +28,6 @@ public class UpdateOrderStatusDto
     [Required(ErrorMessage = "Trạng thái đơn hàng là bắt buộc.")]
     public OrderStatus Status { get; set; }
 
-    /// <summary>
-    /// Trạng thái thanh toán mới (tùy chọn: PENDING, PAID, FAILED, REFUNDED)
-    /// </summary>
-    /// <example>PAID</example>
-    public PaymentStatus? PaymentStatus { get; set; }
 
     /// <summary>
     /// Ghi chú hủy (nếu chuyển sang trạng thái CANCELLED)
