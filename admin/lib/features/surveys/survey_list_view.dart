@@ -100,7 +100,7 @@ class _SurveyListViewState extends State<SurveyListView> {
                 title: 'Quản Lý Khảo Sát Thị Trường & CRM',
                 subtitle: 'Tạo biểu mẫu thăm dò ý kiến, gắn voucher phần thưởng và phân tích tỷ lệ phản hồi khách hàng',
                 action: AppButton(
-                  label: 'Tạo Khảo Sát Mới',
+                  label: 'Tạo khảo sát mới',
                   icon: Icons.add_rounded,
                   onPressed: widget.onCreateNew,
                 ),

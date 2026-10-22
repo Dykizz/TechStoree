@@ -25,30 +25,59 @@ class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
 
   bool _hasPermissionForRoute(int index, AuthProvider authProvider) {
-    final roles = authProvider.userRoles;
-    final isAdmin = roles.contains('ADMIN') || authProvider.userRole == 'ADMIN';
-    if (isAdmin) return true;
-
-    final isWarehouse = roles.contains('WAREHOUSE_STAFF') || authProvider.userRole == 'WAREHOUSE_STAFF';
-    final isSales = roles.contains('SALES_STAFF') || authProvider.userRole == 'SALES_STAFF';
-    final isSurvey = roles.contains('SURVEY_STAFF') || authProvider.userRole == 'SURVEY_STAFF';
+    if (authProvider.isAdmin) return true;
 
     switch (index) {
       case 0: return true; // Tổng quan
-      case 1: return authProvider.can('Products.View') || isWarehouse || isSales; // Sản phẩm
-      case 2: return authProvider.can('Orders.View') || isSales; // Đơn hàng
-      case 3: return authProvider.can('Orders.View') || isSales; // Hóa đơn
-      case 4: return authProvider.can('Categories.View') || isWarehouse; // Danh mục
-      case 5: return authProvider.can('Suppliers.View') || isWarehouse; // Nhà cung cấp
-      case 6: return authProvider.can('PurchaseOrders.View') || isWarehouse; // Phiếu nhập hàng
-      case 7: return authProvider.can('Promotions.View') || isSales; // Khuyến mãi
-      case 8: return authProvider.can('Vouchers.View') || isSales; // Vouchers
-      case 9: return authProvider.can('Surveys.View') || isSurvey; // Khảo sát
-      case 10: return authProvider.can('Users.View') || isSales || isSurvey; // Khách hàng
-      case 11: return authProvider.can('Users.View') || isAdmin; // Nhân viên
+      case 1: return authProvider.can('Products.View'); // Sản phẩm
+      case 2: return authProvider.can('Orders.View'); // Đơn hàng
+      case 3: return authProvider.can('Orders.View'); // Hóa đơn
+      case 4: return authProvider.can('Categories.View'); // Danh mục
+      case 5: return authProvider.can('Suppliers.View'); // Nhà cung cấp
+      case 6: return authProvider.can('PurchaseOrders.View'); // Phiếu nhập hàng
+      case 7: return authProvider.can('Promotions.View'); // Khuyến mãi
+      case 8: return authProvider.can('Vouchers.View'); // Vouchers
+      case 9: return authProvider.can('Surveys.View'); // Khảo sát
+      case 10: return authProvider.can('Users.View'); // Khách hàng
+      case 11: return authProvider.can('Users.View'); // Nhân viên
       case 12: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
       case 13: return false; // Cài đặt (Admin only)
       default: return false;
+    }
+  }
+
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return const DashboardScreen();
+      case 1:
+        return const ProductsScreen();
+      case 2:
+        return const OrdersScreen();
+      case 3:
+        return const InvoicesScreen();
+      case 4:
+        return const CategoriesScreen();
+      case 5:
+        return const SuppliersScreen();
+      case 6:
+        return const PurchaseOrdersScreen();
+      case 7:
+        return const PromotionsScreen();
+      case 8:
+        return const VouchersScreen();
+      case 9:
+        return const SurveysScreen();
+      case 10:
+        return const CustomersScreen();
+      case 11:
+        return const StaffScreen();
+      case 12:
+        return const RolesScreen();
+      case 13:
+        return const SettingsScreen();
+      default:
+        return const DashboardScreen();
     }
   }
 
@@ -75,33 +104,18 @@ class MainLayout extends StatelessWidget {
       'Cài đặt hệ thống',
     ];
 
-    final screens = const [
-      DashboardScreen(),
-      ProductsScreen(),
-      OrdersScreen(),
-      InvoicesScreen(),
-      CategoriesScreen(),
-      SuppliersScreen(),
-      PurchaseOrdersScreen(),
-      PromotionsScreen(),
-      VouchersScreen(),
-      SurveysScreen(),
-      CustomersScreen(),
-      StaffScreen(),
-      RolesScreen(),
-      SettingsScreen(),
-    ];
-
     final rawIndex = navProvider.currentIndex;
     final hasPermission = _hasPermissionForRoute(rawIndex, authProvider);
 
     if (!hasPermission) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        navProvider.setIndex(0);
+        if (navProvider.currentIndex != 0) {
+          navProvider.setIndex(0);
+        }
       });
     }
 
-    final currentIndex = (hasPermission && rawIndex < screens.length) ? rawIndex : 0;
+    final currentIndex = (hasPermission && rawIndex < titles.length) ? rawIndex : 0;
     final screenWidth = MediaQuery.of(context).size.width;
     final isCompact = screenWidth < 850;
 
@@ -120,11 +134,11 @@ class MainLayout extends StatelessWidget {
                 // Top App Bar
                 AppTopbar(title: titles[currentIndex]),
 
-                // Screen View Body
+                // Screen View Body - re-queries and refreshes every time when navigating or refreshed
                 Expanded(
-                  child: IndexedStack(
-                    index: currentIndex,
-                    children: screens,
+                  child: KeyedSubtree(
+                    key: ValueKey('screen_${currentIndex}_${navProvider.refreshKey}'),
+                    child: _buildScreen(currentIndex),
                   ),
                 ),
               ],

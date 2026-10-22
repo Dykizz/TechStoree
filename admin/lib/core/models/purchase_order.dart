@@ -168,9 +168,14 @@ class PurchaseOrder {
   }
 
   Map<String, dynamic> toCreateJson() {
+    String apiStatus = 'DRAFT';
+    final upper = status.toUpperCase();
+    if (upper == 'COMPLETE' || upper == 'COMPLETED') {
+      apiStatus = 'COMPLETED';
+    }
     return {
       'supplierId': supplierId,
-      'status': status,
+      'status': apiStatus,
       'note': note.isNotEmpty ? note : null,
       'items': items.map((i) => i.toCreateJson()).toList(),
     };

@@ -17,6 +17,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
+import '../users/demographics_report_view.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -33,6 +34,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   int _currentPage = 1;
   int _itemsPerPage = 8;
   late Future<List<AppUser>> _customersFuture;
+  bool _showDemographics = false;
 
   static const List<String> techInterestOptions = [
     'Gaming',
@@ -74,6 +76,13 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    if (_showDemographics) {
+      return DemographicsReportView(
+        showBackHeader: true,
+        onBack: () => setState(() => _showDemographics = false),
+      );
+    }
 
     return FutureBuilder<List<AppUser>>(
       future: _customersFuture,
@@ -134,11 +143,25 @@ class _CustomersScreenState extends State<CustomersScreen> {
               PageHeader(
                 title: 'Quản Lý Khách Hàng',
                 subtitle: 'Theo dõi hồ sơ khách hàng, phân khúc sở thích công nghệ và nhân khẩu học CRM',
-                action: authProvider.isAdmin || authProvider.can('Users.Create') ? AppButton(
-                  label: 'Thêm Khách Hàng',
-                  icon: Icons.person_add_outlined,
-                  onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                ) : null,
+                action: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AppButton(
+                      label: 'Báo cáo nhân khẩu học',
+                      icon: Icons.insights_rounded,
+                      variant: AppButtonVariant.secondary,
+                      onPressed: () => setState(() => _showDemographics = true),
+                    ),
+                    if (authProvider.isAdmin || authProvider.can('Users.Create')) ...[
+                      const SizedBox(width: 8),
+                      AppButton(
+                        label: 'Thêm khách hàng',
+                        icon: Icons.person_add_outlined,
+                        onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
+                      ),
+                    ],
+                  ],
+                ),
               ),
 
               FilterBar(
@@ -249,10 +272,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                           children: [
                                             CircleAvatar(
                                               radius: 12,
-                                              backgroundColor: AppColors.primary.withOpacity(0.15),
+                                              backgroundColor: u.isLocked ? AppColors.danger.withOpacity(0.15) : AppColors.primary.withOpacity(0.15),
                                               child: Text(
                                                 u.fullName.isNotEmpty ? u.fullName[0].toUpperCase() : 'K',
-                                                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
+                                                style: TextStyle(
+                                                  color: u.isLocked ? AppColors.danger : AppColors.primary,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -260,7 +287,19 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(u.fullName, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(u.fullName, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                                                    if (u.isLocked) ...[
+                                                      const SizedBox(width: 4),
+                                                      const Tooltip(
+                                                        message: 'Tài khoản đang bị khóa',
+                                                        child: Icon(Icons.lock_rounded, size: 12, color: AppColors.danger),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
                                                 Text('@${u.userName}', style: TextStyle(color: textSecondary, fontSize: 10)),
                                               ],
                                             ),
@@ -307,7 +346,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                       ),
                                       DataCell(
                                         StatusBadge(
-                                          label: u.isLocked ? 'KHOÁ' : 'HOẠT ĐỘNG',
+                                          label: u.isLocked ? 'ĐÃ KHÓA' : 'HOẠT ĐỘNG',
                                           isSuccess: !u.isLocked,
                                           isDanger: u.isLocked,
                                         ),
@@ -323,7 +362,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                               tooltip: 'Xem hồ sơ khách hàng',
                                               onPressed: () => _showDetailDialog(context, u),
                                             ),
-                                            if (authProvider.isAdmin || authProvider.can('Users.Edit')) ...[
+                                            if (authProvider.isAdmin || authProvider.can('Users.Update') || authProvider.can('Users.Edit')) ...[
                                               IconButton(
                                                 icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
@@ -520,8 +559,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+        builder: (dialogCtx, setDialogState) {
+          final isDark = Provider.of<ThemeProvider>(dialogCtx).isDarkMode;
           final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
           final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
 
@@ -529,7 +568,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
             backgroundColor: cardBg,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             title: Text(
-              isEditing ? 'Sửa Khách Hàng: ${existing.fullName}' : 'Thêm Khách Hàng Mới',
+              isEditing ? 'Sửa khách hàng: ${existing.fullName}' : 'Thêm khách hàng mới',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: textPrimary),
             ),
             content: SizedBox(
@@ -691,10 +730,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
             variant: user.isLocked ? AppButtonVariant.primary : AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);
-              final success = await apiService.toggleUserLock(user.id, token: token);
+              final willLock = !user.isLocked;
+              final success = await apiService.toggleUserLock(user.id, isLocked: willLock, token: token);
               if (mounted) {
+                final msg = willLock ? 'Đã khóa tài khoản thành công!' : 'Đã mở khóa tài khoản thành công!';
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? 'Thao tác thành công!' : 'Thao tác thất bại!')),
+                  SnackBar(content: Text(success ? msg : 'Thao tác thất bại!')),
                 );
                 setState(() => _loadCustomers());
               }

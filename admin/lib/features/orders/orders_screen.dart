@@ -164,7 +164,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     String selectedStatus = nextStatuses.first;
-    String selectedPaymentStatus = order.paymentStatus;
     final reasonCtrl = TextEditingController();
     bool isSubmitting = false;
 
@@ -213,24 +212,30 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ),
                   const SizedBox(height: AppTokens.space12),
 
-                  Text('Trạng thái thanh toán (*)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: selectedPaymentStatus,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusSm)),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                      border: Border.all(color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'PENDING', child: Text('PENDING - Chờ thanh toán', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'PAID', child: Text('PAID - Đã thanh toán thành công', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'FAILED', child: Text('FAILED - Thanh toán thất bại', style: TextStyle(fontSize: 12.5))),
-                      DropdownMenuItem(value: 'REFUNDED', child: Text('REFUNDED - Đã hoàn tiền', style: TextStyle(fontSize: 12.5))),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setDialogState(() => selectedPaymentStatus = val);
-                    },
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.info),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Trạng thái thanh toán sẽ được hệ thống tự động suy ra từ trạng thái đơn hàng (Ví dụ: Chuyển sang Đã giao hàng sẽ tự động thành Đã thanh toán).',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppTokens.space12),
 
@@ -294,7 +299,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         final res = await apiService.updateOrderStatus(
                           order.orderId,
                           status: selectedStatus,
-                          paymentStatus: selectedPaymentStatus,
                           reason: reasonCtrl.text.trim(),
                           token: token,
                         );
