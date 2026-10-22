@@ -5,7 +5,7 @@ namespace WebBanHang.Api.Services.Interfaces;
 
 public interface IUserService
 {
-    Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter);
+    Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter, int currentUserId);
     Task<UserDto> GetUserByIdAsync(int id);
     Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto);
     Task<UserDto> CreateUserAsync(int creatorUserId, CreateUserRequestDto dto);

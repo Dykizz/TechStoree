@@ -12,7 +12,7 @@ namespace WebBanHang.Api.Services;
 
 public class UserService(AppDbContext context) : IUserService
 {
-    public async Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter)
+    public async Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter, int currentUserId)
     {
         var query = context.Users
             .AsNoTracking()
@@ -21,6 +21,7 @@ public class UserService(AppDbContext context) : IUserService
             .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
+            .Where(u => currentUserId <= 0 || u.UserId != currentUserId)
             .AsQueryable();
 
         // 1. Lọc theo vai trò cụ thể (nếu có)
