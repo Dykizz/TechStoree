@@ -36,7 +36,7 @@ class TechStoreAdminApp extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return MaterialApp(
-      title: 'TechStoree - Admin Desktop',
+      title: 'TechStoree',
       debugShowCheckedModeBanner: false,
       themeMode: themeProvider.themeMode,
       theme: ThemeData(

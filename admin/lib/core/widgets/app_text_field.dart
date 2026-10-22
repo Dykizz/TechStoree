@@ -51,6 +51,7 @@ class AppTextField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final FocusNode? focusNode;
   final double? height;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const AppTextField({
     super.key,
@@ -69,6 +70,7 @@ class AppTextField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.focusNode,
     this.height,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -84,6 +86,7 @@ class AppTextField extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
       onChanged: onChanged,
+      onFieldSubmitted: onFieldSubmitted,
       validator: validator,
       obscureText: obscureText,
       keyboardType: keyboardType,
