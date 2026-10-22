@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
@@ -6,6 +7,8 @@ import '../../../core/models/product.dart';
 import '../../../core/models/purchase_order.dart';
 import '../../../core/models/voucher.dart';
 import '../../../core/models/app_user.dart';
+import '../../../core/models/promotion.dart';
+import '../../../core/models/survey.dart';
 import '../../../core/services/api_service.dart';
 import '../models/dashboard_data.dart';
 
@@ -26,6 +29,7 @@ class DashboardDataResult {
   final List<VariantInventoryAlert> variantAlerts;
   final SurveyOverviewMetric surveyMetric;
   final PromotionVoucherOverviewMetric promoVoucherMetric;
+  final CustomerReviewOverviewMetric? reviewMetric;
   final List<Order> recentOrders;
   final List<PurchaseOrder> recentPurchaseOrders;
 
@@ -48,6 +52,7 @@ class DashboardDataResult {
     required this.variantAlerts,
     required this.surveyMetric,
     required this.promoVoucherMetric,
+    this.reviewMetric,
     required this.recentOrders,
     required this.recentPurchaseOrders,
     this.isDatasetPaginated = false,
@@ -65,15 +70,66 @@ class DashboardDataProvider {
     required DashboardTimePeriod period,
     required String? token,
   }) async {
-    // 1. Fetch complete dataset handling API pagination
-    final orders = await _fetchAllOrders(token);
-    final purchaseOrders = await _fetchAllPurchaseOrders(token);
-    final products = await apiService.getProducts(token: token);
-    final users = await apiService.getUsers(token: token);
-    final promotions = await apiService.getPromotions(token: token);
-    final vouchers = await apiService.getVouchers(token: token);
-    final surveyPaged = await apiService.getSurveys(token: token);
-    final surveys = surveyPaged.items;
+    // 1. Fetch complete dataset in parallel with safe fallbacks (Future.wait)
+    final fetchOrdersFuture = _fetchAllOrders(token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error _fetchAllOrders: $e');
+      return <Order>[];
+    });
+
+    final fetchPOsFuture = _fetchAllPurchaseOrders(token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error _fetchAllPurchaseOrders: $e');
+      return <PurchaseOrder>[];
+    });
+
+    final fetchProductsFuture = apiService.getProductsWithVariants(token: token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getProductsWithVariants: $e');
+      return apiService.getProducts(token: token).catchError((_) => <Product>[]);
+    });
+
+    final fetchUsersFuture = apiService.getUsers(token: token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getUsers: $e');
+      return <AppUser>[];
+    });
+
+    final fetchPromotionsFuture = apiService.getPromotions(token: token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getPromotions: $e');
+      return <Promotion>[];
+    });
+
+    final fetchVouchersFuture = apiService.getVouchers(token: token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getVouchers: $e');
+      return <Voucher>[];
+    });
+
+    final fetchSurveysFuture = apiService.getSurveys(token: token).then((res) => res.items).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getSurveys: $e');
+      return <SurveyAdminList>[];
+    });
+
+    final fetchReviewStatsFuture = apiService.getReviewStatistics(token: token).catchError((e) {
+      if (kDebugMode) print('Dashboard Error getReviewStatistics: $e');
+      return CustomerReviewOverviewMetric.empty();
+    });
+
+    final results = await Future.wait([
+      fetchOrdersFuture,
+      fetchPOsFuture,
+      fetchProductsFuture,
+      fetchUsersFuture,
+      fetchPromotionsFuture,
+      fetchVouchersFuture,
+      fetchSurveysFuture,
+      fetchReviewStatsFuture,
+    ]);
+
+    final orders = results[0] as List<Order>;
+    final purchaseOrders = results[1] as List<PurchaseOrder>;
+    final products = results[2] as List<Product>;
+    final users = results[3] as List<AppUser>;
+    final promotions = results[4] as List<Promotion>;
+    final vouchers = results[5] as List<Voucher>;
+    final surveys = results[6] as List<SurveyAdminList>;
+    final reviewMetric = results[7] as CustomerReviewOverviewMetric;
 
     // 2. Filter orders & POs by time period
     final currOrders = _filterOrdersByDateRange(orders, period.startDate, period.endDate);
@@ -88,6 +144,21 @@ class DashboardDataProvider {
     // 3. Business Rule 1: Revenue excludes CANCELLED orders
     final currValidOrders = currOrders.where((o) => o.orderStatus.toUpperCase() != 'CANCELLED').toList();
     final prevValidOrders = prevOrders.where((o) => o.orderStatus.toUpperCase() != 'CANCELLED').toList();
+
+    // Enrich currValidOrders with item snapshots if items are missing (e.g. from OrderBaseDto)
+    if (currValidOrders.any((o) => o.items.isEmpty)) {
+      final enriched = await Future.wait(currValidOrders.map((o) async {
+        if (o.items.isNotEmpty) return o;
+        try {
+          final detail = await apiService.getOrderById(o.orderId, token: token);
+          return detail ?? o;
+        } catch (_) {
+          return o;
+        }
+      }));
+      currValidOrders.clear();
+      currValidOrders.addAll(enriched);
+    }
 
     final currRevenueVal = currValidOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
     final prevRevenueVal = prevValidOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
@@ -111,37 +182,42 @@ class DashboardDataProvider {
 
     final newCustomersKpi = DashboardMetricKpi.calculate(currUsers.length.toDouble(), prevUsers.length.toDouble());
 
-    // 6. Business Rule 3: Variant-level inventory alert calculation
+    // 6. Business Rule 3: Variant-level inventory alert calculation (Threshold: <= 20)
     final variantAlertList = <VariantInventoryAlert>[];
     for (var p in products) {
+      final pId = int.tryParse(p.id) ?? 0;
       if (p.variants.isNotEmpty) {
         for (var v in p.variants) {
-          if (v.stockQuantity <= 10) {
+          if (v.stockQuantity <= 20) {
+            final isOut = v.stockQuantity == 0;
+            final isLow = v.stockQuantity <= 10;
             variantAlertList.add(
               VariantInventoryAlert(
-                productId: p.categoryId,
+                productId: v.productId ?? pId,
                 variantId: v.variantId ?? 0,
                 productName: p.name,
                 variantName: v.variantName,
                 imageUrl: v.imageUrl?.isNotEmpty == true ? v.imageUrl : p.imageUrl,
                 stockQuantity: v.stockQuantity,
-                statusLabel: v.stockQuantity == 0 ? 'Hết hàng' : 'Sắp hết',
-                isOutOfStock: v.stockQuantity == 0,
+                statusLabel: isOut ? 'Hết hàng' : (isLow ? 'Sắp hết' : 'Tồn kho thấp'),
+                isOutOfStock: isOut,
               ),
             );
           }
         }
-      } else if (p.stock <= 10) {
+      } else if (p.stock <= 20) {
+        final isOut = p.stock == 0;
+        final isLow = p.stock <= 10;
         variantAlertList.add(
           VariantInventoryAlert(
-            productId: p.categoryId,
+            productId: pId,
             variantId: 0,
             productName: p.name,
             variantName: 'Mặc định',
             imageUrl: p.imageUrl,
             stockQuantity: p.stock,
-            statusLabel: p.stock == 0 ? 'Hết hàng' : 'Sắp hết',
-            isOutOfStock: p.stock == 0,
+            statusLabel: isOut ? 'Hết hàng' : (isLow ? 'Sắp hết' : 'Tồn kho thấp'),
+            isOutOfStock: isOut,
           ),
         );
       }
@@ -162,8 +238,8 @@ class DashboardDataProvider {
     // 9. Payment Status Distribution (Selected Period)
     final paymentStatusList = _buildPaymentStatusDistribution(currOrders);
 
-    // 10. Top Selling Products (From items of valid orders in period)
-    final topProducts = _buildTopProducts(currValidOrders);
+    // 10. Top Selling Products (From items of valid orders in period, mapped with catalog)
+    final topProducts = _buildTopProducts(currValidOrders, products);
 
     // 11. Business Rule 4: Category Analytics (Revenue > Qty > Product count fallback)
     final categoryMetrics = _buildCategoryMetrics(currValidOrders, products);
@@ -219,6 +295,7 @@ class DashboardDataProvider {
       variantAlerts: variantAlertList,
       surveyMetric: surveyMetric,
       promoVoucherMetric: promoVoucherMetric,
+      reviewMetric: reviewMetric,
       recentOrders: sortedRecentOrders.take(10).toList(),
       recentPurchaseOrders: purchaseOrders.take(5).toList(),
     );
@@ -270,6 +347,14 @@ class DashboardDataProvider {
 
   List<AppUser> _filterUsersByDateRange(List<AppUser> users, DateTime start, DateTime end) {
     return users.where((u) {
+      // Only count customers, exclude admin/staff accounts
+      final roleUpper = u.role.toUpperCase();
+      final isCustomer = roleUpper == 'USER' ||
+          roleUpper == 'CUSTOMER' ||
+          roleUpper == 'KHACH_HANG' ||
+          (!roleUpper.contains('ADMIN') && !roleUpper.contains('STAFF'));
+      if (!isCustomer) return false;
+
       return u.createdAt.isAfter(start.subtract(const Duration(seconds: 1))) &&
           u.createdAt.isBefore(end.add(const Duration(seconds: 1)));
     }).toList();
@@ -492,30 +577,56 @@ class DashboardDataProvider {
 
   // --- Top Products Aggregation ---
 
-  List<TopProductItem> _buildTopProducts(List<Order> validOrders) {
+  List<TopProductItem> _buildTopProducts(List<Order> validOrders, List<Product> products) {
+    // Build quick lookup map: variantId -> (productId, productName, imageUrl)
+    final Map<int, ({int productId, String productName, String? imageUrl})> variantLookup = {};
+    for (var p in products) {
+      final pId = int.tryParse(p.id) ?? 0;
+      for (var v in p.variants) {
+        if (v.variantId != null) {
+          variantLookup[v.variantId!] = (
+            productId: v.productId ?? pId,
+            productName: p.name,
+            imageUrl: v.imageUrl?.isNotEmpty == true ? v.imageUrl : p.imageUrl,
+          );
+        }
+      }
+      if (p.variants.isEmpty) {
+        variantLookup[pId] = (
+          productId: pId,
+          productName: p.name,
+          imageUrl: p.imageUrl,
+        );
+      }
+    }
+
     final Map<int, TopProductItem> aggregatedMap = {};
 
     for (var order in validOrders) {
       for (var item in order.items) {
         final key = item.variantId;
+        final lookup = variantLookup[key];
+        final realProductId = lookup?.productId ?? int.tryParse(item.productId) ?? 0;
+        final realImg = item.imageUrl?.isNotEmpty == true ? item.imageUrl : lookup?.imageUrl;
+
         if (aggregatedMap.containsKey(key)) {
           final existing = aggregatedMap[key]!;
           aggregatedMap[key] = TopProductItem(
             variantId: key,
-            productId: existing.productId,
+            productId: realProductId != 0 ? realProductId : existing.productId,
             productName: existing.productName,
             variantName: existing.variantName,
-            imageUrl: existing.imageUrl,
+            imageUrl: existing.imageUrl ?? realImg,
             quantitySold: existing.quantitySold + item.quantity,
             revenue: existing.revenue + item.totalPrice,
           );
         } else {
           aggregatedMap[key] = TopProductItem(
             variantId: key,
-            productId: 0,
+            productId: realProductId,
             productName: item.productName,
             variantName: item.variantName,
-            imageUrl: item.imageUrl,
+            imageUrl: realImg,
             quantitySold: item.quantity,
             revenue: item.totalPrice,
           );
@@ -535,18 +646,27 @@ class DashboardDataProvider {
     final Map<String, int> qtyMap = {};
     final Map<String, int> catalogMap = {};
 
-    // Catalog composition counts
+    // Build lookup for category by variantId and productName
+    final Map<int, String> variantCategoryMap = {};
+    final Map<String, String> nameCategoryMap = {};
+
     for (var p in products) {
       final cat = p.category.isNotEmpty ? p.category : 'Khác';
       catalogMap[cat] = (catalogMap[cat] ?? 0) + 1;
+      nameCategoryMap[p.name.trim().toLowerCase()] = cat;
+      for (var v in p.variants) {
+        if (v.variantId != null) {
+          variantCategoryMap[v.variantId!] = cat;
+        }
+      }
     }
 
     // Sales metrics
     for (var o in validOrders) {
       for (var item in o.items) {
-        // Try to match product category from catalog
-        final matchedProd = products.where((p) => p.name.toLowerCase() == item.productName.toLowerCase()).firstOrNull;
-        final cat = matchedProd?.category ?? 'Danh mục khác';
+        final cat = variantCategoryMap[item.variantId] ??
+            nameCategoryMap[item.productName.trim().toLowerCase()] ??
+            'Danh mục khác';
 
         revMap[cat] = (revMap[cat] ?? 0) + item.totalPrice;
         qtyMap[cat] = (qtyMap[cat] ?? 0) + item.quantity;

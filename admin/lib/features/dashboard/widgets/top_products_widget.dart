@@ -10,6 +10,8 @@ class TopProductsWidget extends StatelessWidget {
   final Color borderColor;
   final Color textPrimary;
   final Color textSecondary;
+  final ValueChanged<TopProductItem>? onProductTap;
+  final VoidCallback? onViewAll;
 
   const TopProductsWidget({
     super.key,
@@ -19,6 +21,8 @@ class TopProductsWidget extends StatelessWidget {
     required this.borderColor,
     required this.textPrimary,
     required this.textSecondary,
+    this.onProductTap,
+    this.onViewAll,
   });
 
   @override
@@ -29,8 +33,20 @@ class TopProductsWidget extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withValues(alpha: isDark ? 0.6 : 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0xFF64748B).withValues(alpha: 0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.20) : const Color(0xFF64748B).withValues(alpha: 0.04),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,21 +54,40 @@ class TopProductsWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Top sản phẩm bán chạy',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Top sản phẩm bán chạy',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Xếp hạng theo doanh số trong kỳ',
+                      style: TextStyle(fontSize: 11, color: textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (onViewAll != null)
+                TextButton.icon(
+                  onPressed: onViewAll,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 13, color: AppColors.primary),
+                  label: const Text(
+                    'Xem tất cả',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
                   ),
-                  const SizedBox(height: 2),
-                  Text('Xếp hạng theo doanh số trong kỳ', style: TextStyle(fontSize: 11, color: textSecondary)),
-                ],
-              ),
-              Text(
-                '${topProducts.length} sản phẩm',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
-              ),
+                )
+              else
+                Text(
+                  '${topProducts.length} sản phẩm',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textSecondary),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -73,12 +108,12 @@ class TopProductsWidget extends StatelessWidget {
                 final idx = entry.key;
                 final item = entry.value;
 
-                return Container(
+                final rowWidget = Container(
                   margin: const EdgeInsets.only(bottom: 6),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: borderColor.withValues(alpha: 0.5)),
                   ),
                   child: Row(
@@ -137,6 +172,20 @@ class TopProductsWidget extends StatelessWidget {
                     ],
                   ),
                 );
+
+                if (onProductTap != null) {
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => onProductTap!(item),
+                      borderRadius: BorderRadius.circular(8),
+                      hoverColor: AppColors.primary.withValues(alpha: 0.04),
+                      child: rowWidget,
+                    ),
+                  );
+                }
+
+                return rowWidget;
               }).toList(),
             ),
         ],

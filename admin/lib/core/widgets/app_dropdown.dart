@@ -25,11 +25,13 @@ class AppDropdown<T> extends StatelessWidget {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
+    final effectiveValue = items.any((item) => item.value == value) ? value : null;
     return SizedBox(
       height: 44,
       child: DropdownButtonFormField<T>(
+        key: ValueKey(value),
         isExpanded: true,
-        initialValue: value,
+        initialValue: effectiveValue,
         dropdownColor: backgroundColor,
         icon: Icon(Icons.arrow_drop_down, size: 20, color: textSecondary),
         style: TextStyle(color: textPrimary, fontSize: 13),

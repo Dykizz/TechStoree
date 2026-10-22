@@ -10,6 +10,7 @@ export 'voucher_api_service.dart';
 export 'survey_api_service.dart';
 export 'role_api_service.dart';
 export 'invoice_api_service.dart';
+export 'review_api_service.dart';
 
 import 'base_api_service.dart';
 import 'product_api_service.dart';
@@ -23,6 +24,7 @@ import 'voucher_api_service.dart';
 import 'survey_api_service.dart';
 import 'role_api_service.dart';
 import 'invoice_api_service.dart';
+import 'review_api_service.dart';
 
 class ApiService extends BaseApiService
     with
@@ -36,5 +38,6 @@ class ApiService extends BaseApiService
         VoucherApiService,
         SurveyApiService,
         RoleApiService,
-        InvoiceApiService {}
+        InvoiceApiService,
+        ReviewApiService {}
 
