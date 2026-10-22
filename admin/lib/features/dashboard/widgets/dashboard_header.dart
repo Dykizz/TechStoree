@@ -41,8 +41,20 @@ class DashboardHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withValues(alpha: isDark ? 0.6 : 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0xFF64748B).withValues(alpha: 0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.20) : const Color(0xFF64748B).withValues(alpha: 0.04),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -51,7 +63,7 @@ class DashboardHeader extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  'Tổng quan kinh doanh',
+                  'Tổng quan',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -62,7 +74,7 @@ class DashboardHeader extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    '• Chào $adminName 👋  Hiệu suất doanh thu, tồn kho biến thể và chỉ số kinh doanh TechStoree.',
+                    'Xin chào $adminName 👋!',
                     style: TextStyle(fontSize: 12, color: textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

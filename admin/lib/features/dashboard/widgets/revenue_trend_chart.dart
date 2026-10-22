@@ -72,8 +72,20 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: widget.cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: widget.borderColor),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.borderColor.withValues(alpha: widget.isDark ? 0.6 : 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0xFF64748B).withValues(alpha: 0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: widget.isDark ? Colors.black.withValues(alpha: 0.20) : const Color(0xFF64748B).withValues(alpha: 0.04),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,41 +93,56 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _mode == RevenueChartMode.revenueOnly
-                        ? 'Biểu đồ Doanh thu'
-                        : (_mode == RevenueChartMode.costOnly ? 'Biểu đồ Chi phí nhập' : 'Doanh thu vs Chi phí nhập hàng'),
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: widget.textPrimary),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Đơn vị: Triệu VNĐ (Dữ liệu thực tế)',
-                    style: TextStyle(fontSize: 11, color: widget.textSecondary),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _mode == RevenueChartMode.revenueOnly
+                          ? 'Biểu đồ Doanh thu'
+                          : (_mode == RevenueChartMode.costOnly ? 'Biểu đồ Chi phí nhập' : 'Doanh thu vs. Chi phí nhập hàng'),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: widget.textPrimary),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Text(
+                          'Đơn vị: Triệu VNĐ',
+                          style: TextStyle(fontSize: 11, color: widget.textSecondary),
+                        ),
+                        const SizedBox(width: 12),
+                        if (_mode == RevenueChartMode.all || _mode == RevenueChartMode.revenueOnly) ...[
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
+                          const SizedBox(width: 4),
+                          Text('Doanh thu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                          const SizedBox(width: 10),
+                        ],
+                        if (_mode == RevenueChartMode.all || _mode == RevenueChartMode.costOnly) ...[
+                          Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.info, shape: BoxShape.circle)),
+                          const SizedBox(width: 4),
+                          Text('Chi phí nhập', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
 
               // View Mode Segmented Controls
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildModeBtn('Tất cả', RevenueChartMode.all),
-                        _buildModeBtn('Doanh thu', RevenueChartMode.revenueOnly),
-                        _buildModeBtn('Chi phí nhập', RevenueChartMode.costOnly),
-                      ],
-                    ),
-                  ),
-                ],
+              Container(
+                padding: const EdgeInsets.all(2.5),
+                decoration: BoxDecoration(
+                  color: widget.isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: widget.borderColor.withValues(alpha: 0.5)),
+                ),
+                child: Row(
+                  children: [
+                    _buildModeBtn('Tất cả', RevenueChartMode.all),
+                    _buildModeBtn('Doanh thu', RevenueChartMode.revenueOnly),
+                    _buildModeBtn('Chi phí nhập', RevenueChartMode.costOnly),
+                  ],
+                ),
               ),
             ],
           ),
@@ -131,7 +158,7 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
                   show: true,
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (val) => FlLine(
-                    color: widget.borderColor.withValues(alpha: 0.5),
+                    color: widget.borderColor.withValues(alpha: 0.4),
                     strokeWidth: 1,
                   ),
                 ),
@@ -176,6 +203,10 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
                   enabled: true,
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (_) => widget.isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
+                    tooltipBorder: BorderSide(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
                     getTooltipItems: (touchedSpots) {
                       return touchedSpots.map((spot) {
                         final idx = spot.x.toInt();
@@ -196,29 +227,36 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
                   ),
                 ),
                 lineBarsData: [
-                  // Revenue Line
+                  // Revenue Line (Gradient Area Fill)
                   if (_mode == RevenueChartMode.all || _mode == RevenueChartMode.revenueOnly)
                     LineChartBarData(
                       spots: revSpots,
                       isCurved: true,
-                      curveSmoothness: 0.15,
+                      curveSmoothness: 0.20,
                       preventCurveOverShooting: true,
                       color: AppColors.primary,
-                      barWidth: 2.2,
+                      barWidth: 2.4,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: AppColors.primary.withValues(alpha: 0.10),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            AppColors.primary.withValues(alpha: 0.28),
+                            AppColors.primary.withValues(alpha: 0.02),
+                          ],
+                        ),
                       ),
                     ),
 
-                  // Import Cost Line
+                  // Import Cost Line (Gradient Area Fill)
                   if (_mode == RevenueChartMode.all || _mode == RevenueChartMode.costOnly)
                     LineChartBarData(
                       spots: costSpots,
                       isCurved: true,
-                      curveSmoothness: 0.15,
+                      curveSmoothness: 0.20,
                       preventCurveOverShooting: true,
                       color: AppColors.info,
                       barWidth: 2.0,
@@ -226,7 +264,14 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
                       dotData: const FlDotData(show: false),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: AppColors.info.withValues(alpha: 0.06),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            AppColors.info.withValues(alpha: 0.20),
+                            AppColors.info.withValues(alpha: 0.01),
+                          ],
+                        ),
                       ),
                     ),
                 ],
@@ -243,10 +288,19 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
     return GestureDetector(
       onTap: () => setState(() => _mode = mode),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
         decoration: BoxDecoration(
           color: isSelected ? widget.cardBg : Colors.transparent,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
@@ -272,7 +326,7 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: widget.cardBg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: widget.borderColor),
       ),
       child: Center(

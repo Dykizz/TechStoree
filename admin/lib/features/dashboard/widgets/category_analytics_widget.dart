@@ -7,6 +7,7 @@ enum CategoryMetricType { revenue, quantity, catalogCount }
 
 class CategoryAnalyticsWidget extends StatefulWidget {
   final List<CategoryMetricItem> categoryMetrics;
+  final VoidCallback? onViewAll;
   final bool isDark;
   final Color cardBg;
   final Color borderColor;
@@ -16,6 +17,7 @@ class CategoryAnalyticsWidget extends StatefulWidget {
   const CategoryAnalyticsWidget({
     super.key,
     required this.categoryMetrics,
+    this.onViewAll,
     required this.isDark,
     required this.cardBg,
     required this.borderColor,
@@ -46,8 +48,20 @@ class _CategoryAnalyticsWidgetState extends State<CategoryAnalyticsWidget> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: widget.cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: widget.borderColor),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: widget.borderColor.withValues(alpha: widget.isDark ? 0.6 : 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0xFF64748B).withValues(alpha: 0.07),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: widget.isDark ? Colors.black.withValues(alpha: 0.20) : const Color(0xFF64748B).withValues(alpha: 0.04),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,7 +74,7 @@ class _CategoryAnalyticsWidgetState extends State<CategoryAnalyticsWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isFallback ? 'Phân bổ sản phẩm theo danh mục' : 'Phân bổ doanh số theo danh mục',
+                      isFallback ? 'Phân bổ sản phẩm theo loại sản phẩm' : 'Phân bổ doanh số theo loại sản phẩm',
                       style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: widget.textPrimary),
                     ),
                     const SizedBox(height: 2),
@@ -188,6 +202,27 @@ class _CategoryAnalyticsWidgetState extends State<CategoryAnalyticsWidget> {
                 ),
               );
             }),
+          if (widget.onViewAll != null) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: InkWell(
+                onTap: widget.onViewAll,
+                borderRadius: BorderRadius.circular(4),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                  child: Text(
+                    'Quản lý loại sản phẩm →',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
