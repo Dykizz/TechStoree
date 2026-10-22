@@ -126,7 +126,7 @@ class _RoleFormDialogState extends State<RoleFormDialog> {
         widget.existingRole!.roleId,
         roleName: name,
         description: desc.isNotEmpty ? desc : null,
-        permissions: widget.existingRole!.permissions,
+        permissions: _selectedPermissionIds.toList(),
         token: widget.token,
       );
 
@@ -472,9 +472,12 @@ class _RoleFormDialogState extends State<RoleFormDialog> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: borderColor),
-                              color: isDark ? const Color(0xFF131A26) : const Color(0xFFFAFAFA),
                             ),
-                            child: ExpansionTile(
+                            child: Material(
+                              color: isDark ? const Color(0xFF131A26) : const Color(0xFFFAFAFA),
+                              borderRadius: BorderRadius.circular(6),
+                              clipBehavior: Clip.antiAlias,
+                              child: ExpansionTile(
                               tilePadding: const EdgeInsets.symmetric(horizontal: 12),
                               childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
                               dense: true,
@@ -581,7 +584,8 @@ class _RoleFormDialogState extends State<RoleFormDialog> {
                                 );
                               }).toList(),
                             ),
-                          );
+                          ),
+                        );
                         }),
                       ],
                     ],

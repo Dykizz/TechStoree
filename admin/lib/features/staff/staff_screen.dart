@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
 import '../../core/models/app_user.dart';
+import '../../core/models/role.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
@@ -33,6 +34,7 @@ class _StaffScreenState extends State<StaffScreen> {
   int _currentPage = 1;
   int _itemsPerPage = 8;
   late Future<List<AppUser>> _staffFuture;
+  List<RoleModel> _availableRoles = [];
 
   static const Map<String, String> roleLabels = {
     'ADMIN': 'Quản trị viên',
@@ -51,6 +53,11 @@ class _StaffScreenState extends State<StaffScreen> {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     _staffFuture = apiService.getUsers(token: token, isStaffOnly: true);
+    apiService.getRoles(token: token).then((roles) {
+      if (mounted && roles.isNotEmpty) {
+        setState(() => _availableRoles = roles);
+      }
+    }).catchError((_) {});
   }
 
   @override
@@ -130,7 +137,7 @@ class _StaffScreenState extends State<StaffScreen> {
                 title: 'Quản Lý Nhân Viên',
                 subtitle: 'Quản lý tài khoản nhân sự nội bộ, phân quyền vai trò (Admin, Sales, Thủ kho, CRM) và bảo mật hệ thống',
                 action: authProvider.isAdmin || authProvider.can('Users.Create') ? AppButton(
-                  label: 'Thêm Nhân Viên',
+                  label: 'Thêm nhân viên',
                   icon: Icons.person_add_outlined,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
                 ) : null,
@@ -243,10 +250,14 @@ class _StaffScreenState extends State<StaffScreen> {
                                           children: [
                                             CircleAvatar(
                                               radius: 12,
-                                              backgroundColor: _getPrimaryRoleColor(u).withOpacity(0.15),
+                                              backgroundColor: u.isLocked ? AppColors.danger.withOpacity(0.15) : _getPrimaryRoleColor(u).withOpacity(0.15),
                                               child: Text(
                                                 u.fullName.isNotEmpty ? u.fullName[0].toUpperCase() : 'S',
-                                                style: TextStyle(color: _getPrimaryRoleColor(u), fontWeight: FontWeight.bold, fontSize: 11),
+                                                style: TextStyle(
+                                                  color: u.isLocked ? AppColors.danger : _getPrimaryRoleColor(u),
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 11,
+                                                ),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -254,7 +265,19 @@ class _StaffScreenState extends State<StaffScreen> {
                                               mainAxisAlignment: MainAxisAlignment.center,
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(u.fullName, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(u.fullName, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                                                    if (u.isLocked) ...[
+                                                      const SizedBox(width: 4),
+                                                      const Tooltip(
+                                                        message: 'Tài khoản đang bị khóa',
+                                                        child: Icon(Icons.lock_rounded, size: 12, color: AppColors.danger),
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
                                                 Text('@${u.userName}', style: TextStyle(color: textSecondary, fontSize: 10)),
                                               ],
                                             ),
@@ -294,7 +317,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                               tooltip: 'Xem thông tin nhân viên',
                                               onPressed: () => _showDetailDialog(context, u),
                                             ),
-                                            if (authProvider.isAdmin || authProvider.can('Users.Edit')) ...[
+                                            if (authProvider.isAdmin || authProvider.can('Users.AssignRoles') || authProvider.can('Users.Update') || authProvider.can('Users.Edit')) ...[
                                               IconButton(
                                                 icon: Icon(Icons.manage_accounts_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
@@ -304,13 +327,13 @@ class _StaffScreenState extends State<StaffScreen> {
                                               ),
                                               IconButton(
                                                 icon: Icon(
-                                                  !u.isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
+                                                  u.isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
                                                   size: 15,
-                                                  color: !u.isLocked ? AppColors.danger : AppColors.success,
+                                                  color: u.isLocked ? AppColors.success : AppColors.danger,
                                                 ),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                tooltip: !u.isLocked ? 'Khóa tài khoản nhân viên' : 'Mở khóa tài khoản',
+                                                tooltip: u.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản nhân viên',
                                                 onPressed: () => _confirmToggleActive(context, apiService, authProvider.token, u),
                                               ),
                                             ],
@@ -357,7 +380,11 @@ class _StaffScreenState extends State<StaffScreen> {
 
   String _getRolesDisplay(AppUser u) {
     final list = u.roles.isNotEmpty ? u.roles : [u.role];
-    return list.map((r) => roleLabels[r] ?? r).join(', ');
+    return list.map((r) {
+      final found = _availableRoles.where((ar) => ar.roleId.toUpperCase() == r.toUpperCase()).firstOrNull;
+      if (found != null && found.roleName.isNotEmpty) return found.roleName;
+      return roleLabels[r] ?? r;
+    }).join(', ');
   }
 
   Widget _buildRolesBadges(AppUser u) {
@@ -506,27 +533,37 @@ class _StaffScreenState extends State<StaffScreen> {
 
     bool isLocked = isEditing ? existing.isLocked : false;
 
-    const Map<String, String> availableStaffRoles = {
+    final Map<String, String> availableStaffRoles = {
       'SALES_STAFF': 'Nhân viên bán hàng (SALES_STAFF)',
       'WAREHOUSE_STAFF': 'Thủ kho (WAREHOUSE_STAFF)',
       'SURVEY_STAFF': 'Nhân viên khảo sát & CRM (SURVEY_STAFF)',
       'ADMIN': 'Quản trị viên toàn hệ thống (ADMIN)',
     };
 
+    for (final r in _availableRoles) {
+      if (r.roleId.toUpperCase() != 'USER' && !availableStaffRoles.containsKey(r.roleId)) {
+        availableStaffRoles[r.roleId] = '${r.roleName} (${r.roleId})';
+      }
+    }
+    for (final r in selectedRoles) {
+      if (!availableStaffRoles.containsKey(r)) {
+        availableStaffRoles[r] = r;
+      }
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+        builder: (dialogCtx, setDialogState) {
+          final isDark = Provider.of<ThemeProvider>(dialogCtx).isDarkMode;
           final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
           final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-          final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
           return AlertDialog(
             backgroundColor: cardBg,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             title: Text(
-              isEditing ? 'Sửa Nhân Viên: ${existing.fullName}' : 'Thêm Nhân Viên Mới',
+              isEditing ? 'Sửa nhân viên: ${existing.fullName}' : 'Thêm nhân viên mới',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: textPrimary),
             ),
             content: SizedBox(
@@ -683,10 +720,12 @@ class _StaffScreenState extends State<StaffScreen> {
             variant: user.isLocked ? AppButtonVariant.primary : AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);
-              final success = await apiService.toggleUserLock(user.id, token: token);
+              final willLock = !user.isLocked;
+              final success = await apiService.toggleUserLock(user.id, isLocked: willLock, token: token);
               if (mounted) {
+                final msg = willLock ? 'Đã khóa tài khoản nhân viên thành công!' : 'Đã mở khóa tài khoản nhân viên thành công!';
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? 'Thao tác thành công!' : 'Thao tác thất bại!')),
+                  SnackBar(content: Text(success ? msg : 'Thao tác thất bại!')),
                 );
                 setState(() => _loadStaff());
               }

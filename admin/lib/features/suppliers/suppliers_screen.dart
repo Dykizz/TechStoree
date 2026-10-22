@@ -15,7 +15,6 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
-import '../../core/widgets/status_badge.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -91,7 +90,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 title: 'Quản Lý Nhà Cung Cấp',
                 subtitle: 'Quản lý thông tin các nhà đối tác phân phối thiết bị và linh kiện',
                 action: AppButton(
-                  label: 'Tạo Nhà Cung Cấp Mới',
+                  label: 'Tạo nhà cung cấp mới',
                   icon: Icons.add_rounded,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
                 ),
@@ -139,17 +138,15 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                       columns: [
                                         DataColumn(label: Text('MÃ NCC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('TÊN NHÀ CUNG CẤP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('NGƯỜI LIÊN HỆ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('SỐ ĐIỆN THOẠI / EMAIL', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('ĐỊA CHỈ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedSuppliers.map((sup) {
                                         return DataRow(
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
                                             }
                                             return null;
                                           }),
@@ -165,7 +162,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                                 ],
                                               ),
                                             ),
-                                            DataCell(Text(sup.contactName, style: TextStyle(color: textPrimary, fontSize: 12))),
                                             DataCell(
                                               Text('${sup.phone.isNotEmpty ? sup.phone : '—'} / ${sup.email.isNotEmpty ? sup.email : '—'}', style: TextStyle(color: textSecondary, fontSize: 11)),
                                             ),
@@ -175,12 +171,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                                 style: TextStyle(color: textSecondary, fontSize: 11),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                            DataCell(
-                                              const StatusBadge(
-                                                label: 'ĐANG ĐỐI TÁC',
-                                                isSuccess: true,
                                               ),
                                             ),
                                             DataCell(
@@ -253,7 +243,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           backgroundColor: cardBg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Text(
-            isEditing ? 'Sửa Nhà Cung Cấp: ${existing.name}' : 'Tạo Nhà Cung Cấp Mới',
+            isEditing ? 'Sửa Nhà Cung Cấp: ${existing.name}' : 'Tạo nhà cung cấp mới',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
           ),
           content: SizedBox(

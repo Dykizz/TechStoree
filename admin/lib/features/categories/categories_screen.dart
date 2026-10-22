@@ -15,7 +15,6 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
-import '../../core/widgets/status_badge.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -139,15 +138,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         DataColumn(label: Text('Mã loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('Tên loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('Mô tả', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('Số lượng SP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedCategories.map((cat) {
                                         return DataRow(
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
                                             }
                                             return null;
                                           }),
@@ -172,15 +169,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                               ),
                                             ),
                                             DataCell(
-                                              Text('${cat.productCount} sản phẩm', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w500, fontSize: 12)),
-                                            ),
-                                            DataCell(
-                                              const StatusBadge(
-                                                label: 'HOẠT ĐỘNG',
-                                                isSuccess: true,
-                                              ),
-                                            ),
-                                            DataCell(
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
@@ -192,10 +180,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                                     onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
                                                   ),
                                                   IconButton(
-                                                    icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
+                                                    icon: Icon(
+                                                      Icons.delete_outline_rounded,
+                                                      size: 15,
+                                                      color: cat.productCount > 0 ? textSecondary.withValues(alpha: 0.4) : AppColors.danger,
+                                                    ),
                                                     padding: EdgeInsets.zero,
                                                     constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: 'Xóa danh mục',
+                                                    tooltip: cat.productCount > 0 ? 'Đang có ${cat.productCount} sản phẩm - Không thể xóa' : 'Xóa danh mục',
                                                     onPressed: () => _confirmDelete(context, apiService, authProvider.token, cat),
                                                   ),
                                                 ],
@@ -297,12 +289,88 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   void _confirmDelete(BuildContext context, ApiService apiService, String? token, Category cat) {
+    if (cat.productCount > 0) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppColors.warning),
+              SizedBox(width: 8),
+              Text('Không thể xóa loại sản phẩm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.lightTextPrimary,
+                  ),
+                  children: [
+                    const TextSpan(text: 'Loại sản phẩm "'),
+                    TextSpan(
+                      text: cat.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(
+                      text: '" hiện đang có ${cat.productCount} sản phẩm trực thuộc.',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.dangerBg,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.dangerBorder),
+                ),
+                child: const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: AppColors.danger, size: 16),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Không thể xóa loại sản phẩm khi vẫn còn sản phẩm. Vui lòng chuyển hoặc xóa các sản phẩm liên quan trước!',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            AppButton(
+              label: 'Đã hiểu',
+              variant: AppButtonVariant.primary,
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text('Xác nhận xóa danh mục', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-        content: Text('Bạn có chắc muốn xóa danh mục "${cat.name}" không?'),
+        content: Text('Bạn có chắc muốn xóa loại sản phẩm "${cat.name}" không?'),
         actions: [
           AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
           AppButton(
@@ -314,7 +382,10 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               if (context.mounted) {
                 setState(() => _loadCategories());
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(res ? 'Xóa thành công!' : 'Xóa thất bại!'), backgroundColor: res ? AppColors.success : AppColors.danger),
+                  SnackBar(
+                    content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Xóa thành công!' : 'Xóa thất bại!')),
+                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
+                  ),
                 );
               }
             },
