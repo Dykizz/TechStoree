@@ -39,6 +39,7 @@ public class AppDbContext : DbContext
     public DbSet<SurveyOption> SurveyOptions => Set<SurveyOption>();
     public DbSet<SurveyAssignment> SurveyAssignments => Set<SurveyAssignment>();
     public DbSet<SurveyAnswer> SurveyAnswers => Set<SurveyAnswer>();
+    public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -546,6 +547,7 @@ public class AppDbContext : DbContext
 
             entity.Property(oi => oi.Quantity).HasColumnName("quantity");
             entity.Property(oi => oi.TotalPrice).HasColumnName("total_price").HasPrecision(18, 2);
+            entity.Property(oi => oi.IsReviewed).HasColumnName("is_reviewed").HasDefaultValue(false);
 
             entity.HasOne(oi => oi.Order)
                   .WithMany(o => o.Items)
@@ -721,6 +723,51 @@ public class AppDbContext : DbContext
             entity.HasOne(a => a.SelectedOption)
                   .WithMany(o => o.Answers)
                   .HasForeignKey(a => a.SelectedOptionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // 14. Cấu hình bảng Reviews (Đánh giá sản phẩm đã mua)
+        modelBuilder.Entity<ProductReview>(entity =>
+        {
+            entity.ToTable("reviews", t =>
+            {
+                t.HasCheckConstraint("chk_reviews_rating_range_and_step", "rating >= 1.0 AND rating <= 5.0 AND MOD(rating * 10, 5) = 0");
+            });
+
+            entity.HasKey(r => r.ReviewId);
+            entity.Property(r => r.ReviewId).HasColumnName("review_id");
+            entity.Property(r => r.UserId).HasColumnName("user_id");
+            entity.Property(r => r.ProductId).HasColumnName("product_id");
+            entity.Property(r => r.OrderItemId).HasColumnName("order_item_id");
+            entity.Property(r => r.Rating).HasColumnName("rating").HasPrecision(2, 1).IsRequired();
+            entity.Property(r => r.Comment).HasColumnName("comment").HasMaxLength(1000);
+            entity.Property(r => r.ImageUrls).HasColumnName("image_urls").HasColumnType("jsonb");
+            entity.Property(r => r.ReplyContent).HasColumnName("reply_content").HasMaxLength(1000);
+            entity.Property(r => r.RepliedAt).HasColumnName("replied_at");
+            entity.Property(r => r.IsHidden).HasColumnName("is_hidden").HasDefaultValue(false);
+            entity.Property(r => r.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(r => r.UpdatedAt).HasColumnName("updated_at");
+
+            // Ràng buộc duy nhất: Mỗi món hàng đã mua chỉ được đánh giá 1 lần
+            entity.HasIndex(r => r.OrderItemId).IsUnique();
+
+            // Index phục vụ lọc và hiển thị nhanh
+            entity.HasIndex(r => r.ProductId);
+            entity.HasIndex(r => r.UserId);
+
+            entity.HasOne(r => r.User)
+                  .WithMany()
+                  .HasForeignKey(r => r.UserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(r => r.Product)
+                  .WithMany(p => p.Reviews)
+                  .HasForeignKey(r => r.ProductId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.OrderItem)
+                  .WithOne()
+                  .HasForeignKey<ProductReview>(r => r.OrderItemId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 

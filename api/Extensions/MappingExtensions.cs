@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.DTOs.Carts;
@@ -7,6 +8,7 @@ using WebBanHang.Api.DTOs.Orders;
 using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.Promotions;
 using WebBanHang.Api.DTOs.PurchaseOrders;
+using WebBanHang.Api.DTOs.Reviews;
 using WebBanHang.Api.DTOs.Suppliers;
 using WebBanHang.Api.DTOs.Surveys;
 using WebBanHang.Api.DTOs.Users;
@@ -827,5 +829,55 @@ public static class MappingExtensions
             EndDate = uv.EndDate
         };
     }
+
+    public static ReviewDto ToDto(this ProductReview review)
+    {
+        return new ReviewDto
+        {
+            ReviewId = review.ReviewId,
+            UserId = review.UserId,
+            Username = review.User?.Username ?? string.Empty,
+            FullName = review.User?.FullName ?? string.Empty,
+            Email = review.User?.Email ?? string.Empty,
+            Phone = review.User?.Phone,
+
+            ProductId = review.ProductId,
+            ProductName = review.Product?.ProductName ?? review.OrderItem?.ProductName ?? string.Empty,
+            ProductImageUrl = review.Product?.ImageUrl ?? review.OrderItem?.ImageUrl,
+
+            OrderItemId = review.OrderItemId,
+            OrderId = review.OrderItem?.OrderId ?? 0,
+            OrderCode = review.OrderItem?.Order?.OrderCode ?? string.Empty,
+            VariantId = review.OrderItem?.VariantId ?? 0,
+            VariantName = review.OrderItem?.VariantName ?? string.Empty,
+
+            Rating = review.Rating,
+            Comment = review.Comment,
+            ImageUrls = review.ImageUrls ?? new List<string>(),
+
+            ReplyContent = review.ReplyContent,
+            RepliedAt = review.RepliedAt,
+
+            IsHidden = review.IsHidden,
+            CreatedAt = review.CreatedAt,
+            UpdatedAt = review.UpdatedAt
+        };
+    }
+
+    public static Expression<Func<OrderItem, PendingReviewItemDto>> AsPendingReviewItemDto =>
+        oi => new PendingReviewItemDto
+        {
+            OrderItemId = oi.OrderItemId,
+            OrderId = oi.OrderId,
+            OrderCode = oi.Order.OrderCode,
+            ProductId = oi.Variant.ProductId,
+            ProductName = oi.ProductName,
+            VariantId = oi.VariantId,
+            VariantName = oi.VariantName,
+            ImageUrl = oi.ImageUrl,
+            UnitPrice = oi.UnitPrice,
+            Quantity = oi.Quantity,
+            OrderDate = oi.Order.CreatedAt
+        };
 }
 

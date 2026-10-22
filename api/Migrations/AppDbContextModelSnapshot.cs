@@ -453,6 +453,12 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("image_url");
 
+                    b.Property<bool>("IsReviewed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_reviewed");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("integer")
                         .HasColumnName("order_id");
@@ -654,6 +660,82 @@ namespace WebBanHang.Api.Migrations
                             IsActive = true,
                             ProductName = "Robot hút bụi lau nhà Xiaomi Dreame L10s Ultra",
                             VariantAttributes = "[\"M\\u00E0u s\\u1EAFc\",\"Phi\\u00EAn b\\u1EA3n\"]"
+                        });
+                });
+
+            modelBuilder.Entity("WebBanHang.Api.Models.ProductReview", b =>
+                {
+                    b.Property<int>("ReviewId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("review_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ReviewId"));
+
+                    b.Property<string>("Comment")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("comment");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.PrimitiveCollection<string>("ImageUrls")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("image_urls");
+
+                    b.Property<bool>("IsHidden")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_hidden");
+
+                    b.Property<int>("OrderItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_item_id");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
+
+                    b.Property<decimal>("Rating")
+                        .HasPrecision(2, 1)
+                        .HasColumnType("decimal(2,1)")
+                        .HasColumnName("rating");
+
+                    b.Property<DateTime?>("RepliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("replied_at");
+
+                    b.Property<string>("ReplyContent")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reply_content");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("ReviewId");
+
+                    b.HasIndex("OrderItemId")
+                        .IsUnique();
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("reviews", null, t =>
+                        {
+                            t.HasCheckConstraint("chk_reviews_rating_range_and_step", "rating >= 1.0 AND rating <= 5.0 AND MOD(rating * 10, 5) = 0");
                         });
                 });
 
@@ -1770,6 +1852,33 @@ namespace WebBanHang.Api.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("WebBanHang.Api.Models.ProductReview", b =>
+                {
+                    b.HasOne("WebBanHang.Api.Models.OrderItem", "OrderItem")
+                        .WithOne()
+                        .HasForeignKey("WebBanHang.Api.Models.ProductReview", "OrderItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.Product", "Product")
+                        .WithMany("Reviews")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("WebBanHang.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("OrderItem");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("WebBanHang.Api.Models.ProductVariant", b =>
                 {
                     b.HasOne("WebBanHang.Api.Models.Product", "Product")
@@ -2016,6 +2125,8 @@ namespace WebBanHang.Api.Migrations
 
             modelBuilder.Entity("WebBanHang.Api.Models.Product", b =>
                 {
+                    b.Navigation("Reviews");
+
                     b.Navigation("Variants");
                 });
 

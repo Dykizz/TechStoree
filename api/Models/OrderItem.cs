@@ -89,4 +89,10 @@ public class OrderItem
     /// </summary>
     [Column("total_price")]
     public decimal TotalPrice { get; set; }
+
+    /// <summary>
+    /// Cờ đánh dấu món hàng này đã được khách hàng đánh giá hay chưa
+    /// </summary>
+    [Column("is_reviewed")]
+    public bool IsReviewed { get; set; } = false;
 }

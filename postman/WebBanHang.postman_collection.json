@@ -8413,6 +8413,525 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Reviews",
+      "item": [
+        {
+          "name": "1. Lấy danh sách đánh giá sản phẩm (Public)",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/product/1?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "product",
+                "1"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "rating",
+                  "value": "5.0",
+                  "disabled": true
+                },
+                {
+                  "key": "hasImages",
+                  "value": "true",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Lấy danh sách đánh giá công khai hiển thị trên trang chi tiết sản phẩm. Không yêu cầu đăng nhập."
+          },
+          "response": []
+        },
+        {
+          "name": "2. Khách hàng gửi đánh giá sản phẩm (DELIVERED)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderItemId\": 1,\n  \"rating\": 5.0,\n  \"comment\": \"Sản phẩm dùng rất tốt, đóng gói cẩn thận và giao hàng nhanh!\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/techstore/image/upload/v1/reviews/unbox_1.jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews"
+              ]
+            },
+            "description": "Khách hàng gửi đánh giá cho dòng sản phẩm trong đơn hàng đã giao thành công (DELIVERED). Tự động lưu `createdReviewId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json.data && json.data.reviewId) {",
+                  "    pm.collectionVariables.set(\"createdReviewId\", json.data.reviewId.toString());",
+                  "    console.log(\"Đã tự động lưu createdReviewId:\", json.data.reviewId);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "3. Xem lịch sử đánh giá của tôi (Client)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/my-reviews?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "my-reviews"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lấy danh sách các đánh giá do chính tài khoản đang đăng nhập gửi."
+          },
+          "response": []
+        },
+        {
+          "name": "4. Chỉnh sửa đánh giá của tôi (Client - Trong 30 ngày)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": 4.5,\n  \"comment\": \"Cập nhật sau 1 tuần sử dụng: Pin trâu, dùng mượt mà, rất hài lòng!\",\n  \"imageUrls\": [\n    \"https://res.cloudinary.com/techstore/image/upload/v1/reviews/unbox_1.jpg\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}"
+              ]
+            },
+            "description": "Chỉnh sửa nội dung đánh giá của chính mình (chỉ cho phép trong vòng 30 ngày kể từ lúc tạo)."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Danh sách món hàng chờ đánh giá (Client - Tab Chờ đánh giá)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/pending?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "pending"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Lấy danh sách các món hàng thuộc đơn hàng đã giao thành công (DELIVERED) nhưng chưa được đánh giá."
+          },
+          "response": []
+        },
+        {
+          "name": "6. [Admin] Tra cứu toàn bộ đánh giá hệ thống",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/admin?page=1&pageSize=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "admin"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "10"
+                },
+                {
+                  "key": "rating",
+                  "value": "5.0",
+                  "disabled": true
+                },
+                {
+                  "key": "minRating",
+                  "value": "1.0",
+                  "disabled": true
+                },
+                {
+                  "key": "maxRating",
+                  "value": "2.5",
+                  "disabled": true,
+                  "description": "Lọc các đánh giá tiêu cực"
+                },
+                {
+                  "key": "hasReply",
+                  "value": "false",
+                  "disabled": true,
+                  "description": "Lọc đánh giá chưa trả lời"
+                },
+                {
+                  "key": "isHidden",
+                  "value": "false",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Dành cho Quản trị viên tra cứu, tìm kiếm và lọc danh sách đánh giá toàn sàn."
+          },
+          "response": []
+        },
+        {
+          "name": "7. [Admin] Báo cáo thống kê đánh giá",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/admin/statistics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "admin",
+                "statistics"
+              ],
+              "query": [
+                {
+                  "key": "productId",
+                  "value": "1",
+                  "disabled": true,
+                  "description": "Để trống nếu lấy toàn sàn"
+                }
+              ]
+            },
+            "description": "Lấy báo cáo tổng số review, điểm trung bình, số review đã phản hồi, số review đang bị ẩn và phân bố các mức sao."
+          },
+          "response": []
+        },
+        {
+          "name": "8. [Admin] Xem chi tiết một đánh giá theo ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}"
+              ]
+            },
+            "description": "Lấy thông tin chi tiết một đánh giá theo ID (người đánh giá, sản phẩm, biến thể, hình ảnh, phản hồi)."
+          },
+          "response": []
+        },
+        {
+          "name": "9. [Admin / Shop] Phản hồi đánh giá của khách hàng",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"replyContent\": \"Dạ TechStore xin chân thành cảm ơn quý khách đã tin tưởng và đánh giá tích cực ạ! Chúc quý khách có trải nghiệm tuyệt vời cùng sản phẩm.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}",
+                "reply"
+              ]
+            },
+            "description": "Cửa hàng phản hồi hoặc cập nhật câu trả lời cho đánh giá của khách."
+          },
+          "response": []
+        },
+        {
+          "name": "10. [Admin / Shop] Xóa nội dung phản hồi của cửa hàng",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}/reply",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}",
+                "reply"
+              ]
+            },
+            "description": "Xóa phản hồi của cửa hàng đối với đánh giá này."
+          },
+          "response": []
+        },
+        {
+          "name": "11. [Admin] Ẩn hoặc Hiện lại đánh giá vi phạm",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}/visibility?isHidden=true",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}",
+                "visibility"
+              ],
+              "query": [
+                {
+                  "key": "isHidden",
+                  "value": "true",
+                  "description": "true: ẩn, false: hiện lại"
+                }
+              ]
+            },
+            "description": "Ẩn đánh giá vi phạm chính sách / tục tĩu / spam hoặc khôi phục hiển thị."
+          },
+          "response": []
+        },
+        {
+          "name": "12. [Admin] Xóa vĩnh viễn đánh giá",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/reviews/{{createdReviewId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reviews",
+                "{{createdReviewId}}"
+              ]
+            },
+            "description": "Xóa hoàn toàn đánh giá khỏi cơ sở dữ liệu và reset cờ is_reviewed = false cho món hàng."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -8585,6 +9104,11 @@
     {
       "key": "surveyOptionId3_2",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdReviewId",
+      "value": "1",
       "type": "string"
     }
   ],
