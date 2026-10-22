@@ -23,7 +23,7 @@ public class UsersController(IUserService userService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUsers([FromQuery] UserQueryFilter filter)
     {
-        var result = await userService.GetUsersAsync(filter);
+        var result = await userService.GetUsersAsync(filter, CurrentUserId);
         return Success(result, "Lấy danh sách người dùng thành công.");
     }
 
