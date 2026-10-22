@@ -174,6 +174,38 @@ class Promotion {
     );
   }
 
+  Promotion copyWith({
+    int? promotionId,
+    String? name,
+    String? description,
+    String? discountType,
+    double? discountValue,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool? isActive,
+    DateTime? createdAt,
+    String? status,
+    int? variantCount,
+    List<PromotionVariantItem>? variants,
+    List<int>? variantIds,
+  }) {
+    return Promotion(
+      promotionId: promotionId ?? this.promotionId,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      discountType: discountType ?? this.discountType,
+      discountValue: discountValue ?? this.discountValue,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      status: status ?? this.status,
+      variantCount: variantCount ?? this.variantCount,
+      variants: variants ?? this.variants,
+      variantIds: variantIds ?? this.variantIds,
+    );
+  }
+
   Map<String, dynamic> toUpsertJson() {
     return {
       'name': name,
