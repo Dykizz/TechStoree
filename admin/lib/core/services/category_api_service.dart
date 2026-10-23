@@ -5,10 +5,10 @@ import 'base_api_service.dart';
 
 mixin CategoryApiService on BaseApiService {
   final List<Category> mockCategories = [
-    Category(id: '1', name: 'Laptop & Máy tính', code: 'LAPTOP', productCount: 42, description: 'MacBook, Dell XPS, ThinkPad, Asus ROG', iconName: 'laptop'),
-    Category(id: '2', name: 'Điện thoại thông minh', code: 'SMARTPHONE', productCount: 58, description: 'iPhone, Samsung Galaxy, Xiaomi, Pixel', iconName: 'phone_android'),
-    Category(id: '3', name: 'Máy tính bảng', code: 'TABLET', productCount: 19, description: 'iPad, Samsung Galaxy Tab, Xiaomi Pad', iconName: 'tablet'),
-    Category(id: '4', name: 'Phụ kiện & Âm thanh', code: 'ACCESSORIES', productCount: 120, description: 'Tai nghe, Sạc, Cáp, Bàn phím, Chuột, Ba lô', iconName: 'headphones'),
+    Category(id: '1', name: 'Laptop & Máy tính', code: 'LAPTOP', productCount: 42, description: '', iconName: ''),
+    Category(id: '2', name: 'Điện thoại thông minh', code: 'SMARTPHONE', productCount: 58, description: '', iconName: ''),
+    Category(id: '3', name: 'Máy tính bảng', code: 'TABLET', productCount: 19, description: '', iconName: ''),
+    Category(id: '4', name: 'Phụ kiện & Âm thanh', code: 'ACCESSORIES', productCount: 120, description: '', iconName: ''),
   ];
 
   Future<List<Category>> getCategories({String? token}) async {
@@ -17,6 +17,11 @@ mixin CategoryApiService on BaseApiService {
         Uri.parse('$baseUrl/categories'),
         token: token,
       );
+
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('[CategoryApiService] HTTP ${response.statusCode}: Không có quyền truy cập');
+        return <Category>[];
+      }
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
