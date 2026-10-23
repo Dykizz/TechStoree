@@ -469,7 +469,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 const Icon(Icons.price_check_rounded, color: AppColors.success, size: 24),
                 const SizedBox(width: 8),
-                Text('Đối soát thanh toán COD đơn ${_currentOrder.orderCode}',
+                Text('Xác nhận thanh toán COD đơn ${_currentOrder.orderCode}',
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               ],
             ),
@@ -505,15 +505,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ),
                   ),
                   const SizedBox(height: AppTokens.space12),
-                  Text('Xác nhận tiền thu hộ COD đã được đơn vị vận chuyển đối soát và chuyển vào tài khoản doanh nghiệp. Trạng thái thanh toán của đơn hàng sẽ chuyển thành PAID (Đã thanh toán).',
+                  Text('Xác nhận tiền thu hộ COD đã được thu thành công và chuyển vào tài khoản doanh nghiệp. Trạng thái thanh toán của đơn hàng sẽ chuyển thành PAID (Đã thanh toán).',
                       style: TextStyle(fontSize: 12, color: textPrimary, height: 1.35)),
                   const SizedBox(height: AppTokens.space12),
-                  Text('Ghi chú đối soát (*):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
+                  Text('Ghi chú thanh toán:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: noteCtrl,
                     decoration: InputDecoration(
-                      hintText: 'Nhập mã phiếu đối soát hoặc ghi chú...',
+                      hintText: 'Nhập ghi chú thanh toán (nếu có)...',
                       hintStyle: const TextStyle(fontSize: 12),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusSm)),
                       isDense: true,
@@ -666,7 +666,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 _currentOrder.orderStatus.toUpperCase() == 'DELIVERED' &&
                                 _currentOrder.paymentStatus.toUpperCase() != 'PAID') ...[
                               AppButton(
-                                label: 'Đối soát COD',
+                                label: 'Xác nhận thanh toán COD',
                                 icon: Icons.price_check_rounded,
                                 variant: AppButtonVariant.primary,
                                 onPressed: _showCodReconciliationDialog,
@@ -1333,9 +1333,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case 'PAID':
         return const StatusBadge(label: 'PAID - Đã thanh toán', isSuccess: true);
       case 'PENDING':
-        final isCodDelivered = _currentOrder.paymentMethod.toUpperCase() == 'COD' && _currentOrder.orderStatus.toUpperCase() == 'DELIVERED';
-        return StatusBadge(
-          label: isCodDelivered ? 'Chờ đối soát COD' : 'PENDING - Chờ thanh toán',
+        return const StatusBadge(
+          label: 'PENDING - Chờ thanh toán',
           isWarning: true,
         );
       case 'REFUNDED':

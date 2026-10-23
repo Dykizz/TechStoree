@@ -164,9 +164,6 @@ class Order {
   String get paymentStatusDisplay {
     switch (paymentStatus.toUpperCase()) {
       case 'PENDING':
-        if (orderStatus.toUpperCase() == 'DELIVERED' && paymentMethod.toUpperCase() == 'COD') {
-          return 'Chờ đối soát COD';
-        }
         return 'Chờ thanh toán';
       case 'PAID':
         return 'Đã thanh toán';

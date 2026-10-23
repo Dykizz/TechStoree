@@ -111,6 +111,17 @@ mixin OrderApiService on BaseApiService {
         }
       } else {
         debugPrint('[OrderApiService] Backend trả về HTTP ${response.statusCode}: ${response.body}');
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          return (
+            items: <Order>[],
+            page: 1,
+            pageSize: pageSize,
+            totalItems: 0,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false,
+          );
+        }
       }
     } catch (e) {
       debugPrint('[OrderApiService] Lỗi khi lấy danh sách đơn hàng: $e');
@@ -190,6 +201,8 @@ mixin OrderApiService on BaseApiService {
         if (data is Map<String, dynamic>) {
           return Order.fromJson(data);
         }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        return null;
       }
     } catch (e) {
       debugPrint('[OrderApiService] Lỗi getOrderById($orderId): $e');
