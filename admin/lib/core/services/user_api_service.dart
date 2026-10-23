@@ -66,6 +66,11 @@ mixin UserApiService on BaseApiService {
         token: token,
       );
 
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('[UserApiService] HTTP ${response.statusCode}: Không có quyền truy cập');
+        return <AppUser>[];
+      }
+
       final data = parseApiResponse(response);
       if (data != null) {
         List itemsList = [];

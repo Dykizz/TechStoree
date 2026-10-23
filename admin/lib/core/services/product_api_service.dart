@@ -140,6 +140,10 @@ mixin ProductApiService on BaseApiService {
             hasMore = false;
           }
         } else {
+          if (response.statusCode == 401 || response.statusCode == 403) {
+            debugPrint('[ProductApiService] HTTP ${response.statusCode}: Không có quyền truy cập');
+            return <Product>[];
+          }
           hasMore = false;
         }
 
