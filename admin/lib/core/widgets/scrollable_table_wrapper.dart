@@ -62,6 +62,7 @@ class _ScrollableTableWrapperState extends State<ScrollableTableWrapper> {
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
                   child: widget.child,

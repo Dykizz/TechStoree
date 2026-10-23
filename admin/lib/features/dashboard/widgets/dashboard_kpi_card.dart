@@ -15,6 +15,7 @@ class DashboardKpiCard extends StatelessWidget {
   final Color borderColor;
   final Color textPrimary;
   final Color textSecondary;
+  final VoidCallback? onTap;
 
   const DashboardKpiCard({
     super.key,
@@ -30,101 +31,179 @@ class DashboardKpiCard extends StatelessWidget {
     required this.borderColor,
     required this.textPrimary,
     required this.textSecondary,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    final cardContent = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor.withValues(alpha: isDark ? 0.6 : 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.3) : const Color(0xFF64748B).withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+          BoxShadow(
+            color: isDark ? Colors.black.withValues(alpha: 0.15) : const Color(0xFF64748B).withValues(alpha: 0.03),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          // Header Row: Icon + Title + (Optional arrow)
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                title.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                  color: textSecondary,
-                ),
-              ),
               Container(
-                padding: const EdgeInsets.all(5),
+                width: 26,
+                height: 26,
                 decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(6),
+                  color: iconColor.withValues(alpha: isDark ? 0.16 : 0.10),
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: iconColor.withValues(alpha: 0.22)),
                 ),
-                child: Icon(icon, size: 15, color: iconColor),
+                child: Icon(icon, size: 14, color: iconColor),
               ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                    color: textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (onTap != null)
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 9.5,
+                  color: textSecondary.withValues(alpha: 0.35),
+                ),
             ],
           ),
-          const SizedBox(height: 4),
 
+          // Value
           Text(
             formattedValue,
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
               color: textPrimary,
               letterSpacing: -0.4,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
 
+          // Footer: Pill Badge for trend or Subtitle
           if (kpi != null && kpi!.percentageChange != null) ...[
             Row(
               children: [
-                Icon(
-                  kpi!.isPositiveTrend ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  size: 13,
-                  color: isNeutralTrend
-                      ? textSecondary
-                      : (kpi!.isPositiveTrend ? AppColors.success : AppColors.danger),
-                ),
-                const SizedBox(width: 2),
-                Text(
-                  '${kpi!.percentageChange!.abs().toStringAsFixed(1)}%',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
                     color: isNeutralTrend
-                        ? textSecondary
-                        : (kpi!.isPositiveTrend ? AppColors.success : AppColors.danger),
+                        ? textSecondary.withValues(alpha: 0.10)
+                        : (kpi!.isPositiveTrend
+                            ? AppColors.success.withValues(alpha: isDark ? 0.20 : 0.12)
+                            : AppColors.danger.withValues(alpha: isDark ? 0.20 : 0.12)),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isNeutralTrend
+                          ? textSecondary.withValues(alpha: 0.20)
+                          : (kpi!.isPositiveTrend
+                              ? AppColors.success.withValues(alpha: 0.35)
+                              : AppColors.danger.withValues(alpha: 0.35)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        kpi!.isPositiveTrend ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        size: 9.5,
+                        color: isNeutralTrend
+                            ? textSecondary
+                            : (kpi!.isPositiveTrend ? AppColors.success : AppColors.danger),
+                      ),
+                      const SizedBox(width: 1.5),
+                      Text(
+                        '${kpi!.percentageChange!.abs().toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: isNeutralTrend
+                              ? textSecondary
+                              : (kpi!.isPositiveTrend ? AppColors.success : AppColors.danger),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'so với kỳ trước',
-                  style: TextStyle(fontSize: 11, color: textSecondary),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'kỳ trước',
+                    style: TextStyle(fontSize: 10, color: textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
           ] else if (subtitle != null) ...[
-            Text(
-              subtitle!,
-              style: TextStyle(fontSize: 11, color: textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    subtitle!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: subtitle!.contains('Cần kiểm tra') ? AppColors.warning : AppColors.success,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ] else ...[
             Text(
-              '— so với kỳ trước',
-              style: TextStyle(fontSize: 11, color: textSecondary),
+              '— kỳ trước',
+              style: TextStyle(fontSize: 10, color: textSecondary),
             ),
           ],
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          hoverColor: AppColors.primary.withValues(alpha: 0.04),
+          child: cardContent,
+        ),
+      );
+    }
+
+    return cardContent;
   }
 }

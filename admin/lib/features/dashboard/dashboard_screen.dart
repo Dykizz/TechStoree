@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import 'models/dashboard_data.dart';
@@ -34,6 +35,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _errorMessage;
   DashboardDataResult? _dataResult;
 
+  int _currentRequestId = 0;
+
   @override
   void initState() {
     super.initState();
@@ -41,6 +44,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadDashboardData() async {
+    final requestId = ++_currentRequestId;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -54,14 +58,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     try {
       final res = await dataProvider.fetchDashboardData(period: period, token: authProvider.token);
-      if (mounted) {
+      if (mounted && requestId == _currentRequestId) {
         setState(() {
           _dataResult = res;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && requestId == _currentRequestId) {
         setState(() {
           _errorMessage = 'Lỗi tải dữ liệu bảng điều khiển: $e';
           _isLoading = false;
@@ -73,6 +77,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final navProvider = Provider.of<NavigationProvider>(context, listen: false);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final backgroundColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -114,24 +119,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
 
           if (_isLoading) ...[
-            _buildSkeletonLoading(backgroundColor, borderColor),
+            _buildSkeletonLoading(backgroundColor, borderColor, isDark),
           ] else if (_errorMessage != null) ...[
             _buildErrorState(textPrimary, backgroundColor, borderColor),
           ] else if (_dataResult != null) ...[
-            // ROW 1: KPI CARDS (6 Summary Cards Grid with Responsive Aspect Ratio)
+            // ROW 1: KPI CARDS (Compact, Sleek 1-Row on Desktop, ~92px height)
             LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 1500;
-                final isMedium = constraints.maxWidth >= 950;
-                final crossCount = isWide ? 6 : (isMedium ? 3 : 2);
-                final ratio = isWide ? 1.65 : (isMedium ? 2.2 : 1.7);
+                final isDesktop = constraints.maxWidth >= 1150;
+                final isMedium = constraints.maxWidth >= 700;
+                final crossCount = isDesktop ? 6 : (isMedium ? 3 : 2);
+                final ratio = isDesktop ? 2.15 : (isMedium ? 3.35 : 3.0);
 
                 return GridView.count(
                   crossAxisCount: crossCount,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
                   childAspectRatio: ratio,
                   children: [
                     DashboardKpiCard(
@@ -145,6 +150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(2),
                     ),
                     DashboardKpiCard(
                       title: 'Số lượng đơn hàng',
@@ -157,6 +163,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(2),
                     ),
                     DashboardKpiCard(
                       title: 'Chi phí nhập hàng',
@@ -170,6 +177,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(6),
                     ),
                     DashboardKpiCard(
                       title: 'Giá trị đơn TB (AOV)',
@@ -182,6 +190,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(2),
                     ),
                     DashboardKpiCard(
                       title: 'Khách hàng mới',
@@ -194,6 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(10),
                     ),
                     DashboardKpiCard(
                       title: 'Biến thể cảnh báo tồn',
@@ -206,6 +216,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onTap: () => navProvider.setIndex(1),
                     ),
                   ],
                 );
@@ -293,6 +304,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           borderColor: borderColor,
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
+                          onViewAll: () => navProvider.setIndex(1),
+                          onProductTap: (p) => navProvider.setIndex(1),
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -305,6 +318,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           borderColor: borderColor,
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
+                          onViewAll: () => navProvider.setIndex(4),
                         ),
                       ),
                     ],
@@ -319,6 +333,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onViewAll: () => navProvider.setIndex(1),
+                      onProductTap: (p) => navProvider.setIndex(1),
                     ),
                     const SizedBox(height: 14),
                     CategoryAnalyticsWidget(
@@ -328,6 +344,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onViewAll: () => navProvider.setIndex(4),
                     ),
                   ],
                 );
@@ -335,7 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ROW 4: INVENTORY ALERTS + SURVEY & VOUCHER ENGAGEMENT
+            // ROW 4: INVENTORY ALERTS + SURVEY & VOUCHER ENGAGEMENT (WITH CSAT REVIEWS)
             LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 1200;
@@ -352,6 +369,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           borderColor: borderColor,
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
+                          onViewAll: () => navProvider.setIndex(1),
+                          onImportPO: () => navProvider.setIndex(6),
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -360,6 +379,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: EngagementSummaryWidget(
                           surveyMetric: _dataResult!.surveyMetric,
                           promoMetric: _dataResult!.promoVoucherMetric,
+                          reviewMetric: _dataResult!.reviewMetric,
+                          onSurveyTap: () => navProvider.setIndex(9),
+                          onVoucherTap: () => navProvider.setIndex(8),
                           isDark: isDark,
                           cardBg: backgroundColor,
                           borderColor: borderColor,
@@ -379,11 +401,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       borderColor: borderColor,
                       textPrimary: textPrimary,
                       textSecondary: textSecondary,
+                      onViewAll: () => navProvider.setIndex(1),
+                      onImportPO: () => navProvider.setIndex(6),
                     ),
                     const SizedBox(height: 14),
                     EngagementSummaryWidget(
                       surveyMetric: _dataResult!.surveyMetric,
                       promoMetric: _dataResult!.promoVoucherMetric,
+                      reviewMetric: _dataResult!.reviewMetric,
+                      onSurveyTap: () => navProvider.setIndex(9),
+                      onVoucherTap: () => navProvider.setIndex(8),
                       isDark: isDark,
                       cardBg: backgroundColor,
                       borderColor: borderColor,
@@ -396,7 +423,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ROW 5: RECENT ORDERS TABLE (Full Width)
+            // ROW 5: RECENT ORDERS TABLE (Full Width with Clickable Drill-down)
             RecentOrdersWidget(
               orders: _dataResult!.recentOrders,
               isDark: isDark,
@@ -404,6 +431,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderColor: borderColor,
               textPrimary: textPrimary,
               textSecondary: textSecondary,
+              onViewAll: () => navProvider.setIndex(2),
+              onOrderTap: (order) => navProvider.setIndex(2),
             ),
           ],
         ],
@@ -411,27 +440,153 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildSkeletonLoading(Color cardBg, Color borderColor) {
+  Widget _buildSkeletonLoading(Color cardBg, Color borderColor, bool isDark) {
+    final shimmerLine = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          height: 100,
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: borderColor),
-          ),
-          child: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        // Skeleton KPI Cards (6 items)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 1150;
+            final isMedium = constraints.maxWidth >= 700;
+            final crossCount = isDesktop ? 6 : (isMedium ? 3 : 2);
+            final ratio = isDesktop ? 2.15 : (isMedium ? 3.35 : 3.0);
+
+            return GridView.count(
+              crossAxisCount: crossCount,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: ratio,
+              children: List.generate(6, (i) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: borderColor.withValues(alpha: 0.6)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(color: shimmerLine, borderRadius: BorderRadius.circular(7)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              height: 10,
+                              decoration: BoxDecoration(color: shimmerLine, borderRadius: BorderRadius.circular(4)),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        width: 90,
+                        height: 16,
+                        decoration: BoxDecoration(color: shimmerLine, borderRadius: BorderRadius.circular(4)),
+                      ),
+                      Container(
+                        width: 70,
+                        height: 11,
+                        decoration: BoxDecoration(color: shimmerLine.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4)),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            );
+          },
         ),
         const SizedBox(height: 16),
-        Container(
-          height: 280,
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: borderColor),
-          ),
-          child: const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+
+        // Skeleton Chart Section (2 items)
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 1200;
+            final content = [
+              Container(
+                height: 260,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.6)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(width: 180, height: 16, decoration: BoxDecoration(color: shimmerLine, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 8),
+                    Container(width: 100, height: 11, decoration: BoxDecoration(color: shimmerLine.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4))),
+                    const Spacer(),
+                    Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2.5, color: AppColors.primary.withValues(alpha: 0.7)),
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+              ),
+              Container(
+                height: 260,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor.withValues(alpha: 0.6)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(width: 160, height: 16, decoration: BoxDecoration(color: shimmerLine, borderRadius: BorderRadius.circular(4))),
+                    const SizedBox(height: 8),
+                    Container(width: 90, height: 11, decoration: BoxDecoration(color: shimmerLine.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(4))),
+                    const Spacer(),
+                    Center(
+                      child: Container(
+                        width: 86,
+                        height: 86,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: shimmerLine, width: 14),
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+              ),
+            ];
+
+            if (isWide) {
+              return Row(
+                children: [
+                  Expanded(flex: 7, child: content[0]),
+                  const SizedBox(width: 14),
+                  Expanded(flex: 5, child: content[1]),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                content[0],
+                const SizedBox(height: 14),
+                content[1],
+              ],
+            );
+          },
         ),
       ],
     );
@@ -442,7 +597,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: cardBg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.danger.withValues(alpha: 0.4)),
       ),
       child: Column(

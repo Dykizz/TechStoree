@@ -44,4 +44,24 @@ public interface IOrderService
     /// Dành cho Quản trị viên / Nhân viên bán hàng: Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, ...)
     /// </summary>
     Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null);
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Thống kê số lượng đơn hàng theo từng trạng thái tiến trình
+    /// </summary>
+    Task<Dictionary<string, int>> GetOrderStatusCountsAsync();
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Xử lý hoàn hàng / giao hàng thất bại (RETURNED) - hoàn tồn kho và voucher
+    /// </summary>
+    Task<OrderDetailDto> ReturnOrderAsync(int orderId, int? userId, string reason);
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái thanh toán (đối soát COD độc lập)
+    /// </summary>
+    Task<OrderDetailDto> UpdateOrderPaymentStatusAsync(int orderId, UpdateOrderPaymentStatusDto request, int? updatedByUserId = null);
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng hàng loạt
+    /// </summary>
+    Task<BatchOrderResultDto> BatchUpdateOrderStatusAsync(BatchUpdateOrderStatusDto request, int? updatedByUserId = null);
 }

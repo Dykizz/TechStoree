@@ -239,7 +239,19 @@ class ProductVariant {
     if (attributes.isEmpty) {
       return variantNameAttr ?? 'Biến thể mặc định';
     }
-    return attributes.entries.map((e) => '${e.key}: ${e.value}').join(', ');
+    return attributes.entries.map((e) => ': ').join(', ');
+  }
+
+  bool get isOutOfStock => stockQuantity == 0;
+  bool get isCriticalStock => stockQuantity > 0 && stockQuantity <= 10;
+  bool get isLowStock => stockQuantity > 10 && stockQuantity <= 20;
+  bool get isInStock => stockQuantity > 20;
+
+  String get stockStatusLabel {
+    if (stockQuantity == 0) return 'Hết hàng';
+    if (stockQuantity <= 10) return 'Sắp hết';
+    if (stockQuantity <= 20) return 'Tồn kho thấp';
+    return 'Còn hàng';
   }
 }
 
@@ -295,6 +307,18 @@ class Product {
         stock = stock ?? (totalStock ?? 0),
         hasPromotion = hasPromotion ?? (promotion != null && promotion.hasPromotion);
 
+  bool get isOutOfStock => stock == 0;
+  bool get isCriticalStock => stock > 0 && stock <= 10;
+  bool get isLowStock => stock > 10 && stock <= 20;
+  bool get isInStock => stock > 20;
+
+  String get stockStatusLabel {
+    if (stock == 0) return 'Hết hàng';
+    if (stock <= 10) return 'Sắp hết';
+    if (stock <= 20) return 'Tồn kho thấp';
+    return 'Còn hàng';
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final rawStock = _parseInt(json['totalStock'] ?? json['stock'] ?? json['soLuongTon'], 0);
     final active = _parseBool(json['isActive'] ?? json['is_active'], true);
@@ -340,10 +364,12 @@ class Product {
     String currentStatus;
     if (!active) {
       currentStatus = 'Ngừng bán';
-    } else if (calcStock > 10) {
+    } else if (calcStock > 20) {
       currentStatus = 'In Stock';
-    } else if (calcStock > 0) {
+    } else if (calcStock > 10) {
       currentStatus = 'Low Stock';
+    } else if (calcStock > 0) {
+      currentStatus = 'Critical Stock';
     } else {
       currentStatus = 'Out of Stock';
     }

@@ -77,8 +77,24 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
                 $"Các quyền đã ngừng sử dụng, không thể gán cho vai trò: {string.Join(", ", legacy)}.");
         }
 
+        // Tự động bổ sung quyền View phụ thuộc nếu vai trò có bất kỳ quyền thao tác nào trong module đó
+        var resolvedSet = new HashSet<string>(clean, StringComparer.OrdinalIgnoreCase);
+        foreach (var pid in clean)
+        {
+            var dotIndex = pid.IndexOf('.');
+            if (dotIndex > 0)
+            {
+                var modulePrefix = pid[..dotIndex];
+                var viewPermissionId = $"{modulePrefix}.View";
+                if (knownSet.Contains(viewPermissionId) && !resolvedSet.Contains(viewPermissionId))
+                {
+                    resolvedSet.Add(viewPermissionId);
+                }
+            }
+        }
+
         // Trả về mã chuẩn lấy từ CSDL để bảo đảm đúng chính tả khoá chính.
-        return known.Where(p => clean.Contains(p, StringComparer.OrdinalIgnoreCase)).ToList();
+        return known.Where(p => resolvedSet.Contains(p, StringComparer.OrdinalIgnoreCase)).ToList();
     }
 
     public async Task<List<ModulePermissionsDto>> GetAllPermissionsGroupedAsync()
@@ -101,6 +117,8 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
 
     public async Task<List<RoleDto>> GetRolesAsync()
     {
+        var allPermIds = await context.Permissions.AsNoTracking().Select(p => p.PermissionId).ToListAsync();
+
         var roles = await context.Roles
             .AsNoTracking()
             .Include(r => r.UserRoles)
@@ -116,7 +134,7 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             Description = r.Description,
             IsSystem = r.IsSystem,
             UserCount = r.UserRoles.Count,
-            Permissions = r.RolePermissions.Select(rp => rp.PermissionId).ToList()
+            Permissions = IsProtectedAdmin(r) ? allPermIds : r.RolePermissions.Select(rp => rp.PermissionId).ToList()
         }).ToList();
     }
 
@@ -134,6 +152,26 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
         if (role == null)
         {
             throw new NotFoundException($"Không tìm thấy vai trò với mã '{roleId}'.");
+        }
+
+        if (IsProtectedAdmin(role))
+        {
+            var allPerms = await context.Permissions
+                .AsNoTracking()
+                .OrderBy(p => p.Module)
+                .ThenBy(p => p.PermissionName)
+                .ToListAsync();
+
+            return new RoleDetailDto
+            {
+                RoleId = role.RoleId,
+                RoleName = role.RoleName,
+                Description = role.Description ?? "Quản trị viên tối cao: toàn quyền trên toàn hệ thống",
+                IsSystem = true,
+                UserCount = role.UserRoles.Count,
+                Permissions = allPerms.Select(p => p.PermissionId).ToList(),
+                PermissionDetails = allPerms.Select(ToPermissionDto).ToList()
+            };
         }
 
         return new RoleDetailDto

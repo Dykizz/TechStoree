@@ -19,4 +19,8 @@ Thumbs.db
 ## Postman
 postman/collections/
 
+## Local Auth
+.saved_login.json
+
+
 

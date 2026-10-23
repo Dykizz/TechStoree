@@ -108,15 +108,47 @@ mixin ProductApiService on BaseApiService {
 
   Future<List<Product>> getProducts({String? token}) async {
     try {
-      final response = await httpGet(
-        Uri.parse('$baseUrl/products'),
-        token: token,
-      );
+      final List<Product> allProducts = [];
+      int page = 1;
+      bool hasMore = true;
 
-      final data = parseApiResponse(response);
-      if (data != null && data is List) {
+      while (hasMore) {
+        final response = await httpGet(
+          Uri.parse('$baseUrl/products?page=$page&pageSize=100'),
+          token: token,
+        );
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+          if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true) {
+            final data = jsonRes['data'];
+            if (data is Map<String, dynamic>) {
+              final items = data['items'] as List?;
+              if (items != null) {
+                allProducts.addAll(items.map((j) => Product.fromJson(j as Map<String, dynamic>)).toList());
+              }
+              final meta = data['meta'] as Map<String, dynamic>?;
+              hasMore = meta?['hasNextPage'] == true;
+              page++;
+            } else if (data is List) {
+              allProducts.addAll(data.map((j) => Product.fromJson(j as Map<String, dynamic>)).toList());
+              hasMore = false;
+            } else {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+
+        if (page > 50) break;
+      }
+
+      if (allProducts.isNotEmpty) {
         isConnected = true;
-        return data.map((json) => Product.fromJson(json)).toList();
+        return allProducts;
       }
     } catch (e) {
       debugPrint('API Error getProducts: $e');

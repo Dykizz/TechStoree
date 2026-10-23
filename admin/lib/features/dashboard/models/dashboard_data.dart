@@ -348,3 +348,49 @@ class PromotionVoucherOverviewMetric {
     required this.topVouchers,
   });
 }
+
+class CustomerReviewOverviewMetric {
+  final int totalReviews;
+  final double averageRating;
+  final int totalReplied;
+  final int totalHidden;
+  final Map<String, int> ratingDistribution;
+
+  CustomerReviewOverviewMetric({
+    required this.totalReviews,
+    required this.averageRating,
+    required this.totalReplied,
+    required this.totalHidden,
+    required this.ratingDistribution,
+  });
+
+  factory CustomerReviewOverviewMetric.fromJson(Map<String, dynamic> json) {
+    double parseD(dynamic v) => v is num ? v.toDouble() : (double.tryParse(v?.toString() ?? '') ?? 0.0);
+    int parseI(dynamic v) => v is int ? v : (int.tryParse(v?.toString() ?? '') ?? 0);
+
+    final dist = <String, int>{};
+    if (json['ratingDistribution'] is Map) {
+      (json['ratingDistribution'] as Map).forEach((k, val) {
+        dist[k.toString()] = parseI(val);
+      });
+    }
+
+    return CustomerReviewOverviewMetric(
+      totalReviews: parseI(json['totalReviews']),
+      averageRating: parseD(json['averageRating']),
+      totalReplied: parseI(json['totalReplied']),
+      totalHidden: parseI(json['totalHidden']),
+      ratingDistribution: dist,
+    );
+  }
+
+  factory CustomerReviewOverviewMetric.empty() {
+    return CustomerReviewOverviewMetric(
+      totalReviews: 0,
+      averageRating: 0.0,
+      totalReplied: 0,
+      totalHidden: 0,
+      ratingDistribution: const {},
+    );
+  }
+}

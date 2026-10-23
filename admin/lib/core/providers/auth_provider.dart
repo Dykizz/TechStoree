@@ -51,6 +51,14 @@ class AuthProvider extends ChangeNotifier {
       _userRoles.any((r) => r.trim().toUpperCase() == 'SURVEY_STAFF') ||
       _userRole.trim().toUpperCase() == 'SURVEY_STAFF';
 
+  /// Xóa thông báo lỗi khi người dùng chỉnh sửa lại form đăng nhập
+  void clearError() {
+    if (_errorMessage != null) {
+      _errorMessage = null;
+      notifyListeners();
+    }
+  }
+
   Future<bool> login(String email, String password, {String baseUrl = 'http://localhost:5000/api'}) async {
     _isLoading = true;
     _errorMessage = null;
