@@ -285,3 +285,33 @@ public class OrderItemDto
     /// <example>true</example>
     public bool HasPromotion => PromotionId.HasValue || PromotionDiscount > 0;
 }
+
+/// <summary>
+/// DTO cập nhật trạng thái đơn hàng hàng loạt
+/// </summary>
+public class BatchUpdateOrderStatusDto
+{
+    public List<int> OrderIds { get; set; } = new();
+    public OrderStatus Status { get; set; }
+    public string? Reason { get; set; }
+}
+
+/// <summary>
+/// Kết quả cập nhật trạng thái đơn hàng hàng loạt
+/// </summary>
+public class BatchOrderResultDto
+{
+    public int TotalRequested { get; set; }
+    public int SuccessCount { get; set; }
+    public int FailedCount { get; set; }
+    public List<string> Messages { get; set; } = new();
+}
+
+/// <summary>
+/// DTO cập nhật trạng thái thanh toán (đối soát COD)
+/// </summary>
+public class UpdateOrderPaymentStatusDto
+{
+    public PaymentStatus PaymentStatus { get; set; }
+    public string? Note { get; set; }
+}

@@ -139,8 +139,8 @@ class Order {
   String get customerEmail => user?['email']?.toString() ?? 'N/A';
   String get status => orderStatus;
 
-  // Business Rule: Can cancel only when orderStatus is PENDING or CONFIRMED
-  bool get canCancel => orderStatus == 'PENDING' || orderStatus == 'CONFIRMED';
+  // Business Rule: Can cancel/return when orderStatus is PENDING, CONFIRMED, or SHIPPING
+  bool get canCancel => orderStatus == 'PENDING' || orderStatus == 'CONFIRMED' || orderStatus == 'SHIPPING';
 
   String get orderStatusDisplay {
     switch (orderStatus.toUpperCase()) {
@@ -154,6 +154,8 @@ class Order {
         return 'Đã giao hàng';
       case 'CANCELLED':
         return 'Đã hủy';
+      case 'RETURNED':
+        return 'Hoàn hàng / Giao thất bại';
       default:
         return orderStatus;
     }
@@ -162,6 +164,9 @@ class Order {
   String get paymentStatusDisplay {
     switch (paymentStatus.toUpperCase()) {
       case 'PENDING':
+        if (orderStatus.toUpperCase() == 'DELIVERED' && paymentMethod.toUpperCase() == 'COD') {
+          return 'Chờ đối soát COD';
+        }
         return 'Chờ thanh toán';
       case 'PAID':
         return 'Đã thanh toán';
