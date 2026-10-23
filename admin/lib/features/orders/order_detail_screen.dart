@@ -566,6 +566,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
@@ -654,37 +655,41 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 );
                               },
                             ),
-                            const SizedBox(width: 8),
-                            AppButton(
-                              label: 'Xem hóa đơn',
-                              icon: Icons.receipt_long_rounded,
-                              variant: AppButtonVariant.outline,
-                              onPressed: _showInvoiceForCurrentOrder,
-                            ),
-                            const SizedBox(width: 8),
-                            if (_currentOrder.paymentMethod.toUpperCase() == 'COD' &&
+                            if (authProvider.can('Invoices.View')) ...[
+                              const SizedBox(width: 8),
+                              AppButton(
+                                label: 'Xem hóa đơn',
+                                icon: Icons.receipt_long_rounded,
+                                variant: AppButtonVariant.outline,
+                                onPressed: _showInvoiceForCurrentOrder,
+                              ),
+                            ],
+                            if (authProvider.can('Orders.UpdateStatus') &&
+                                _currentOrder.paymentMethod.toUpperCase() == 'COD' &&
                                 _currentOrder.orderStatus.toUpperCase() == 'DELIVERED' &&
                                 _currentOrder.paymentStatus.toUpperCase() != 'PAID') ...[
+                              const SizedBox(width: 8),
                               AppButton(
                                 label: 'Xác nhận thanh toán COD',
                                 icon: Icons.price_check_rounded,
                                 variant: AppButtonVariant.primary,
                                 onPressed: _showCodReconciliationDialog,
                               ),
-                              const SizedBox(width: 8),
                             ],
-                            if (_currentOrder.orderStatus != 'DELIVERED' &&
+                            if (authProvider.can('Orders.UpdateStatus') &&
+                                _currentOrder.orderStatus != 'DELIVERED' &&
                                 _currentOrder.orderStatus != 'CANCELLED' &&
                                 _currentOrder.orderStatus != 'RETURNED') ...[
+                              const SizedBox(width: 8),
                               AppButton(
                                 label: 'Cập nhật tiến trình',
                                 icon: Icons.edit_road_rounded,
                                 variant: AppButtonVariant.primary,
                                 onPressed: _showUpdateStatusDialog,
                               ),
-                              const SizedBox(width: 8),
                             ],
-                            if (_currentOrder.canCancel) ...[
+                            if (authProvider.can('Orders.Cancel') && _currentOrder.canCancel) ...[
+                              const SizedBox(width: 8),
                               AppButton(
                                 label: 'Hủy đơn hàng',
                                 icon: Icons.cancel_outlined,

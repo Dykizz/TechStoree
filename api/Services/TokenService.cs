@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
 using WebBanHang.Api.Services.Interfaces;
 
@@ -41,12 +42,7 @@ public class TokenService(IConfiguration config) : ITokenService
         }
 
         // Gán tất cả quyền (PBAC) của tài khoản vào claims
-        var permissions = user.UserRoles?
-            .Where(ur => ur.Role != null && ur.Role.RolePermissions != null)
-            .SelectMany(ur => ur.Role!.RolePermissions)
-            .Select(rp => rp.PermissionId)
-            .Distinct()
-            .ToList() ?? new List<string>();
+        var permissions = user.ExtractPermissions();
 
         foreach (var p in permissions)
         {

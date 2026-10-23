@@ -54,7 +54,8 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
   @override
   Widget build(BuildContext context) {
     final apiService = Provider.of<ApiService>(context);
-    final token = Provider.of<AuthProvider>(context).token;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final token = authProvider.token;
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
@@ -127,44 +128,49 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    AppButton(
-                      label: 'Phát Khảo Sát',
-                      icon: Icons.send_rounded,
-                      onPressed: () => widget.onAssign(survey),
-                    ),
+                    if (authProvider.can('Surveys.Assign'))
+                      AppButton(
+                        label: 'Phát Khảo Sát',
+                        icon: Icons.send_rounded,
+                        onPressed: () => widget.onAssign(survey),
+                      ),
                     AppButton(
                       label: 'Thống Kê',
                       icon: Icons.bar_chart_rounded,
                       variant: AppButtonVariant.outline,
                       onPressed: () => widget.onViewStats(survey.surveyId),
                     ),
-                    AppButton(
-                      label: 'Chỉnh Sửa',
-                      icon: Icons.edit_outlined,
-                      variant: AppButtonVariant.outline,
-                      onPressed: () => widget.onEdit(survey),
-                    ),
-                    AppButton(
-                      label: 'Nhân Bản',
-                      icon: Icons.copy_rounded,
-                      variant: AppButtonVariant.outline,
-                      onPressed: () => _confirmClone(context, apiService, token, survey),
-                    ),
-                    AppButton(
-                      label: survey.isActive ? 'Tạm Dừng' : 'Mở Nhận Bài',
-                      icon: survey.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                      variant: AppButtonVariant.outline,
-                      onPressed: () => _toggleActive(apiService, token, survey),
-                    ),
-                    Tooltip(
-                      message: survey.hasResponses ? 'Không thể xóa khảo sát đã có phản hồi' : 'Xóa bài khảo sát',
-                      child: AppButton(
-                        label: 'Xóa',
-                        icon: Icons.delete_outline_rounded,
-                        variant: AppButtonVariant.danger,
-                        onPressed: survey.hasResponses ? null : () => _confirmDelete(context, apiService, token, survey),
+                    if (authProvider.can('Surveys.Update'))
+                      AppButton(
+                        label: 'Chỉnh Sửa',
+                        icon: Icons.edit_outlined,
+                        variant: AppButtonVariant.outline,
+                        onPressed: () => widget.onEdit(survey),
                       ),
-                    ),
+                    if (authProvider.can('Surveys.Create'))
+                      AppButton(
+                        label: 'Nhân Bản',
+                        icon: Icons.copy_rounded,
+                        variant: AppButtonVariant.outline,
+                        onPressed: () => _confirmClone(context, apiService, token, survey),
+                      ),
+                    if (authProvider.can('Surveys.Update'))
+                      AppButton(
+                        label: survey.isActive ? 'Tạm Dừng' : 'Mở Nhận Bài',
+                        icon: survey.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                        variant: AppButtonVariant.outline,
+                        onPressed: () => _toggleActive(apiService, token, survey),
+                      ),
+                    if (authProvider.can('Surveys.Delete'))
+                      Tooltip(
+                        message: survey.hasResponses ? 'Không thể xóa khảo sát đã có phản hồi' : 'Xóa bài khảo sát',
+                        child: AppButton(
+                          label: 'Xóa',
+                          icon: Icons.delete_outline_rounded,
+                          variant: AppButtonVariant.danger,
+                          onPressed: survey.hasResponses ? null : () => _confirmDelete(context, apiService, token, survey),
+                        ),
+                      ),
                   ],
                 ),
               ),

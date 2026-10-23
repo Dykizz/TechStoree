@@ -167,11 +167,13 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
               PageHeader(
                 title: 'Khuyến Mãi & Giảm Giá',
                 subtitle: 'Quản lý các chương trình Flash Sale và giảm giá biến thể sản phẩm',
-                action: AppButton(
-                  label: 'Tạo khuyến mãi mới',
-                  icon: Icons.add_rounded,
-                  onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token),
-                ),
+                action: authProvider.can('Promotions.Create')
+                    ? AppButton(
+                        label: 'Tạo khuyến mãi mới',
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token),
+                      )
+                    : null,
               ),
 
               // Filter Bar
@@ -356,7 +358,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                               Switch(
                                                 value: promo.isActive,
                                                 activeThumbColor: AppColors.primary,
-                                                onChanged: (val) async {
+                                                onChanged: !authProvider.can('Promotions.Update') ? null : (val) async {
                                                   final res = await apiService.togglePromotionActive(promo.promotionId, token: authProvider.token);
                                                   if (context.mounted) {
                                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -377,12 +379,12 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                                     tooltip: 'Xem chi tiết biến thể',
                                                     onPressed: () => _showPromotionDetailsDialog(context, apiService, authProvider.token, promo.promotionId),
                                                   ),
-                                                  IconButton(
+                                                  if (authProvider.can('Promotions.Update')) IconButton(
                                                     icon: Icon(Icons.edit_outlined, size: 18, color: textSecondary),
                                                     tooltip: 'Sửa chương trình',
                                                     onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, existingPromoId: promo.promotionId),
                                                   ),
-                                                  IconButton(
+                                                  if (authProvider.can('Promotions.Delete')) IconButton(
                                                     icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
                                                     tooltip: 'Xóa khuyến mãi',
                                                     onPressed: () => _confirmDeletePromotion(context, apiService, authProvider.token, promo),

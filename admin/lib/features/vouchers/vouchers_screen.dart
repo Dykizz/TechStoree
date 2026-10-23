@@ -183,13 +183,15 @@ class _VouchersScreenState extends State<VouchersScreen> {
             children: [
               // Page Header
               PageHeader(
-                title: 'Quản Lý Voucher Giảm Giá',
+                title: 'Quản lý voucher giảm giá',
                 subtitle: 'Tạo và quản lý các mã giảm giá bill áp dụng khi khách hàng thanh toán',
-                action: AppButton(
-                  label: 'Tạo voucher mới',
-                  icon: Icons.add_rounded,
-                  onPressed: () => _showVoucherFormDialog(context, null),
-                ),
+                action: authProvider.can('Vouchers.Create')
+                    ? AppButton(
+                        label: 'Tạo voucher mới',
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showVoucherFormDialog(context, null),
+                      )
+                    : null,
               ),
 
               // Filter Controls Bar
@@ -494,7 +496,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                                   Switch(
                                                     value: voucher.isActive,
                                                     activeThumbColor: AppColors.primary,
-                                                    onChanged: (val) async {
+                                                    onChanged: !authProvider.can('Vouchers.Update') ? null : (val) async {
                                                       final res = await apiService.toggleVoucherActive(
                                                         voucher.voucherId,
                                                         token: authProvider.token,
@@ -517,12 +519,12 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                             DataCell(
                                               Row(
                                                 children: [
-                                                  IconButton(
+                                                  if (authProvider.can('Vouchers.Update')) IconButton(
                                                     icon: Icon(Icons.edit_outlined, color: textSecondary, size: 18),
                                                     tooltip: 'Chỉnh sửa voucher',
                                                     onPressed: () => _showVoucherFormDialog(context, voucher),
                                                   ),
-                                                  IconButton(
+                                                  if (authProvider.can('Vouchers.Delete')) IconButton(
                                                     icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 18),
                                                     tooltip: 'Xóa voucher',
                                                     onPressed: () => _confirmDeleteVoucher(context, apiService, authProvider, voucher),

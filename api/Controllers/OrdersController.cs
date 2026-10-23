@@ -110,7 +110,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderRequestDto request)
     {
         var hasCancelPermission = HasPermission(AppPermissions.Orders.Cancel);
-        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || hasCancelPermission || HasRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SalesStaff));
+        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || hasCancelPermission);
         return Success(result, "Hủy đơn hàng thành công. Tồn kho và Voucher (nếu có) đã được hoàn lại.");
     }
 

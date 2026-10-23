@@ -136,7 +136,7 @@ class _StaffScreenState extends State<StaffScreen> {
               PageHeader(
                 title: 'Quản Lý Nhân Viên',
                 subtitle: 'Quản lý tài khoản nhân sự nội bộ, phân quyền vai trò (Admin, Sales, Thủ kho, CRM) và bảo mật hệ thống',
-                action: authProvider.isAdmin || authProvider.can('Users.Create') ? AppButton(
+                action: (authProvider.can('Employees.Create') || authProvider.can('Users.Create')) ? AppButton(
                   label: 'Thêm nhân viên',
                   icon: Icons.person_add_outlined,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
@@ -165,12 +165,24 @@ class _StaffScreenState extends State<StaffScreen> {
                   AppDropdown<String>(
                     value: _selectedRole,
                     labelText: 'Vai trò công tác',
-                    items: const [
-                      DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả vai trò')),
-                      DropdownMenuItem(value: 'ADMIN', child: Text('Quản trị viên (ADMIN)')),
-                      DropdownMenuItem(value: 'WAREHOUSE_STAFF', child: Text('Thủ kho (WAREHOUSE_STAFF)')),
-                      DropdownMenuItem(value: 'SALES_STAFF', child: Text('Nhân viên bán hàng (SALES_STAFF)')),
-                      DropdownMenuItem(value: 'SURVEY_STAFF', child: Text('Nhân viên khảo sát (SURVEY_STAFF)')),
+                    items: [
+                      const DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả vai trò')),
+                      if (_availableRoles.isNotEmpty)
+                        ..._availableRoles
+                            .where((r) => r.roleId.toUpperCase() != 'USER' && r.roleName.toUpperCase() != 'USER')
+                            .map((r) {
+                              final roleId = r.roleId.toUpperCase();
+                              final display = roleLabels[roleId] ?? (r.roleName.isNotEmpty ? r.roleName : roleId);
+                              return DropdownMenuItem(
+                                value: roleId,
+                                child: Text('$display ($roleId)'),
+                              );
+                            })
+                      else
+                        ...roleLabels.entries.map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text('${e.value} (${e.key})'),
+                            )),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -316,8 +328,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                               constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                                               tooltip: 'Xem thông tin nhân viên',
                                               onPressed: () => _showDetailDialog(context, u),
-                                            ),
-                                            if (authProvider.isAdmin || authProvider.can('Users.AssignRoles') || authProvider.can('Users.Update') || authProvider.can('Users.Edit')) ...[
+                                            ),                                            if (authProvider.can('Employees.Update') || authProvider.can('Employees.AssignRoles') || authProvider.can('Users.Update') || authProvider.can('Users.AssignRoles'))
                                               IconButton(
                                                 icon: Icon(Icons.manage_accounts_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
@@ -325,6 +336,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                                 tooltip: 'Phân quyền & Sửa thông tin',
                                                 onPressed: () => _showFormDialog(context, apiService, authProvider.token, u),
                                               ),
+                                            if (authProvider.can('Employees.Lock') || authProvider.can('Users.Lock'))
                                               IconButton(
                                                 icon: Icon(
                                                   u.isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
@@ -336,7 +348,6 @@ class _StaffScreenState extends State<StaffScreen> {
                                                 tooltip: u.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản nhân viên',
                                                 onPressed: () => _confirmToggleActive(context, apiService, authProvider.token, u),
                                               ),
-                                            ],
                                           ],
                                         ),
                                       ),

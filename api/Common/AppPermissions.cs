@@ -71,6 +71,28 @@ public static class AppPermissions
         public const string Assign = "Surveys.Assign";
     }
 
+    public static class Invoices
+    {
+        public const string View = "Invoices.View";
+    }
+
+    public static class Customers
+    {
+        public const string View = "Customers.View";
+        public const string Create = "Customers.Create";
+        public const string Update = "Customers.Update";
+        public const string Lock = "Customers.Lock";
+    }
+
+    public static class Employees
+    {
+        public const string View = "Employees.View";
+        public const string Create = "Employees.Create";
+        public const string Update = "Employees.Update";
+        public const string Lock = "Employees.Lock";
+        public const string AssignRoles = "Employees.AssignRoles";
+    }
+
     public static class Users
     {
         public const string View = "Users.View";
@@ -97,14 +119,17 @@ public static class AppPermissions
     }
 
     // Tên phân hệ hiển thị cho Quản trị viên
-    private const string MCategories = "Quản lý danh mục";
+    private const string MCategories = "Quản lý loại sản phẩm";
     private const string MProducts = "Quản lý sản phẩm";
     private const string MSuppliers = "Quản lý nhà cung cấp";
     private const string MPurchaseOrders = "Quản lý nhập hàng";
     private const string MOrders = "Quản lý đơn hàng";
+    private const string MInvoices = "Quản lý hóa đơn";
     private const string MPromotions = "Quản lý khuyến mãi";
-    private const string MVouchers = "Quản lý Voucher";
+    private const string MVouchers = "Quản lý voucher";
     private const string MSurveys = "Khảo sát & CRM";
+    private const string MCustomers = "Quản lý khách hàng";
+    private const string MEmployees = "Quản lý nhân viên";
     private const string MUsers = "Quản lý tài khoản";
     private const string MRoles = "Phân quyền hệ thống";
     private const string MReviews = "Quản lý đánh giá";
@@ -145,6 +170,16 @@ public static class AppPermissions
         new(Surveys.Update, MSurveys, "Sửa khảo sát", "Cập nhật thông tin và trạng thái khảo sát"),
         new(Surveys.Delete, MSurveys, "Xóa khảo sát", "Xóa chiến dịch khảo sát"),
         new(Surveys.Assign, MSurveys, "Giao khảo sát", "Gán khảo sát cho khách hàng mục tiêu"),
+        new(Invoices.View, MInvoices, "Xem hóa đơn", "Xem danh sách và chi tiết hóa đơn thanh toán"),
+        new(Customers.View, MCustomers, "Xem khách hàng", "Xem danh sách và hồ sơ khách hàng", Reserved: true),
+        new(Customers.Create, MCustomers, "Thêm khách hàng", "Tạo mới tài khoản khách hàng", Reserved: true),
+        new(Customers.Update, MCustomers, "Sửa khách hàng", "Cập nhật thông tin khách hàng", Reserved: true),
+        new(Customers.Lock, MCustomers, "Khóa / Mở khóa khách hàng", "Khóa hoặc mở khóa tài khoản khách hàng", Reserved: true),
+        new(Employees.View, MEmployees, "Xem nhân viên", "Xem danh sách và hồ sơ nhân sự nội bộ", Reserved: true),
+        new(Employees.Create, MEmployees, "Tạo tài khoản nhân viên", "Tạo tài khoản nhân viên mới", Reserved: true),
+        new(Employees.Update, MEmployees, "Sửa nhân viên", "Cập nhật thông tin nhân sự", Reserved: true),
+        new(Employees.Lock, MEmployees, "Khóa / Mở khóa nhân viên", "Khóa hoặc mở khóa tài khoản nhân viên", Reserved: true),
+        new(Employees.AssignRoles, MEmployees, "Phân vai trò nhân viên", "Gán vai trò và phân quyền nhân sự", Reserved: true),
         new(Users.View, MUsers, "Xem người dùng", "Xem danh sách tài khoản khách hàng và nhân viên"),
         new(Users.Create, MUsers, "Tạo tài khoản", "Tạo tài khoản nhân viên mới"),
         new(Users.Update, MUsers, "Sửa người dùng", "Cập nhật thông tin tài khoản người dùng"),
@@ -186,6 +221,8 @@ public static class AppPermissions
             ["SURVEY_STAFF"] =
             [
                 Surveys.View, Surveys.Create, Surveys.Update, Surveys.Delete, Surveys.Assign,
+                Customers.View, Customers.Create, Customers.Update, Customers.Lock,
+                Reviews.View, Reviews.Reply,
                 Users.View
             ],
             ["USER"] = []

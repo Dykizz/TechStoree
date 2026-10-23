@@ -21,7 +21,6 @@ public class UserService(AppDbContext context) : IUserService
             .Include(u => u.Admin)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role)
-            .Where(u => currentUserId <= 0 || u.UserId != currentUserId)
             .AsQueryable();
 
         // 1. Lọc theo vai trò cụ thể (nếu có)
@@ -433,9 +432,8 @@ public class UserService(AppDbContext context) : IUserService
             user.Admin = new Admin();
         }
 
-        var hasNewStaff = existingRoles.Any(r => r.Equals(UserRoleTypeExtensions.WarehouseStaff, StringComparison.OrdinalIgnoreCase)
-                                              || r.Equals(UserRoleTypeExtensions.SalesStaff, StringComparison.OrdinalIgnoreCase)
-                                              || r.Equals(UserRoleTypeExtensions.SurveyStaff, StringComparison.OrdinalIgnoreCase));
+        var hasNewStaff = existingRoles.Any(r => !r.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase)
+                                              && !r.Equals(UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
         if (hasNewStaff && user.Employee == null)
         {
             user.Employee = new Employee

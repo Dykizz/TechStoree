@@ -446,7 +446,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
               PageHeader(
                 title: 'Quản lý sản phẩm',
                 subtitle: 'Quản lý thông tin dòng sản phẩm, khoảng giá và các biến thể hệ thống TechStoree',
-                action: !authProvider.isSalesStaff ? AppButton(
+                action: authProvider.can('Products.Create') ? AppButton(
                   label: 'Thêm sản phẩm mới',
                   icon: Icons.add_rounded,
                   variant: AppButtonVariant.primary,
@@ -1002,7 +1002,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (!authProvider.isSalesStaff) ...[
+                                if (authProvider.can('Products.Update')) ...[
                                   Tooltip(
                                     message: 'Xem & Chỉnh sửa',
                                     child: IconButton(
@@ -1010,16 +1010,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                       icon: const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
                                       onPressed: () => _openProductDetail(product, 0),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Tooltip(
-                                    message: 'Xóa sản phẩm',
-                                    child: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
-                                      onPressed: () => _confirmDeleteProduct(context, apiService, token, product),
                                     ),
                                   ),
                                   const SizedBox(width: 2),
@@ -1044,6 +1034,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 2),
                                 ] else ...[
                                   Tooltip(
                                     message: 'Xem chi tiết',
@@ -1052,6 +1043,18 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                       icon: const Icon(Icons.visibility_outlined, size: 16, color: AppColors.primary),
                                       onPressed: () => _openProductDetail(product, 0),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                ],
+                                if (authProvider.can('Products.Delete')) ...[
+                                  Tooltip(
+                                    message: 'Xóa sản phẩm',
+                                    child: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                                      onPressed: () => _confirmDeleteProduct(context, apiService, token, product),
                                     ),
                                   ),
                                 ],
@@ -1695,10 +1698,14 @@ class _AdminProductCardState extends State<AdminProductCard> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.edit_outlined, size: 13, color: AppColors.primary),
+                          Icon(
+                            authProvider.can('Products.Update') ? Icons.edit_outlined : Icons.visibility_outlined,
+                            size: 13,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 3),
                           Text(
-                            'Chỉnh sửa',
+                            authProvider.can('Products.Update') ? 'Chỉnh sửa' : 'Chi tiết',
                             style: const TextStyle(
                               color: AppColors.primary,
                               fontSize: 11.5,
@@ -1710,7 +1717,7 @@ class _AdminProductCardState extends State<AdminProductCard> {
                     ),
                   ),
                   const Spacer(),
-                  if (!authProvider.isSalesStaff) ...[
+                  if (authProvider.can('Products.Update')) ...[
                     Tooltip(
                       message: p.isActive ? 'Đang kinh doanh (Gạt để tắt)' : 'Đã ngừng kinh doanh (Gạt để bật)',
                       child: Transform.scale(
@@ -1731,6 +1738,8 @@ class _AdminProductCardState extends State<AdminProductCard> {
                         ),
                       ),
                     ),
+                  ],
+                  if (authProvider.can('Products.Delete')) ...[
                     IconButton(
                       icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
                       tooltip: 'Xóa sản phẩm',

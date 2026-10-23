@@ -88,11 +88,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               PageHeader(
                 title: 'Loại sản phẩm',
                 subtitle: 'Quản lý cấu trúc loại sản phẩm và phân loại thiết bị điện tử',
-                action: AppButton(
-                  label: 'Thêm loại sản phẩm',
-                  icon: Icons.add_rounded,
-                  onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                ),
+                action: authProvider.can('Categories.Create')
+                    ? AppButton(
+                        label: 'Thêm loại sản phẩm',
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
+                      )
+                    : null,
               ),
 
               FilterBar(
@@ -139,6 +141,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedCategories.map((cat) {
+                                        final canUpdate = authProvider.can('Categories.Update');
+                                        final canDelete = authProvider.can('Categories.Delete');
                                         return DataRow(
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
@@ -155,24 +159,28 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: 'Chỉnh sửa',
-                                                    onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
-                                                  ),
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      Icons.delete_outline_rounded,
-                                                      size: 15,
-                                                      color: cat.productCount > 0 ? textSecondary.withValues(alpha: 0.4) : AppColors.danger,
+                                                  if (canUpdate)
+                                                    IconButton(
+                                                      icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: 'Chỉnh sửa',
+                                                      onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: cat.productCount > 0 ? 'Đang có ${cat.productCount} sản phẩm - Không thể xóa' : 'Xóa danh mục',
-                                                    onPressed: () => _confirmDelete(context, apiService, authProvider.token, cat),
-                                                  ),
+                                                  if (canDelete)
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        Icons.delete_outline_rounded,
+                                                        size: 15,
+                                                        color: cat.productCount > 0 ? textSecondary.withValues(alpha: 0.4) : AppColors.danger,
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: cat.productCount > 0 ? 'Đang có ${cat.productCount} sản phẩm - Không thể xóa' : 'Xóa danh mục',
+                                                      onPressed: cat.productCount > 0 ? null : () => _confirmDelete(context, apiService, authProvider.token, cat),
+                                                    ),
+                                                  if (!canUpdate && !canDelete)
+                                                    Text('—', style: TextStyle(color: textSecondary, fontSize: 12)),
                                                 ],
                                               ),
                                             ),
