@@ -159,7 +159,7 @@ class Invoice {
         paymentMethod: 'COD',
         paidAt: now.subtract(const Duration(days: 1, hours: 2)),
         createdAt: now.subtract(const Duration(days: 2, hours: 12)),
-        note: 'Shipper đã đối soát tiền mặt COD thành công',
+        note: 'Đã thu tiền mặt COD thành công',
       ),
       Invoice(
         invoiceId: 4,

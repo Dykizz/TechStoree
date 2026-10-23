@@ -13,6 +13,9 @@ class EngagementSummaryWidget extends StatelessWidget {
   final Color borderColor;
   final Color textPrimary;
   final Color textSecondary;
+  final bool showSurveys;
+  final bool showPromotions;
+  final bool showReviews;
 
   const EngagementSummaryWidget({
     super.key,
@@ -26,10 +29,197 @@ class EngagementSummaryWidget extends StatelessWidget {
     required this.borderColor,
     required this.textPrimary,
     required this.textSecondary,
+    this.showSurveys = true,
+    this.showPromotions = true,
+    this.showReviews = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final sections = <Widget>[];
+
+    // Sub-Section A: Survey Performance
+    if (showSurveys) {
+      sections.add(
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onSurveyTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: borderColor.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.quiz_outlined, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Khảo sát thị trường (${surveyMetric.activeSurveysCount} hoạt động)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'Tỷ lệ: ${surveyMetric.averageResponseRate.toStringAsFixed(1)}%',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: surveyMetric.averageResponseRate > 0 ? (surveyMetric.averageResponseRate / 100) : 0,
+                      backgroundColor: borderColor.withValues(alpha: 0.4),
+                      color: AppColors.primary,
+                      minHeight: 5,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Đã giao: ${surveyMetric.totalAssigned}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                      Text('Đã hoàn thành: ${surveyMetric.totalCompleted}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Sub-Section B: Voucher / Promotion Activity
+    if (showPromotions) {
+      sections.add(
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onVoucherTap,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: borderColor.withValues(alpha: 0.5)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.confirmation_number_outlined, size: 14, color: AppColors.success),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Sử dụng voucher (${promoMetric.activeVouchersCount} mã)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${promoMetric.totalVouchersUsed} / ${promoMetric.totalVouchersLimit}',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: promoMetric.voucherUsageRate > 0 ? (promoMetric.voucherUsageRate / 100).clamp(0.0, 1.0) : 0,
+                      backgroundColor: borderColor.withValues(alpha: 0.4),
+                      color: AppColors.success,
+                      minHeight: 5,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Khuyến mãi đang chạy: ${promoMetric.activePromotionsCount}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                      Text('Tỷ lệ dùng: ${promoMetric.voucherUsageRate.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11, color: textSecondary)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Sub-Section C: Customer Review / CSAT (If available)
+    if (showReviews && reviewMetric != null && reviewMetric!.totalReviews > 0) {
+      sections.add(
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Đánh giá khách hàng (CSAT)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    '${reviewMetric!.averageRating.toStringAsFixed(1)} / 5.0 ⭐',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: (reviewMetric!.averageRating / 5.0).clamp(0.0, 1.0),
+                  backgroundColor: borderColor.withValues(alpha: 0.4),
+                  color: Colors.amber,
+                  minHeight: 5,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('${reviewMetric!.totalReviews} lượt đánh giá', style: TextStyle(fontSize: 11, color: textSecondary)),
+                  Text('${reviewMetric!.totalReplied} đã phản hồi', style: TextStyle(fontSize: 11, color: textSecondary)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -80,180 +270,9 @@ class EngagementSummaryWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Sub-Section A: Survey Performance
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onSurveyTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.quiz_outlined, size: 14, color: AppColors.primary),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Khảo sát thị trường (${surveyMetric.activeSurveysCount} hoạt động)',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          'Tỷ lệ: ${surveyMetric.averageResponseRate.toStringAsFixed(1)}%',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: surveyMetric.averageResponseRate > 0 ? (surveyMetric.averageResponseRate / 100) : 0,
-                        backgroundColor: borderColor.withValues(alpha: 0.4),
-                        color: AppColors.primary,
-                        minHeight: 5,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Đã giao: ${surveyMetric.totalAssigned}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                        Text('Đã hoàn thành: ${surveyMetric.totalCompleted}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Sub-Section B: Voucher / Promotion Activity
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onVoucherTap,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.confirmation_number_outlined, size: 14, color: AppColors.success),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Sử dụng voucher (${promoMetric.activeVouchersCount} mã)',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          '${promoMetric.totalVouchersUsed} / ${promoMetric.totalVouchersLimit}',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textPrimary),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(3),
-                      child: LinearProgressIndicator(
-                        value: promoMetric.voucherUsageRate > 0 ? (promoMetric.voucherUsageRate / 100).clamp(0.0, 1.0) : 0,
-                        backgroundColor: borderColor.withValues(alpha: 0.4),
-                        color: AppColors.success,
-                        minHeight: 5,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Khuyến mãi đang chạy: ${promoMetric.activePromotionsCount}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                        Text('Tỷ lệ dùng: ${promoMetric.voucherUsageRate.toStringAsFixed(1)}%', style: TextStyle(fontSize: 11, color: textSecondary)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Sub-Section C: Customer Review / CSAT (If available)
-          if (reviewMetric != null && reviewMetric!.totalReviews > 0) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: borderColor.withValues(alpha: 0.5)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.star_rounded, size: 15, color: Colors.amber),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Đánh giá khách hàng (CSAT)',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        '${reviewMetric!.averageRating.toStringAsFixed(1)} / 5.0 ⭐',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.amber),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: LinearProgressIndicator(
-                      value: (reviewMetric!.averageRating / 5.0).clamp(0.0, 1.0),
-                      backgroundColor: borderColor.withValues(alpha: 0.4),
-                      color: Colors.amber,
-                      minHeight: 5,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('${reviewMetric!.totalReviews} lượt đánh giá', style: TextStyle(fontSize: 11, color: textSecondary)),
-                      Text('${reviewMetric!.totalReplied} đã phản hồi', style: TextStyle(fontSize: 11, color: textSecondary)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          for (int i = 0; i < sections.length; i++) ...[
+            sections[i],
+            if (i < sections.length - 1) const SizedBox(height: 8),
           ],
         ],
       ),
