@@ -8,6 +8,7 @@ import { useProtectedSession } from "../../lib/use-protected-session";
 import { useCart } from "../../lib/context/CartContext";
 import { mapOrder, type BackendOrder } from "../../lib/orders-api";
 import {
+  notifyOrderCancelled,
   notifyPaymentConfirmed,
   publishNotification,
 } from "../../lib/customer-notifications";
@@ -81,9 +82,10 @@ function OrdersContent() {
         if (active) {
           setOrders(details);
           setTotalPages(Math.max(1, result.data.meta.totalPages));
-          details.forEach((order: Order) =>
-            notifyPaymentConfirmed(userId, order),
-          );
+          details.forEach((order: Order) => {
+            notifyPaymentConfirmed(userId, order);
+            notifyOrderCancelled(userId, order);
+          });
         }
       } catch (e) {
         if (active)
@@ -102,7 +104,14 @@ function OrdersContent() {
   }, [session.status, session.user, page, status, search, attempt]);
 
   async function cancel(order: Order) {
-    if (actionId || !confirm(`Hủy đơn ${order.orderCode}?`)) return;
+    if (actionId) return;
+    const userReason = window.prompt(
+      `Nhập lý do hủy đơn ${order.orderCode} (hoặc nhấn OK để dùng lý do mặc định):`,
+      "Khách hàng yêu cầu hủy đơn.",
+    );
+    if (userReason === null) return;
+    const reason = userReason.trim() || "Khách hàng yêu cầu hủy đơn.";
+
     setActionId(order.orderId);
     setError("");
     setNotice("");
@@ -110,7 +119,7 @@ function OrdersContent() {
       const response = await fetch(`/api/orders/${order.orderId}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason: "Khách hàng yêu cầu hủy đơn." }),
+        body: JSON.stringify({ reason }),
       });
       const result = await response.json();
       if (!response.ok || !result.success)
@@ -121,7 +130,7 @@ function OrdersContent() {
           id: `cancel:${order.orderId}`,
           kind: "order",
           title: "Đã hủy đơn hàng",
-          message: `Hệ thống đã xác nhận hủy đơn ${order.orderCode}.`,
+          message: `Hệ thống đã xác nhận hủy đơn ${order.orderCode}. Lý do: ${reason}`,
           href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
         });
       }
@@ -310,11 +319,56 @@ function OrdersContent() {
                         {new Date(order.createdAt).toLocaleString("vi-VN")}
                       </p>
                     </div>
-                    <span className={styles.statusBadge}>
+                    <span
+                      className={`${styles.statusBadge} ${
+                        order.status === "PENDING"
+                          ? styles.badgePending
+                          : order.status === "SHIPPING"
+                            ? styles.badgeShipping
+                            : order.status === "DELIVERED"
+                              ? styles.badgeDelivering
+                              : order.status === "COMPLETED"
+                                ? styles.badgeCompleted
+                                : order.status === "CANCELLED"
+                                  ? styles.badgeCancelled
+                                  : ""
+                      }`}
+                    >
                       {tabs.find((t) => t.key === order.status)?.label ||
                         order.status}
                     </span>
                   </div>
+                  {order.status === "CANCELLED" && (
+                    <div className={styles.cancellationNotice}>
+                      <div className={styles.cancellationHeader}>
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="15" y1="9" x2="9" y2="15" />
+                          <line x1="9" y1="9" x2="15" y2="15" />
+                        </svg>
+                        <span>Đơn hàng đã bị hủy</span>
+                        {order.cancelledAt && (
+                          <span className={styles.cancellationDate}>
+                            · Lúc {new Date(order.cancelledAt).toLocaleString("vi-VN")}
+                          </span>
+                        )}
+                      </div>
+                      <p className={styles.cancellationReasonText}>
+                        <strong>Lý do hủy đơn:</strong>{" "}
+                        {order.cancellationReason || "Không có lý do cụ thể."}
+                      </p>
+                    </div>
+                  )}
                   <div className={styles.orderBody}>
                     <div className={styles.itemsList}>
                       {order.items.map((item) => (

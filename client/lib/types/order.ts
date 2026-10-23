@@ -51,6 +51,8 @@ export interface Order {
   recipientPhone: string;
   note?: string;
   createdAt: string;
+  cancelledAt?: string | null;
+  cancellationReason?: string | null;
   items: OrderItem[];
 }
 

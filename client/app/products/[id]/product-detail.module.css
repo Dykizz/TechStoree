@@ -235,6 +235,26 @@
   font-weight: 600;
 }
 
+.qtyControlDisabled {
+  background-color: #f7f7f8;
+  border-color: #e5e5e5;
+  cursor: not-allowed;
+}
+
+.qtyControlDisabled .qtyDisplay {
+  color: #999999;
+}
+
+.qtyHint {
+  font-size: 0.82rem;
+  color: #e11d48;
+  font-weight: 500;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;

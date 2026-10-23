@@ -20,6 +20,8 @@
 .unread { background: #fbf5f6; }
 .successIcon { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #edf5f0; color: #287449; display: grid; place-items: center; }
 .successIcon svg { width: 22px; height: 22px; }
+.dangerIcon { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 50%; background: #fef2f2; color: #dc2626; display: grid; place-items: center; }
+.dangerIcon svg { width: 20px; height: 20px; }
 .content { display: grid; gap: 5px; min-width: 0; flex: 1; }
 .content strong { font-size: 12px; font-weight: 650; line-height: 1.5; }
 .content > span { font-size: 11px; color: #6e6e73; line-height: 1.65; overflow-wrap: anywhere; }

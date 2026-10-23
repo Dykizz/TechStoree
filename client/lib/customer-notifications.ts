@@ -142,3 +142,18 @@ export function notifyPaymentConfirmed(userId: number, order: Order) {
     href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
   });
 }
+
+export function notifyOrderCancelled(userId: number, order: Order) {
+  if (order.userId !== userId || order.status !== "CANCELLED") return;
+  const reasonText = order.cancellationReason
+    ? ` Lý do: ${order.cancellationReason}`
+    : "";
+  publishNotification(userId, {
+    id: `cancel:${order.orderId}`,
+    kind: "order",
+    title: "Đơn hàng đã bị hủy",
+    message: `Đơn hàng ${order.orderCode} đã bị hủy.${reasonText}`,
+    href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+  });
+}
+

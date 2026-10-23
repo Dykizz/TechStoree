@@ -67,3 +67,10 @@
   cursor: not-allowed;
   text-decoration: line-through;
 }
+
+.outOfStockTag {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  font-weight: 400;
+  margin-left: 2px;
+}

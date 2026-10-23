@@ -5,9 +5,12 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExtern
 import {
   markNotificationsRead,
   notificationSnapshot,
+  notifyOrderCancelled,
+  notifyPaymentConfirmed,
   parseNotifications,
   subscribeNotifications,
 } from "../../lib/customer-notifications";
+import { mapOrder, type BackendOrder } from "../../lib/orders-api";
 import styles from "./NotificationBell.module.css";
 
 const serverSnapshot = () => "[]";
@@ -28,6 +31,40 @@ export default function NotificationBell({ userId }: { userId: number }) {
   const panel = useRef<HTMLElement>(null);
   const panelId = useId();
   const headingId = useId();
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+
+    async function syncOrders() {
+      try {
+        const response = await fetch("/api/orders?pageSize=10", {
+          cache: "no-store",
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!cancelled && result.success && Array.isArray(result.data?.items)) {
+          result.data.items.forEach((item: BackendOrder) => {
+            const order = mapOrder(item);
+            notifyPaymentConfirmed(userId, order);
+            notifyOrderCancelled(userId, order);
+          });
+        }
+      } catch {
+        // Silently ignore if offline
+      }
+    }
+
+    void syncOrders();
+    const timer = setInterval(() => {
+      void syncOrders();
+    }, 25000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (!open) return;
@@ -87,15 +124,42 @@ export default function NotificationBell({ userId }: { userId: number }) {
           </div>
           {visible.length ? (
             <ul className={styles.list}>
-              {visible.map((item) => (
-                <li key={item.id}>
-                  <Link href={item.href} className={`${styles.item} ${item.read ? "" : styles.unread}`} onClick={() => { markNotificationsRead(userId, item.id); setOpen(false); trigger.current?.focus(); }}>
-                    <span className={styles.successIcon} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 12 4 4 8-9" /></svg></span>
-                    <span className={styles.content}><strong>{item.title}</strong><span>{item.message}</span><time dateTime={item.createdAt}>{dateFormat.format(new Date(item.createdAt))}</time></span>
-                    {!item.read && <span className={styles.dot} aria-label="Chưa đọc" />}
-                  </Link>
-                </li>
-              ))}
+              {visible.map((item) => {
+                const isCancelled = item.id.startsWith("cancel:");
+                return (
+                  <li key={item.id}>
+                    <Link
+                      href={item.href}
+                      className={`${styles.item} ${item.read ? "" : styles.unread}`}
+                      onClick={() => {
+                        markNotificationsRead(userId, item.id);
+                        setOpen(false);
+                        trigger.current?.focus();
+                      }}
+                    >
+                      <span className={isCancelled ? styles.dangerIcon : styles.successIcon} aria-hidden="true">
+                        {isCancelled ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <line x1="15" y1="9" x2="9" y2="15" />
+                            <line x1="9" y1="9" x2="15" y2="15" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="m6 12 4 4 8-9" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className={styles.content}>
+                        <strong>{item.title}</strong>
+                        <span>{item.message}</span>
+                        <time dateTime={item.createdAt}>{dateFormat.format(new Date(item.createdAt))}</time>
+                      </span>
+                      {!item.read && <span className={styles.dot} aria-label="Chưa đọc" />}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <div className={styles.empty}><span aria-hidden="true">✓</span><h3>{unreadOnly ? "Bạn đã đọc hết thông báo" : "Chưa có thông báo"}</h3><p>Hoàn thành khảo sát, lưu hồ sơ hoặc đặt hàng thành công sẽ được ghi nhận tại đây.</p></div>

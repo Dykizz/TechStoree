@@ -28,6 +28,7 @@ export default function ProductDetailPage({
   const [product, setProduct] = useState<ProductDetailDto | null>(null);
   const [selectedVariant, setSelectedVariant] =
     useState<ProductVariantDto | null>(null);
+  const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>({});
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -39,12 +40,18 @@ export default function ProductDetailPage({
       try {
         const data = await fetchProductById(productId);
         setProduct(data);
-        if (data && data.variants && data.variants.length > 0) {
-          // Khởi tạo biến thể có giá thấp nhất còn hàng để khớp với giá niêm yết
-          const sortedByPrice = [...data.variants].sort((a, b) => a.price - b.price);
-          const initial =
-            sortedByPrice.find((v) => v.stockQuantity > 0) || sortedByPrice[0];
-          setSelectedVariant(initial);
+        if (
+          data &&
+          data.variants &&
+          data.variants.length === 1 &&
+          (!data.variantAttributes || data.variantAttributes.length === 0)
+        ) {
+          // Chỉ tự động chọn nếu sản phẩm chỉ có duy nhất 1 biến thể và không có thuộc tính lựa chọn
+          setSelectedVariant(data.variants[0]);
+        } else {
+          // Bắt buộc khách hàng chủ động chọn biến thể / màu sắc
+          setSelectedVariant(null);
+          setSelectedAttrs({});
         }
       } catch {
         setLoadError("Không thể tải sản phẩm từ máy chủ. Vui lòng thử lại.");
@@ -114,8 +121,20 @@ export default function ProductDetailPage({
     ? selectedVariant.stockQuantity
     : product.totalStock;
   const isOutOfStock = currentStock <= 0;
+  // Tìm hình ảnh hiển thị: ưu tiên biến thể đang chọn -> biến thể khớp với màu sắc đang click -> ảnh chính sản phẩm
+  const colorPreviewVariant = selectedAttrs["Màu sắc"]
+    ? product.variants.find(
+        (v) =>
+          v.attributes &&
+          v.attributes["Màu sắc"] === selectedAttrs["Màu sắc"] &&
+          v.imageUrl,
+      )
+    : null;
+
   const activeImage =
-    (selectedVariant && selectedVariant.imageUrl) || product.imageUrl;
+    (selectedVariant && selectedVariant.imageUrl) ||
+    colorPreviewVariant?.imageUrl ||
+    product.imageUrl;
 
   const handleAddToCart = async () => {
     if (!selectedVariant || isOutOfStock || busy) return;
@@ -205,7 +224,9 @@ export default function ProductDetailPage({
                 <span
                   className={`${styles.price} ${hasPromotion ? styles.pricePromo : ""}`}
                 >
-                  {formatPrice(currentPrice)}
+                  {!selectedVariant && product.minPrice !== product.maxPrice
+                    ? `${formatPrice(product.minPrice)} – ${formatPrice(product.maxPrice)}`
+                    : formatPrice(currentPrice)}
                 </span>
                 {hasPromotion &&
                   promotionalPrice !== null &&
@@ -256,12 +277,15 @@ export default function ProductDetailPage({
                 >
                   {isOutOfStock
                     ? "Tạm hết hàng"
-                    : `Còn hàng (${currentStock} sản phẩm)`}
+                    : !selectedVariant
+                      ? `Còn hàng (Tổng ${currentStock} sản phẩm)`
+                      : `Còn hàng (${currentStock} sản phẩm)`}
                 </span>
               </div>
             </div>
 
-            {product.variantAttributes.length > 0 && (
+            {(product.variantAttributes.length > 0 ||
+              product.variants.length > 1) && (
               <div className={styles.variantsSection}>
                 <VariantSelector
                   attributes={product.variantAttributes}
@@ -271,27 +295,40 @@ export default function ProductDetailPage({
                     setSelectedVariant(variant);
                     setQuantity(1);
                   }}
+                  onAttributesChange={(attrs) => {
+                    setSelectedAttrs(attrs);
+                  }}
                 />
               </div>
             )}
 
             <div className={styles.quantitySection}>
               <span className={styles.qtyLabel}>Số lượng:</span>
-              <div className={styles.qtyControl}>
+              <div
+                className={`${styles.qtyControl} ${
+                  !selectedVariant ? styles.qtyControlDisabled : ""
+                }`}
+              >
                 <button
                   type="button"
                   className={styles.qtyBtn}
-                  disabled={quantity <= 1 || isOutOfStock}
+                  disabled={!selectedVariant || quantity <= 1 || isOutOfStock}
                   onClick={() => setQuantity((q) => Math.max(q - 1, 1))}
                   aria-label="Giảm số lượng"
                 >
                   -
                 </button>
-                <span className={styles.qtyDisplay}>{quantity}</span>
+                <span className={styles.qtyDisplay}>
+                  {!selectedVariant ? "-" : quantity}
+                </span>
                 <button
                   type="button"
                   className={styles.qtyBtn}
-                  disabled={quantity >= currentStock || isOutOfStock}
+                  disabled={
+                    !selectedVariant ||
+                    quantity >= currentStock ||
+                    isOutOfStock
+                  }
                   onClick={() =>
                     setQuantity((q) => Math.min(q + 1, currentStock))
                   }
@@ -300,6 +337,26 @@ export default function ProductDetailPage({
                   +
                 </button>
               </div>
+              {!selectedVariant && (
+                <span className={styles.qtyHint}>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  Vui lòng chọn biến thể / màu sắc trước khi chọn số lượng
+                </span>
+              )}
             </div>
 
             <div className={styles.actions}>
@@ -308,6 +365,7 @@ export default function ProductDetailPage({
                 className={`${styles.addToCartBtn} ${addedSuccess ? styles.addToCartSuccess : ""}`}
                 disabled={isOutOfStock || !selectedVariant}
                 onClick={handleAddToCart}
+                title={!selectedVariant ? "Vui lòng chọn biến thể / màu sắc" : ""}
               >
                 {addedSuccess ? (
                   <>
@@ -341,7 +399,13 @@ export default function ProductDetailPage({
                       <path d="M3 6h18" />
                       <path d="M16 10a4 4 0 0 1-8 0" />
                     </svg>
-                    <span>{isOutOfStock ? "Tạm hết hàng" : "Thêm vào giỏ"}</span>
+                    <span>
+                      {!selectedVariant
+                        ? "Vui lòng chọn biến thể"
+                        : isOutOfStock
+                          ? "Tạm hết hàng"
+                          : "Thêm vào giỏ"}
+                    </span>
                   </>
                 )}
               </button>
@@ -351,8 +415,9 @@ export default function ProductDetailPage({
                 className={styles.buyNowBtn}
                 disabled={isOutOfStock || !selectedVariant}
                 onClick={handleBuyNow}
+                title={!selectedVariant ? "Vui lòng chọn biến thể / màu sắc" : ""}
               >
-                Mua ngay
+                {!selectedVariant ? "Chọn biến thể để mua" : "Mua ngay"}
               </button>
             </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ProductVariantDto } from "../../lib/types/product";
 import styles from "./VariantSelector.module.css";
 
@@ -8,6 +9,7 @@ interface VariantSelectorProps {
   variants: ProductVariantDto[];
   selectedVariant: ProductVariantDto | null;
   onVariantChange: (variant: ProductVariantDto | null) => void;
+  onAttributesChange?: (selectedAttrs: Record<string, string>) => void;
 }
 
 export default function VariantSelector({
@@ -15,21 +17,65 @@ export default function VariantSelector({
   variants,
   selectedVariant,
   onVariantChange,
+  onAttributesChange,
 }: VariantSelectorProps) {
-  const currentAttributes = selectedVariant?.attributes || {};
+  const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>(() => {
+    return selectedVariant?.attributes ? { ...selectedVariant.attributes } : {};
+  });
 
-  const handleSelect = (attrName: string, value: string) => {
-    const nextSelection = { ...currentAttributes, [attrName]: value };
+  // Sync internal selectedAttrs when selectedVariant is set from parent
+  useEffect(() => {
+    if (selectedVariant) {
+      setSelectedAttrs({ ...selectedVariant.attributes });
+    }
+  }, [selectedVariant]);
 
-    // Find variant matching all selected attributes
-    const match = variants.find((v) => {
-      return Object.entries(nextSelection).every(
-        ([key, val]) => v.attributes[key] === val
-      );
-    });
+  // Handle case where product has multiple variants but no variantAttributes list
+  if (attributes.length === 0 && variants.length > 1) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.attributeGroup}>
+          <div className={styles.attributeLabel}>
+            <span>Phiên bản:</span>
+            <span className={styles.selectedValue}>
+              {selectedVariant?.variantName || "Chưa chọn"}
+            </span>
+          </div>
 
-    onVariantChange(match || null);
-  };
+          <div className={styles.optionsList}>
+            {variants.map((v) => {
+              const isSelected = selectedVariant?.variantId === v.variantId;
+              const hasStock = v.isActive && v.stockQuantity > 0;
+
+              return (
+                <button
+                  key={v.variantId}
+                  type="button"
+                  disabled={!hasStock}
+                  className={`${styles.optionButton} ${
+                    isSelected ? styles.optionSelected : ""
+                  } ${!hasStock ? styles.optionDisabled : ""}`}
+                  onClick={() => {
+                    const next = isSelected ? null : v;
+                    onVariantChange(next);
+                    if (onAttributesChange) {
+                      onAttributesChange(next?.attributes || {});
+                    }
+                  }}
+                  title={!hasStock ? "Tạm hết hàng" : v.variantName}
+                >
+                  {v.variantName}
+                  {!hasStock && (
+                    <span className={styles.outOfStockTag}> (Hết)</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Extract all unique values for each attribute name
   const getValuesForAttribute = (attrName: string): string[] => {
@@ -42,11 +88,64 @@ export default function VariantSelector({
     return Array.from(values);
   };
 
+  const handleSelect = (attrName: string, value: string) => {
+    const isCurrentlySelected = selectedAttrs[attrName] === value;
+    let nextSelection: Record<string, string>;
+
+    if (isCurrentlySelected) {
+      // Toggle off / deselect
+      nextSelection = { ...selectedAttrs };
+      delete nextSelection[attrName];
+    } else {
+      // Select new value
+      nextSelection = { ...selectedAttrs, [attrName]: value };
+
+      // Re-validate other previously chosen attributes to ensure a compatible variant exists
+      for (const otherAttr of attributes) {
+        if (otherAttr === attrName) continue;
+        const otherVal = nextSelection[otherAttr];
+        if (otherVal) {
+          const comboExists = variants.some(
+            (v) =>
+              v.isActive &&
+              v.attributes[attrName] === value &&
+              v.attributes[otherAttr] === otherVal
+          );
+          if (!comboExists) {
+            delete nextSelection[otherAttr];
+          }
+        }
+      }
+    }
+
+    setSelectedAttrs(nextSelection);
+    if (onAttributesChange) {
+      onAttributesChange(nextSelection);
+    }
+
+    // Check if ALL attributes are selected
+    const allSelected =
+      attributes.length > 0 &&
+      attributes.every((attr) => Boolean(nextSelection[attr]));
+
+    if (allSelected) {
+      const match = variants.find(
+        (v) =>
+          v.isActive &&
+          attributes.every((attr) => v.attributes[attr] === nextSelection[attr])
+      );
+      onVariantChange(match || null);
+    } else {
+      // Partial or no selection -> no variant chosen
+      onVariantChange(null);
+    }
+  };
+
   return (
     <div className={styles.container}>
       {attributes.map((attrName) => {
         const values = getValuesForAttribute(attrName);
-        const currentValue = currentAttributes[attrName];
+        const currentValue = selectedAttrs[attrName];
 
         return (
           <div key={attrName} className={styles.attributeGroup}>
@@ -61,31 +160,53 @@ export default function VariantSelector({
               {values.map((val) => {
                 const isSelected = currentValue === val;
 
-                // Check if any variant with this option is in stock
-                const hasStock = variants.some((v) => {
-                  const testSelection = { ...currentAttributes, [attrName]: val };
-                  return (
+                // 1. Check if any active variant has this attribute value at all
+                const existsAny = variants.some(
+                  (v) => v.isActive && v.attributes[attrName] === val
+                );
+
+                // 2. Check compatibility with OTHER currently selected attributes
+                const otherEntries = Object.entries(selectedAttrs).filter(
+                  ([k]) => k !== attrName
+                );
+
+                const matchingVariants = variants.filter(
+                  (v) =>
+                    v.isActive &&
                     v.attributes[attrName] === val &&
-                    v.stockQuantity > 0 &&
-                    Object.entries(testSelection).every(
-                      ([k, vVal]) =>
-                        k === attrName ||
-                        !v.attributes[k] ||
-                        v.attributes[k] === vVal
-                    )
-                  );
-                });
+                    otherEntries.every(([k, vVal]) => v.attributes[k] === vVal)
+                );
+
+                const isCompatible =
+                  existsAny && (otherEntries.length === 0 || matchingVariants.length > 0);
+
+                const hasStock = matchingVariants.some(
+                  (v) => v.stockQuantity > 0
+                );
+
+                const isDisabled = !isCompatible || (!isSelected && !hasStock);
 
                 return (
                   <button
                     key={val}
                     type="button"
+                    disabled={isDisabled}
                     className={`${styles.optionButton} ${
                       isSelected ? styles.optionSelected : ""
-                    } ${!hasStock ? styles.optionDisabled : ""}`}
+                    } ${isDisabled ? styles.optionDisabled : ""}`}
                     onClick={() => handleSelect(attrName, val)}
+                    title={
+                      !isCompatible
+                        ? "Không khả dụng với lựa chọn hiện tại"
+                        : !hasStock
+                          ? "Tạm hết hàng"
+                          : val
+                    }
                   >
                     {val}
+                    {isCompatible && !hasStock && (
+                      <span className={styles.outOfStockTag}> (Hết)</span>
+                    )}
                   </button>
                 );
               })}
