@@ -109,7 +109,8 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderRequestDto request)
     {
-        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || HasRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SalesStaff));
+        var hasCancelPermission = HasPermission(AppPermissions.Orders.Cancel);
+        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || hasCancelPermission || HasRole(WebBanHang.Api.Enums.UserRoleTypeExtensions.SalesStaff));
         return Success(result, "Hủy đơn hàng thành công. Tồn kho và Voucher (nếu có) đã được hoàn lại.");
     }
 
@@ -127,7 +128,20 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     }
 
     /// <summary>
-    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, CANCELLED)
+    /// [ADMIN / BÁN HÀNG] Thống kê số lượng đơn hàng theo từng trạng thái tiến trình
+    /// </summary>
+    [HttpGet("admin/status-counts")]
+    [HasPermission(AppPermissions.Orders.View)]
+    [ProducesResponseType(typeof(ApiResponse<Dictionary<string, int>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetOrderStatusCounts()
+    {
+        var result = await orderService.GetOrderStatusCountsAsync();
+        return Success(result, "Lấy số lượng đơn hàng theo trạng thái thành công.");
+    }
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng (CONFIRMED, SHIPPING, DELIVERED, CANCELLED, RETURNED)
     /// </summary>
     [HttpPatch("{id:int}/status")]
     [HasPermission(AppPermissions.Orders.UpdateStatus)]
@@ -139,5 +153,54 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     {
         var result = await orderService.UpdateOrderStatusAsync(id, request, CurrentUserId);
         return Success(result, "Cập nhật trạng thái đơn hàng thành công.");
+    }
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Xử lý hoàn hàng / Giao hàng thất bại (RETURNED)
+    /// </summary>
+    [HttpPost("{id:int}/return")]
+    [HasPermission(AppPermissions.Orders.UpdateStatus)]
+    [ProducesResponseType(typeof(ApiResponse<OrderDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ReturnOrder(int id, [FromBody] CancelOrderRequestDto request)
+    {
+        var result = await orderService.ReturnOrderAsync(id, CurrentUserId, request.Reason);
+        return Success(result, "Xác nhận hoàn hàng thành công. Tồn kho và voucher đã được hoàn lại.");
+    }
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái thanh toán (đối soát COD độc lập)
+    /// </summary>
+    [HttpPatch("{id:int}/payment-status")]
+    [HasPermission(AppPermissions.Orders.UpdateStatus)]
+    [ProducesResponseType(typeof(ApiResponse<OrderDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePaymentStatus(int id, [FromBody] UpdateOrderPaymentStatusDto request)
+    {
+        var result = await orderService.UpdateOrderPaymentStatusAsync(id, request, CurrentUserId);
+        return Success(result, "Cập nhật trạng thái thanh toán đơn hàng thành công.");
+    }
+
+    /// <summary>
+    /// [ADMIN / BÁN HÀNG] Cập nhật trạng thái tiến trình đơn hàng hàng loạt (Bulk / Batch Actions)
+    /// </summary>
+    [HttpPost("admin/batch-status")]
+    [HasPermission(AppPermissions.Orders.UpdateStatus)]
+    [ProducesResponseType(typeof(ApiResponse<BatchOrderResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> BatchUpdateOrderStatus([FromBody] BatchUpdateOrderStatusDto request)
+    {
+        if (request.OrderIds == null || request.OrderIds.Count == 0)
+        {
+            return BadRequest(new ApiResponse<string> { Success = false, Message = "Danh sách mã đơn hàng không được để trống." });
+        }
+
+        var result = await orderService.BatchUpdateOrderStatusAsync(request, CurrentUserId);
+        return Success(result, $"Thực hiện thao tác hàng loạt thành công {result.SuccessCount}/{result.TotalRequested} đơn hàng.");
     }
 }

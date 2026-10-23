@@ -290,6 +290,169 @@ mixin OrderApiService on BaseApiService {
     }
   }
 
+  /// Fetch order status counts: GET /api/Orders/admin/status-counts
+  Future<Map<String, int>> getOrderStatusCounts({String? token}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/Orders/admin/status-counts');
+      final response = await httpGet(uri, token: token);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true && jsonRes['data'] is Map<String, dynamic>) {
+          final data = jsonRes['data'] as Map<String, dynamic>;
+          return data.map((k, v) => MapEntry(k.toUpperCase(), (v as num).toInt()));
+        }
+      }
+    } catch (e) {
+      debugPrint('[OrderApiService] Lỗi getOrderStatusCounts: $e');
+    }
+
+    // Return empty map on failure so caller can sync dynamically with real loaded items
+    return <String, int>{};
+  }
+
+  /// Return order: POST /api/Orders/{id}/return
+  Future<({bool success, String message, Order? order})> returnOrder(
+    int orderId, {
+    required String reason,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/Orders/$orderId/return');
+      final payload = {'reason': reason.trim()};
+
+      final response = await httpPost(
+        uri,
+        token: token,
+        body: jsonEncode(payload),
+        timeout: const Duration(seconds: 10),
+      );
+
+      final jsonRes = response.body.isNotEmpty ? json.decode(utf8.decode(response.bodyBytes)) : null;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Order? returnedOrder;
+        if (jsonRes is Map<String, dynamic> && jsonRes['data'] is Map<String, dynamic>) {
+          returnedOrder = Order.fromJson(jsonRes['data'] as Map<String, dynamic>);
+        }
+        return (
+          success: true,
+          message: jsonRes is Map<String, dynamic> && jsonRes['message'] != null
+              ? jsonRes['message'].toString()
+              : 'Xác nhận hoàn hàng thành công. Tồn kho và voucher đã được hoàn lại.',
+          order: returnedOrder,
+        );
+      } else {
+        String msg = 'Xác nhận hoàn hàng thất bại.';
+        if (jsonRes is Map<String, dynamic> && jsonRes.containsKey('message')) {
+          msg = jsonRes['message'].toString();
+        }
+        return (success: false, message: msg, order: null);
+      }
+    } catch (e) {
+      debugPrint('[OrderApiService] Lỗi returnOrder: $e');
+      return (success: false, message: 'Lỗi kết nối máy chủ: $e', order: null);
+    }
+  }
+
+  /// Update payment status (COD reconciliation): PATCH /api/Orders/{id}/payment-status
+  Future<({bool success, String message, Order? order})> updateOrderPaymentStatus(
+    int orderId, {
+    required String paymentStatus,
+    String? note,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/Orders/$orderId/payment-status');
+      final payload = {
+        'paymentStatus': paymentStatus,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+      };
+
+      final response = await httpPatch(
+        uri,
+        token: token,
+        body: jsonEncode(payload),
+        timeout: const Duration(seconds: 10),
+      );
+
+      final jsonRes = response.body.isNotEmpty ? json.decode(utf8.decode(response.bodyBytes)) : null;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        Order? updatedOrder;
+        if (jsonRes is Map<String, dynamic> && jsonRes['data'] is Map<String, dynamic>) {
+          updatedOrder = Order.fromJson(jsonRes['data'] as Map<String, dynamic>);
+        }
+        return (
+          success: true,
+          message: jsonRes is Map<String, dynamic> && jsonRes['message'] != null
+              ? jsonRes['message'].toString()
+              : 'Cập nhật trạng thái thanh toán thành công.',
+          order: updatedOrder,
+        );
+      } else {
+        String msg = 'Cập nhật trạng thái thanh toán thất bại.';
+        if (jsonRes is Map<String, dynamic> && jsonRes.containsKey('message')) {
+          msg = jsonRes['message'].toString();
+        }
+        return (success: false, message: msg, order: null);
+      }
+    } catch (e) {
+      debugPrint('[OrderApiService] Lỗi updateOrderPaymentStatus: $e');
+      return (success: false, message: 'Lỗi kết nối máy chủ: $e', order: null);
+    }
+  }
+
+  /// Batch update order status: POST /api/Orders/admin/batch-status
+  Future<({bool success, String message, int successCount, int failedCount})> batchUpdateOrderStatus({
+    required List<int> orderIds,
+    required String status,
+    String? reason,
+    String? token,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/Orders/admin/batch-status');
+      final payload = {
+        'orderIds': orderIds,
+        'status': status,
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+      };
+
+      final response = await httpPost(
+        uri,
+        token: token,
+        body: jsonEncode(payload),
+        timeout: const Duration(seconds: 15),
+      );
+
+      final jsonRes = response.body.isNotEmpty ? json.decode(utf8.decode(response.bodyBytes)) : null;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        int sCount = orderIds.length;
+        int fCount = 0;
+        if (jsonRes is Map<String, dynamic> && jsonRes['data'] is Map<String, dynamic>) {
+          final data = jsonRes['data'] as Map<String, dynamic>;
+          sCount = (data['successCount'] as num?)?.toInt() ?? orderIds.length;
+          fCount = (data['failedCount'] as num?)?.toInt() ?? 0;
+        }
+        return (
+          success: true,
+          message: jsonRes is Map<String, dynamic> && jsonRes['message'] != null
+              ? jsonRes['message'].toString()
+              : 'Thực hiện thao tác hàng loạt thành công $sCount đơn.',
+          successCount: sCount,
+          failedCount: fCount,
+        );
+      } else {
+        String msg = 'Thao tác hàng loạt thất bại.';
+        if (jsonRes is Map<String, dynamic> && jsonRes.containsKey('message')) {
+          msg = jsonRes['message'].toString();
+        }
+        return (success: false, message: msg, successCount: 0, failedCount: orderIds.length);
+      }
+    } catch (e) {
+      debugPrint('[OrderApiService] Lỗi batchUpdateOrderStatus: $e');
+      return (success: false, message: 'Lỗi kết nối máy chủ: $e', successCount: 0, failedCount: orderIds.length);
+    }
+  }
+
   /// Backward-compatible getOrders method
   Future<List<Order>> getOrders({String? token}) async {
     final result = await getAllOrders(page: 1, pageSize: 100, token: token);

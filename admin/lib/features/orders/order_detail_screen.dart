@@ -12,6 +12,7 @@ import '../../core/widgets/data_table_container.dart';
 import '../../core/models/invoice.dart';
 import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
+import 'widgets/packing_slip_dialog.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final Order order;
@@ -73,7 +74,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         nextStatuses = ['SHIPPING', 'CANCELLED'];
         break;
       case 'SHIPPING':
-        nextStatuses = ['DELIVERED'];
+        nextStatuses = ['DELIVERED', 'RETURNED', 'CANCELLED'];
         break;
       default:
         nextStatuses = [];
@@ -129,6 +130,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       if (st == 'CONFIRMED') label = 'CONFIRMED - Đã xác nhận đơn hàng';
                       if (st == 'SHIPPING') label = 'SHIPPING - Đã chuyển đơn vị vận chuyển';
                       if (st == 'DELIVERED') label = 'DELIVERED - Khách đã nhận hàng thành công';
+                      if (st == 'RETURNED') label = 'RETURNED - Hoàn hàng / Giao thất bại';
                       if (st == 'CANCELLED') label = 'CANCELLED - Hủy đơn hàng';
                       return DropdownMenuItem(value: st, child: Text(label, style: const TextStyle(fontSize: 12.5)));
                     }).toList(),
@@ -165,6 +167,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: AppTokens.space12),
 
+                  if (selectedStatus == 'RETURNED') ...[
+                    Text('Lý do hoàn hàng / giao thất bại (*)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: reasonCtrl,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Nhập lý do hoàn hàng (Khách không nhận, sai địa chỉ, giao 3 lần không thành công...)...',
+                        hintStyle: const TextStyle(fontSize: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusSm)),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.warningBg,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.warningBorder),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.assignment_return_outlined, size: 16, color: AppColors.warning),
+                          SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Lưu ý: Hoàn hàng sẽ tự động khôi phục số lượng tồn kho nguyên tử và hoàn trả voucher vào ví khách hàng.',
+                              style: TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (selectedStatus == 'CANCELLED') ...[
                     Text('Lý do hủy đơn (*)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
                     const SizedBox(height: 6),
@@ -214,6 +250,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 onPressed: isSubmitting
                     ? null
                     : () async {
+                        if (selectedStatus == 'RETURNED' && reasonCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                            const SnackBar(content: Text('Vui lòng nhập lý do hoàn hàng / giao thất bại.'), backgroundColor: AppColors.danger),
+                          );
+                          return;
+                        }
                         if (selectedStatus == 'CANCELLED' && reasonCtrl.text.trim().isEmpty) {
                           ScaffoldMessenger.of(dialogCtx).showSnackBar(
                             const SnackBar(content: Text('Vui lòng nhập lý do hủy đơn hàng.'), backgroundColor: AppColors.danger),
@@ -408,6 +450,120 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
   }
 
+  void _showCodReconciliationDialog() {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    final noteCtrl = TextEditingController(text: 'Đã nhận đủ tiền thu hộ COD từ bưu tá/ĐVVC');
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final isDark = Provider.of<ThemeProvider>(dialogCtx).isDarkMode;
+          final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
+            title: Row(
+              children: [
+                const Icon(Icons.price_check_rounded, color: AppColors.success, size: 24),
+                const SizedBox(width: 8),
+                Text('Đối soát thanh toán COD đơn ${_currentOrder.orderCode}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(AppTokens.space12),
+                    decoration: BoxDecoration(
+                      color: AppColors.successBg,
+                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                      border: Border.all(color: AppColors.successBorder),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_outline, color: AppColors.success, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Số tiền COD cần thu từ ĐVVC:',
+                                  style: TextStyle(fontSize: 11.5, color: AppColors.success, fontWeight: FontWeight.w600)),
+                              Text(currencyFormat.format(_currentOrder.totalAmount),
+                                  style: const TextStyle(fontSize: 16, color: AppColors.success, fontWeight: FontWeight.w900)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppTokens.space12),
+                  Text('Xác nhận tiền thu hộ COD đã được đơn vị vận chuyển đối soát và chuyển vào tài khoản doanh nghiệp. Trạng thái thanh toán của đơn hàng sẽ chuyển thành PAID (Đã thanh toán).',
+                      style: TextStyle(fontSize: 12, color: textPrimary, height: 1.35)),
+                  const SizedBox(height: AppTokens.space12),
+                  Text('Ghi chú đối soát (*):', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Nhập mã phiếu đối soát hoặc ghi chú...',
+                      hintStyle: const TextStyle(fontSize: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusSm)),
+                      isDense: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              AppButton(
+                label: 'Hủy bỏ',
+                variant: AppButtonVariant.secondary,
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+              ),
+              AppButton(
+                label: isSubmitting ? 'Đang lưu...' : 'Xác nhận đã nhận tiền',
+                variant: AppButtonVariant.primary,
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => isSubmitting = true);
+                        final res = await apiService.updateOrderPaymentStatus(
+                          _currentOrder.orderId,
+                          paymentStatus: 'PAID',
+                          note: noteCtrl.text.trim(),
+                          token: token,
+                        );
+
+                        if (mounted) {
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res.message),
+                              backgroundColor: res.success ? AppColors.success : AppColors.danger,
+                            ),
+                          );
+                          if (res.success) {
+                            widget.onOrderUpdated();
+                            _fetchFullDetail();
+                          }
+                        }
+                      },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -488,13 +644,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         Row(
                           children: [
                             AppButton(
+                              label: 'In phiếu đóng gói',
+                              icon: Icons.print_rounded,
+                              variant: AppButtonVariant.outline,
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) => PackingSlipDialog(orders: [_currentOrder]),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            AppButton(
                               label: 'Xem hóa đơn',
                               icon: Icons.receipt_long_rounded,
                               variant: AppButtonVariant.outline,
                               onPressed: _showInvoiceForCurrentOrder,
                             ),
                             const SizedBox(width: 8),
-                            if (_currentOrder.orderStatus != 'DELIVERED' && _currentOrder.orderStatus != 'CANCELLED') ...[
+                            if (_currentOrder.paymentMethod.toUpperCase() == 'COD' &&
+                                _currentOrder.orderStatus.toUpperCase() == 'DELIVERED' &&
+                                _currentOrder.paymentStatus.toUpperCase() != 'PAID') ...[
+                              AppButton(
+                                label: 'Đối soát COD',
+                                icon: Icons.price_check_rounded,
+                                variant: AppButtonVariant.primary,
+                                onPressed: _showCodReconciliationDialog,
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            if (_currentOrder.orderStatus != 'DELIVERED' &&
+                                _currentOrder.orderStatus != 'CANCELLED' &&
+                                _currentOrder.orderStatus != 'RETURNED') ...[
                               AppButton(
                                 label: 'Cập nhật tiến trình',
                                 icon: Icons.edit_road_rounded,
@@ -516,6 +697,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: AppTokens.space16),
+
+                  // Section: ORDER STEPPER TIMELINE
+                  _buildOrderTimeline(isDark, textPrimary, textSecondary, borderColor, surfaceColor),
                   const SizedBox(height: AppTokens.space16),
 
                   // Main 2-column Grid
@@ -911,6 +1096,219 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
+  Widget _buildOrderTimeline(bool isDark, Color textPrimary, Color textSecondary, Color borderColor, Color surfaceColor) {
+    final status = _currentOrder.orderStatus.toUpperCase();
+    final isCancelled = status == 'CANCELLED';
+    final isReturned = status == 'RETURNED';
+
+    bool step1Done = true;
+    bool step2Done = ['CONFIRMED', 'SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
+    bool step3Done = ['SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
+    bool step4Done = ['DELIVERED', 'RETURNED', 'CANCELLED'].contains(status);
+
+    int currentStepIndex = 0;
+    if (status == 'PENDING') {
+      currentStepIndex = 0;
+    } else if (status == 'CONFIRMED') {
+      currentStepIndex = 1;
+    } else if (status == 'SHIPPING') {
+      currentStepIndex = 2;
+    } else if (status == 'DELIVERED' || status == 'RETURNED' || status == 'CANCELLED') {
+      currentStepIndex = 3;
+    }
+
+    final steps = [
+      {
+        'title': 'Đặt hàng',
+        'subtitle': _currentOrder.createdAt != null ? dateFormat.format(_currentOrder.createdAt!) : 'Đã tạo',
+        'icon': Icons.shopping_bag_outlined,
+        'done': step1Done,
+        'active': currentStepIndex == 0,
+        'isFail': false,
+      },
+      {
+        'title': 'Xác nhận đơn',
+        'subtitle': step2Done ? 'Đã duyệt đơn' : 'Chờ duyệt',
+        'icon': Icons.assignment_turned_in_outlined,
+        'done': step2Done,
+        'active': currentStepIndex == 1,
+        'isFail': false,
+      },
+      {
+        'title': 'Đang vận chuyển',
+        'subtitle': step3Done ? 'Đã giao cho ĐVVC' : 'Chờ đóng gói & giao',
+        'icon': Icons.local_shipping_outlined,
+        'done': step3Done,
+        'active': currentStepIndex == 2,
+        'isFail': false,
+      },
+      {
+        'title': isCancelled
+            ? 'Đã hủy đơn'
+            : (isReturned ? 'Hoàn hàng' : 'Giao thành công'),
+        'subtitle': isCancelled
+            ? (_currentOrder.cancelledAt != null ? dateFormat.format(_currentOrder.cancelledAt!) : 'Đã hủy hoàn kho')
+            : (isReturned
+                ? 'Giao thất bại / Hoàn kho'
+                : (status == 'DELIVERED' ? 'Khách đã nhận hàng' : 'Chờ giao đến khách')),
+        'icon': isCancelled
+            ? Icons.cancel_outlined
+            : (isReturned ? Icons.assignment_return_outlined : Icons.check_circle_outline),
+        'done': step4Done,
+        'active': currentStepIndex == 3,
+        'isFail': isCancelled || isReturned,
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: AppTokens.space20, vertical: AppTokens.space16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.timeline_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Tiến trình xử lý đơn hàng (Timeline Stepper)',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
+                  ),
+                ],
+              ),
+              _buildOrderStatusBadge(_currentOrder.orderStatus),
+            ],
+          ),
+          const SizedBox(height: AppTokens.space16),
+
+          // Horizontal Stepper
+          Row(
+            children: [
+              for (int i = 0; i < steps.length; i++) ...[
+                Expanded(
+                  child: _buildTimelineStepItem(
+                    stepIndex: i + 1,
+                    title: steps[i]['title'] as String,
+                    subtitle: steps[i]['subtitle'] as String,
+                    icon: steps[i]['icon'] as IconData,
+                    isDone: steps[i]['done'] as bool,
+                    isActive: steps[i]['active'] as bool,
+                    isFail: steps[i]['isFail'] as bool,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                    isDark: isDark,
+                  ),
+                ),
+                if (i < steps.length - 1)
+                  _buildTimelineConnector(
+                    isPassed: (steps[i + 1]['done'] as bool) || (steps[i + 1]['active'] as bool),
+                    isFail: (steps[i + 1]['isFail'] as bool) && (steps[i + 1]['done'] as bool),
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimelineStepItem({
+    required int stepIndex,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required bool isDone,
+    required bool isActive,
+    required bool isFail,
+    required Color textPrimary,
+    required Color textSecondary,
+    required bool isDark,
+  }) {
+    Color iconBgColor;
+    Color iconColor;
+    Color borderColor;
+
+    if (isFail) {
+      iconBgColor = AppColors.dangerBg;
+      iconColor = AppColors.danger;
+      borderColor = AppColors.danger;
+    } else if (isDone) {
+      iconBgColor = AppColors.success.withValues(alpha: 0.15);
+      iconColor = AppColors.success;
+      borderColor = AppColors.success;
+    } else if (isActive) {
+      iconBgColor = AppColors.primary.withValues(alpha: 0.15);
+      iconColor = AppColors.primary;
+      borderColor = AppColors.primary;
+    } else {
+      iconBgColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+      iconColor = textSecondary;
+      borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+    }
+
+    return Column(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: iconBgColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor, width: isActive ? 2.5 : 1.5),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: (isFail ? AppColors.danger : AppColors.primary).withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Icon(icon, size: 20, color: iconColor),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: isActive || isDone ? FontWeight.w700 : FontWeight.w500,
+            color: isFail ? AppColors.danger : (isActive || isDone ? textPrimary : textSecondary),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 11,
+            color: isFail ? AppColors.danger : textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimelineConnector({required bool isPassed, required bool isFail}) {
+    return Expanded(
+      child: Container(
+        height: 2.5,
+        margin: const EdgeInsets.only(bottom: 34, left: 4, right: 4),
+        color: isFail
+            ? AppColors.danger
+            : (isPassed ? AppColors.success : const Color(0xFFCBD5E1)),
+      ),
+    );
+  }
+
   Widget _buildOrderStatusBadge(String status) {
     switch (status.toUpperCase()) {
       case 'PENDING':
@@ -921,6 +1319,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         return const StatusBadge(label: 'SHIPPING - Đang giao', isInfo: true);
       case 'DELIVERED':
         return const StatusBadge(label: 'DELIVERED - Đã giao', isSuccess: true);
+      case 'RETURNED':
+        return const StatusBadge(label: 'RETURNED - Hoàn hàng / Giao thất bại', isDanger: true);
       case 'CANCELLED':
         return const StatusBadge(label: 'CANCELLED - Đã hủy', isDanger: true);
       default:
@@ -933,7 +1333,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case 'PAID':
         return const StatusBadge(label: 'PAID - Đã thanh toán', isSuccess: true);
       case 'PENDING':
-        return const StatusBadge(label: 'PENDING - Chờ thanh toán', isWarning: true);
+        final isCodDelivered = _currentOrder.paymentMethod.toUpperCase() == 'COD' && _currentOrder.orderStatus.toUpperCase() == 'DELIVERED';
+        return StatusBadge(
+          label: isCodDelivered ? 'Chờ đối soát COD' : 'PENDING - Chờ thanh toán',
+          isWarning: true,
+        );
       case 'REFUNDED':
         return const StatusBadge(label: 'REFUNDED - Đã hoàn tiền', isInfo: true);
       case 'FAILED':

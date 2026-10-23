@@ -28,13 +28,21 @@ public static class MappingExtensions
     public static List<string> ExtractRoles(this User user) =>
         user.UserRoles?.Select(ur => ur.RoleId.ToString()).Distinct().ToList() ?? new List<string>();
 
-    public static List<string> ExtractPermissions(this User user) =>
-        user.UserRoles?
+    public static List<string> ExtractPermissions(this User user)
+    {
+        var roles = user.ExtractRoles();
+        if (roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)))
+        {
+            return AppPermissions.Catalog.Select(p => p.Id).ToList();
+        }
+
+        return user.UserRoles?
             .Where(ur => ur.Role != null)
             .SelectMany(ur => ur.Role!.RolePermissions)
             .Select(rp => rp.PermissionId)
             .Distinct()
             .ToList() ?? new List<string>();
+    }
 
     public static BasicUserDto ToDto(this User user)
     {

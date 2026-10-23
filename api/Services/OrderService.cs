@@ -301,6 +301,37 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         return await query.ToPagedResultAsync(filter ?? new OrderQueryFilter(), o => o.ToOrderBaseDto());
     }
 
+    public async Task<Dictionary<string, int>> GetOrderStatusCountsAsync()
+    {
+        var statusCounts = await dbContext.Orders
+            .AsNoTracking()
+            .GroupBy(o => o.OrderStatus)
+            .Select(g => new { Status = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ALL"] = 0,
+            ["PENDING"] = 0,
+            ["CONFIRMED"] = 0,
+            ["SHIPPING"] = 0,
+            ["DELIVERED"] = 0,
+            ["CANCELLED"] = 0,
+            ["RETURNED"] = 0
+        };
+
+        int total = 0;
+        foreach (var sc in statusCounts)
+        {
+            var key = sc.Status.ToString();
+            result[key] = sc.Count;
+            total += sc.Count;
+        }
+        result["ALL"] = total;
+
+        return result;
+    }
+
     public async Task<OrderDetailDto?> GetOrderByIdAsync(int orderId, int? userId = null)
     {
         var query = BuildOrderDetailQuery().Where(o => o.OrderId == orderId);
@@ -347,9 +378,14 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             throw new BadRequestException("Đơn hàng này đã bị hủy trước đó.");
         }
 
-        if (order.OrderStatus != OrderStatus.PENDING && order.OrderStatus != OrderStatus.CONFIRMED)
+        if (order.OrderStatus == OrderStatus.RETURNED)
         {
-            throw new BadRequestException($"Không thể hủy đơn hàng đang ở trạng thái {order.OrderStatus}. Chỉ cho phép hủy khi đơn ở trạng thái Chờ xử lý hoặc Đã xác nhận.");
+            throw new BadRequestException("Đơn hàng này đã được xử lý hoàn về kho trước đó.");
+        }
+
+        if (order.OrderStatus != OrderStatus.PENDING && order.OrderStatus != OrderStatus.CONFIRMED && order.OrderStatus != OrderStatus.SHIPPING)
+        {
+            throw new BadRequestException($"Không thể hủy đơn hàng đang ở trạng thái {order.OrderStatus}. Chỉ cho phép hủy khi đơn ở trạng thái Chờ xử lý, Đã xác nhận hoặc Đang vận chuyển.");
         }
 
         var now = DateTime.UtcNow;
@@ -380,7 +416,6 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
                 .ExecuteUpdateAsync(s => s.SetProperty(v => v.UsedCount, v => v.UsedCount - 1));
         }
 
-
         // 3. Cập nhật trạng thái hủy
         order.OrderStatus = OrderStatus.CANCELLED;
         order.CancelledAt = now;
@@ -405,6 +440,78 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         return (await GetOrderByIdAsync(order.OrderId))!;
     }
 
+    public async Task<OrderDetailDto> ReturnOrderAsync(int orderId, int? userId, string reason)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
+
+        var order = await dbContext.Orders
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Variant)
+            .Include(o => o.Voucher)
+            .FirstOrDefaultAsync(o => o.OrderId == orderId)
+            ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã ID = {orderId}.");
+
+        if (order.OrderStatus == OrderStatus.RETURNED)
+        {
+            throw new BadRequestException("Đơn hàng này đã được xác nhận hoàn về kho trước đó.");
+        }
+
+        if (order.OrderStatus == OrderStatus.CANCELLED)
+        {
+            throw new BadRequestException("Đơn hàng này đã bị hủy trước đó.");
+        }
+
+        var now = DateTime.UtcNow;
+
+        // 1. Hoàn trả tồn kho nguyên tử cho từng sản phẩm
+        foreach (var item in order.Items)
+        {
+            await dbContext.ProductVariants
+                .Where(v => v.VariantId == item.VariantId)
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.StockQuantity, v => v.StockQuantity + item.Quantity));
+        }
+
+        // 2. Hoàn trả Voucher vào ví nếu có
+        if (order.VoucherId.HasValue)
+        {
+            var userVoucher = await dbContext.UserVouchers
+                .FirstOrDefaultAsync(uv => uv.OrderId == order.OrderId);
+
+            if (userVoucher != null)
+            {
+                userVoucher.IsUsed = false;
+                userVoucher.UsedAt = null;
+                userVoucher.OrderId = null;
+            }
+
+            await dbContext.Vouchers
+                .Where(v => v.VoucherId == order.VoucherId.Value && v.UsedCount > 0)
+                .ExecuteUpdateAsync(s => s.SetProperty(v => v.UsedCount, v => v.UsedCount - 1));
+        }
+
+        // 3. Cập nhật trạng thái hoàn hàng
+        order.OrderStatus = OrderStatus.RETURNED;
+        order.CancelledAt = now;
+        order.CancellationReason = reason.Trim();
+        order.UpdatedAt = now;
+        if (userId.HasValue)
+        {
+            order.UpdatedByUserId = userId.Value;
+        }
+
+        if (order.PaymentStatus == PaymentStatus.PAID)
+        {
+            order.PaymentStatus = PaymentStatus.REFUNDED;
+        }
+
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
+
+        await dbContext.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return (await GetOrderByIdAsync(order.OrderId))!;
+    }
+
     public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null)
     {
         var order = await dbContext.Orders
@@ -414,16 +521,14 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             .FirstOrDefaultAsync(o => o.OrderId == orderId)
             ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã ID = {orderId}.");
 
-        // Không cho phép đổi trạng thái nếu đơn đã bị hủy
         if (order.OrderStatus == OrderStatus.CANCELLED)
         {
             throw new BadRequestException("Không thể cập nhật trạng thái cho đơn hàng đã bị hủy.");
         }
 
-        // Đơn đã giao thành công không được chuyển ngược về trạng thái trước
-        if (order.OrderStatus == OrderStatus.DELIVERED && request.Status != OrderStatus.DELIVERED)
+        if (order.OrderStatus == OrderStatus.RETURNED)
         {
-            throw new BadRequestException("Đơn hàng đã giao thành công không thể chuyển về trạng thái trước đó.");
+            throw new BadRequestException("Không thể cập nhật trạng thái cho đơn hàng đã hoàn về kho.");
         }
 
         // Nếu chuyển sang CANCELLED, gọi qua nghiệp vụ CancelOrderAsync để hoàn kho và voucher
@@ -435,6 +540,12 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             }, isAdmin: true);
         }
 
+        // Nếu chuyển sang RETURNED, gọi qua ReturnOrderAsync để hoàn kho và voucher
+        if (request.Status == OrderStatus.RETURNED)
+        {
+            return await ReturnOrderAsync(orderId, updatedByUserId, request.Reason ?? "Giao hàng thất bại / Khách từ chối nhận hàng (Hoàn hàng về kho)");
+        }
+
         var now = DateTime.UtcNow;
         order.OrderStatus = request.Status;
         order.UpdatedAt = now;
@@ -443,16 +554,18 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             order.UpdatedByUserId = updatedByUserId.Value;
         }
 
-        // Tự động suy ra trạng thái thanh toán từ Status và PaymentStatus trước đó:
-        // - Khi giao hàng thành công (DELIVERED): đơn hàng được đánh dấu đã thanh toán (PAID)
-        // - Các trạng thái khác (CONFIRMED, SHIPPING): giữ nguyên trạng thái thanh toán trước đó
-        // (Trường hợp CANCELLED đã được xử lý hoàn tiền REFUNDED bên trong CancelOrderAsync nếu trước đó là PAID)
+        // Tách trạng thái đối soát thanh toán COD độc lập với giao hàng:
+        // - Nếu là phương thức thanh toán Online (VNPAY, Chuyển khoản): Đánh dấu đã thanh toán khi giao thành công
+        // - Nếu là COD: Giữ nguyên PaymentStatus (PENDING - Chờ đối soát tiền mặt từ bên giao vận)
         if (request.Status == OrderStatus.DELIVERED)
         {
-            order.PaymentStatus = PaymentStatus.PAID;
-            if (!order.PaidAt.HasValue)
+            if (order.PaymentMethod != PaymentMethod.COD)
             {
-                order.PaidAt = now;
+                order.PaymentStatus = PaymentStatus.PAID;
+                if (!order.PaidAt.HasValue)
+                {
+                    order.PaidAt = now;
+                }
             }
         }
 
@@ -461,6 +574,73 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
 
         await dbContext.SaveChangesAsync();
         return (await GetOrderByIdAsync(order.OrderId))!;
+    }
+
+    public async Task<OrderDetailDto> UpdateOrderPaymentStatusAsync(int orderId, UpdateOrderPaymentStatusDto request, int? updatedByUserId = null)
+    {
+        var order = await dbContext.Orders
+            .FirstOrDefaultAsync(o => o.OrderId == orderId)
+            ?? throw new NotFoundException($"Không tìm thấy đơn hàng ID = {orderId}.");
+
+        var now = DateTime.UtcNow;
+        order.PaymentStatus = request.PaymentStatus;
+        if (request.PaymentStatus == PaymentStatus.PAID && !order.PaidAt.HasValue)
+        {
+            order.PaidAt = now;
+        }
+        order.UpdatedAt = now;
+        if (updatedByUserId.HasValue)
+        {
+            order.UpdatedByUserId = updatedByUserId.Value;
+        }
+
+        await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
+        await dbContext.SaveChangesAsync();
+
+        return (await GetOrderByIdAsync(order.OrderId))!;
+    }
+
+    public async Task<BatchOrderResultDto> BatchUpdateOrderStatusAsync(BatchUpdateOrderStatusDto request, int? updatedByUserId = null)
+    {
+        var result = new BatchOrderResultDto
+        {
+            TotalRequested = request.OrderIds.Count
+        };
+
+        foreach (var id in request.OrderIds.Distinct())
+        {
+            try
+            {
+                if (request.Status == OrderStatus.CANCELLED)
+                {
+                    await CancelOrderAsync(id, updatedByUserId, new CancelOrderRequestDto
+                    {
+                        Reason = request.Reason ?? "Hủy đơn hàng hàng loạt bởi quản trị viên"
+                    }, isAdmin: true);
+                }
+                else if (request.Status == OrderStatus.RETURNED)
+                {
+                    await ReturnOrderAsync(id, updatedByUserId, request.Reason ?? "Hoàn hàng hàng loạt");
+                }
+                else
+                {
+                    await UpdateOrderStatusAsync(id, new UpdateOrderStatusDto
+                    {
+                        Status = request.Status,
+                        Reason = request.Reason
+                    }, updatedByUserId);
+                }
+
+                result.SuccessCount++;
+            }
+            catch (Exception ex)
+            {
+                result.FailedCount++;
+                result.Messages.Add($"Đơn #{id}: {ex.Message}");
+            }
+        }
+
+        return result;
     }
 
   
