@@ -116,12 +116,14 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                   PageHeader(
                     title: 'Quản lý Phiếu nhập hàng (Purchase Orders)',
                     subtitle: 'Theo dõi đợt nhập hàng từ nhà cung cấp theo từng biến thể sản phẩm',
-                    action: AppButton(
-                      label: 'Tạo phiếu nhập hàng mới',
-                      icon: Icons.add_rounded,
-                      variant: AppButtonVariant.primary,
-                      onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers),
-                    ),
+                    action: authProvider.can('PurchaseOrders.Create')
+                        ? AppButton(
+                            label: 'Tạo phiếu nhập hàng mới',
+                            icon: Icons.add_rounded,
+                            variant: AppButtonVariant.primary,
+                            onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers),
+                          )
+                        : null,
                   ),
 
                   // Filter Controls
@@ -245,7 +247,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                                               onPressed: () => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
                                                             ),
                                                           ),
-                                                          if (po.isDraft) ...[
+                                                          if (po.isDraft && authProvider.can('PurchaseOrders.Update')) ...[
                                                             const SizedBox(width: 4),
                                                             Tooltip(
                                                               message: 'Chỉnh sửa phiếu nháp',

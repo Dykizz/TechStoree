@@ -99,11 +99,13 @@ class _SurveyListViewState extends State<SurveyListView> {
               PageHeader(
                 title: 'Quản Lý Khảo Sát Thị Trường & CRM',
                 subtitle: 'Tạo biểu mẫu thăm dò ý kiến, gắn voucher phần thưởng và phân tích tỷ lệ phản hồi khách hàng',
-                action: AppButton(
-                  label: 'Tạo khảo sát mới',
-                  icon: Icons.add_rounded,
-                  onPressed: widget.onCreateNew,
-                ),
+                action: authProvider.can('Surveys.Create')
+                    ? AppButton(
+                        label: 'Tạo khảo sát mới',
+                        icon: Icons.add_rounded,
+                        onPressed: widget.onCreateNew,
+                      )
+                    : null,
               ),
 
               FilterBar(
@@ -284,26 +286,28 @@ class _SurveyListViewState extends State<SurveyListView> {
                                                     constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                                                     onSelected: (val) => _handleRowAction(val, s, apiService, authProvider.token),
                                                     itemBuilder: (ctx) => [
-                                                      const PopupMenuItem(
-                                                        value: 'EDIT',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(Icons.edit_outlined, size: 14),
-                                                            SizedBox(width: 8),
-                                                            Text('Chỉnh sửa', style: TextStyle(fontSize: 12)),
-                                                          ],
+                                                      if (authProvider.can('Surveys.Update'))
+                                                        const PopupMenuItem(
+                                                          value: 'EDIT',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(Icons.edit_outlined, size: 14),
+                                                              SizedBox(width: 8),
+                                                              Text('Chỉnh sửa', style: TextStyle(fontSize: 12)),
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
-                                                      const PopupMenuItem(
-                                                        value: 'ASSIGN',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(Icons.send_rounded, size: 14),
-                                                            SizedBox(width: 8),
-                                                            Text('Phát khảo sát', style: TextStyle(fontSize: 12)),
-                                                          ],
+                                                      if (authProvider.can('Surveys.Assign'))
+                                                        const PopupMenuItem(
+                                                          value: 'ASSIGN',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(Icons.send_rounded, size: 14),
+                                                              SizedBox(width: 8),
+                                                              Text('Phát khảo sát', style: TextStyle(fontSize: 12)),
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
                                                       const PopupMenuItem(
                                                         value: 'STATS',
                                                         child: Row(
@@ -314,40 +318,43 @@ class _SurveyListViewState extends State<SurveyListView> {
                                                           ],
                                                         ),
                                                       ),
-                                                      const PopupMenuItem(
-                                                        value: 'CLONE',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(Icons.copy_rounded, size: 14),
-                                                            SizedBox(width: 8),
-                                                            Text('Nhân bản', style: TextStyle(fontSize: 12)),
-                                                          ],
+                                                      if (authProvider.can('Surveys.Create'))
+                                                        const PopupMenuItem(
+                                                          value: 'CLONE',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(Icons.copy_rounded, size: 14),
+                                                              SizedBox(width: 8),
+                                                              Text('Nhân bản', style: TextStyle(fontSize: 12)),
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
-                                                      PopupMenuItem(
-                                                        value: 'TOGGLE',
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(s.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 14),
-                                                            const SizedBox(width: 8),
-                                                            Text(s.isActive ? 'Tạm dừng nhận bài' : 'Mở lại nộp bài', style: const TextStyle(fontSize: 12)),
-                                                          ],
+                                                      if (authProvider.can('Surveys.Update'))
+                                                        PopupMenuItem(
+                                                          value: 'TOGGLE',
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(s.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 14),
+                                                              const SizedBox(width: 8),
+                                                              Text(s.isActive ? 'Tạm dừng nhận bài' : 'Mở lại nộp bài', style: const TextStyle(fontSize: 12)),
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
-                                                      PopupMenuItem(
-                                                        value: 'DELETE',
-                                                        enabled: !s.hasResponses,
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(Icons.delete_outline_rounded, size: 14, color: !s.hasResponses ? AppColors.danger : Colors.grey),
-                                                            const SizedBox(width: 8),
-                                                            Text(
-                                                              !s.hasResponses ? 'Xóa khảo sát' : 'Xóa (Đã có phản hồi)',
-                                                              style: TextStyle(fontSize: 12, color: !s.hasResponses ? AppColors.danger : Colors.grey),
-                                                            ),
-                                                          ],
+                                                      if (authProvider.can('Surveys.Delete'))
+                                                        PopupMenuItem(
+                                                          value: 'DELETE',
+                                                          enabled: !s.hasResponses,
+                                                          child: Row(
+                                                            children: [
+                                                              Icon(Icons.delete_outline_rounded, size: 14, color: !s.hasResponses ? AppColors.danger : Colors.grey),
+                                                              const SizedBox(width: 8),
+                                                              Text(
+                                                                !s.hasResponses ? 'Xóa khảo sát' : 'Xóa (Đã có phản hồi)',
+                                                                style: TextStyle(fontSize: 12, color: !s.hasResponses ? AppColors.danger : Colors.grey),
+                                                              ),
+                                                            ],
+                                                          ),
                                                         ),
-                                                      ),
                                                     ],
                                                   ),
                                                 ],

@@ -30,7 +30,7 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.domain_outlined, activeIcon: Icons.domain_rounded, label: 'Nhà cung cấp', index: 5),
       _NavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Phiếu nhập hàng', index: 6),
       _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & Giảm giá', index: 7),
-      _NavItem(icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Mã giảm giá Voucher', index: 8),
+      _NavItem(icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Mã giảm giá voucher', index: 8),
       _NavItem(icon: Icons.poll_outlined, activeIcon: Icons.poll_rounded, label: 'Khảo sát thị trường', index: 9),
       _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng', index: 10),
       _NavItem(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded, label: 'Nhân viên', index: 11),
@@ -44,15 +44,15 @@ class AppSidebar extends StatelessWidget {
         case 0: return true; // Let everyone see Dashboard
         case 1: return authProvider.can('Products.View');
         case 2: return authProvider.can('Orders.View');
-        case 3: return authProvider.can('Orders.View');
+        case 3: return authProvider.can('Invoices.View');
         case 4: return authProvider.can('Categories.View');
         case 5: return authProvider.can('Suppliers.View');
         case 6: return authProvider.can('PurchaseOrders.View');
         case 7: return authProvider.can('Promotions.View');
         case 8: return authProvider.can('Vouchers.View');
         case 9: return authProvider.can('Surveys.View');
-        case 10: return authProvider.can('Users.View');
-        case 11: return authProvider.can('Users.View');
+        case 10: return authProvider.can('Customers.View') || authProvider.can('Users.View');
+        case 11: return authProvider.can('Employees.View') || authProvider.can('Users.View');
         case 12: return authProvider.can('Roles.View');
         case 13: return false; // Only ADMIN
         default: return false;

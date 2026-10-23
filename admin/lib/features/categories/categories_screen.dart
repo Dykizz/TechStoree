@@ -68,7 +68,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         if (_searchQuery.isNotEmpty) {
           categories = categories.where((c) =>
             c.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            c.description.toLowerCase().contains(_searchQuery.toLowerCase())
+            c.code.toLowerCase().contains(_searchQuery.toLowerCase())
           ).toList();
         }
 
@@ -88,23 +88,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               PageHeader(
                 title: 'Loại sản phẩm',
                 subtitle: 'Quản lý cấu trúc loại sản phẩm và phân loại thiết bị điện tử',
-                action: AppButton(
-                  label: 'Thêm loại sản phẩm',
-                  icon: Icons.add_rounded,
-                  onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                ),
+                action: authProvider.can('Categories.Create')
+                    ? AppButton(
+                        label: 'Thêm loại sản phẩm',
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
+                      )
+                    : null,
               ),
 
               FilterBar(
                 searchField: AppSearchField<Category>(
                   controller: _searchCtrl,
-                  hintText: 'Tìm kiếm tên danh mục hoặc mô tả...',
+                  hintText: 'Tìm kiếm theo tên hoặc mã loại...',
                   items: snapshot.data ?? [],
                   searchFilter: (c, q) => c.name.toLowerCase().contains(q.toLowerCase()) ||
-                      c.description.toLowerCase().contains(q.toLowerCase()) ||
                       c.code.toLowerCase().contains(q.toLowerCase()),
                   itemLabel: (c) => c.name,
-                  itemSubtitle: (c) => 'Mã: ${c.code} • ${c.description}',
+                  itemSubtitle: (c) => 'Mã loại: ${c.code}',
                   onSelected: (c) => setState(() => _searchQuery = c.name),
                   onSubmitted: (val) => setState(() => _searchQuery = val.trim()),
                   onCleared: () => setState(() => _searchQuery = ''),
@@ -137,10 +138,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                       columns: [
                                         DataColumn(label: Text('Mã loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('Tên loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('Mô tả', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                         DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedCategories.map((cat) {
+                                        final canUpdate = authProvider.can('Categories.Update');
+                                        final canDelete = authProvider.can('Categories.Delete');
                                         return DataRow(
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
@@ -151,45 +153,34 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                           cells: [
                                             DataCell(Text(cat.code, style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold, fontSize: 11))),
                                             DataCell(
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Icon(Icons.folder_open_rounded, size: 15, color: AppColors.primary),
-                                                  const SizedBox(width: 6),
-                                                  Text(cat.name, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
-                                                ],
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Text(
-                                                cat.description.isNotEmpty ? cat.description : '—',
-                                                style: TextStyle(color: textSecondary, fontSize: 11),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                              Text(cat.name, style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
                                             ),
                                             DataCell(
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: 'Chỉnh sửa',
-                                                    onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
-                                                  ),
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      Icons.delete_outline_rounded,
-                                                      size: 15,
-                                                      color: cat.productCount > 0 ? textSecondary.withValues(alpha: 0.4) : AppColors.danger,
+                                                  if (canUpdate)
+                                                    IconButton(
+                                                      icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: 'Chỉnh sửa',
+                                                      onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: cat.productCount > 0 ? 'Đang có ${cat.productCount} sản phẩm - Không thể xóa' : 'Xóa danh mục',
-                                                    onPressed: () => _confirmDelete(context, apiService, authProvider.token, cat),
-                                                  ),
+                                                  if (canDelete)
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        Icons.delete_outline_rounded,
+                                                        size: 15,
+                                                        color: cat.productCount > 0 ? textSecondary.withValues(alpha: 0.4) : AppColors.danger,
+                                                      ),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: cat.productCount > 0 ? 'Đang có ${cat.productCount} sản phẩm - Không thể xóa' : 'Xóa danh mục',
+                                                      onPressed: cat.productCount > 0 ? null : () => _confirmDelete(context, apiService, authProvider.token, cat),
+                                                    ),
+                                                  if (!canUpdate && !canDelete)
+                                                    Text('—', style: TextStyle(color: textSecondary, fontSize: 12)),
                                                 ],
                                               ),
                                             ),
@@ -226,7 +217,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, Category? existing) {
     final isEditing = existing != null;
     final nameCtrl = TextEditingController(text: isEditing ? existing.name : '');
-    final descCtrl = TextEditingController(text: isEditing ? existing.description : '');
 
     showDialog(
       context: context,
@@ -239,24 +229,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           backgroundColor: cardBg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           title: Text(
-            isEditing ? 'Sửa Danh Mục: ${existing.name}' : 'Tạo Danh Mục Mới',
+            isEditing ? 'Sửa loại sản phẩm: ${existing.name}' : 'Tạo loại sản phẩm mới',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
           ),
           content: SizedBox(
-            width: 480,
+            width: 420,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AppTextField(controller: nameCtrl, labelText: 'Tên danh mục (*)'),
-                const SizedBox(height: 10),
-                AppTextField(controller: descCtrl, maxLines: 3, labelText: 'Mô tả danh mục'),
+                AppTextField(controller: nameCtrl, labelText: 'Tên loại sản phẩm (*)'),
               ],
             ),
           ),
           actions: [
             AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
             AppButton(
-              label: isEditing ? 'Cập Nhật' : 'Tạo Mới',
+              label: isEditing ? 'Cập nhật' : 'Tạo mới',
               onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty) return;
 
@@ -265,7 +253,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   name: nameCtrl.text.trim(),
                   code: isEditing ? existing.code : 'CAT-${DateTime.now().millisecondsSinceEpoch}',
                   productCount: isEditing ? existing.productCount : 0,
-                  description: descCtrl.text.trim(),
+                  description: '',
                   iconName: isEditing ? existing.iconName : 'folder',
                 );
 

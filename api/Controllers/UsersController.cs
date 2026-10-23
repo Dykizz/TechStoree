@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Users;
+using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -91,6 +92,10 @@ public class UsersController(IUserService userService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ToggleLock(int id, [FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] ToggleLockRequestDto? dto = null)
     {
+        if (id == CurrentUserId)
+        {
+            throw new BadRequestException("Bạn không thể tự khóa tài khoản của chính mình.");
+        }
         var result = await userService.ToggleLockAsync(id, dto);
         var message = result.IsLocked ? "Đã khóa tài khoản thành công." : "Đã mở khóa tài khoản thành công.";
         return Success(result, message);

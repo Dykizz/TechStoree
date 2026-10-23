@@ -89,11 +89,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               PageHeader(
                 title: 'Quản Lý Nhà Cung Cấp',
                 subtitle: 'Quản lý thông tin các nhà đối tác phân phối thiết bị và linh kiện',
-                action: AppButton(
-                  label: 'Tạo nhà cung cấp mới',
-                  icon: Icons.add_rounded,
-                  onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                ),
+                action: authProvider.can('Suppliers.Create')
+                    ? AppButton(
+                        label: 'Tạo nhà cung cấp mới',
+                        icon: Icons.add_rounded,
+                        onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
+                      )
+                    : null,
               ),
 
               FilterBar(
@@ -143,6 +145,8 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                         DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
                                       ],
                                       rows: paginatedSuppliers.map((sup) {
+                                        final canUpdate = authProvider.can('Suppliers.Update');
+                                        final canDelete = authProvider.can('Suppliers.Delete');
                                         return DataRow(
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
@@ -177,20 +181,24 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                               Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: 'Chỉnh sửa',
-                                                    onPressed: () => _showFormDialog(context, apiService, authProvider.token, sup),
-                                                  ),
-                                                  IconButton(
-                                                    icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                    tooltip: 'Xóa nhà cung cấp',
-                                                    onPressed: () => _confirmDelete(context, apiService, authProvider.token, sup),
-                                                  ),
+                                                  if (canUpdate)
+                                                    IconButton(
+                                                      icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: 'Chỉnh sửa',
+                                                      onPressed: () => _showFormDialog(context, apiService, authProvider.token, sup),
+                                                    ),
+                                                  if (canDelete)
+                                                    IconButton(
+                                                      icon: const Icon(Icons.delete_outline_rounded, size: 15, color: AppColors.danger),
+                                                      padding: EdgeInsets.zero,
+                                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                      tooltip: 'Xóa nhà cung cấp',
+                                                      onPressed: () => _confirmDelete(context, apiService, authProvider.token, sup),
+                                                    ),
+                                                  if (!canUpdate && !canDelete)
+                                                    Text('—', style: TextStyle(color: textSecondary, fontSize: 12)),
                                                 ],
                                               ),
                                             ),

@@ -31,15 +31,15 @@ class MainLayout extends StatelessWidget {
       case 0: return true; // Tổng quan
       case 1: return authProvider.can('Products.View'); // Sản phẩm
       case 2: return authProvider.can('Orders.View'); // Đơn hàng
-      case 3: return authProvider.can('Orders.View'); // Hóa đơn
+      case 3: return authProvider.can('Invoices.View'); // Hóa đơn
       case 4: return authProvider.can('Categories.View'); // Danh mục
       case 5: return authProvider.can('Suppliers.View'); // Nhà cung cấp
       case 6: return authProvider.can('PurchaseOrders.View'); // Phiếu nhập hàng
       case 7: return authProvider.can('Promotions.View'); // Khuyến mãi
       case 8: return authProvider.can('Vouchers.View'); // Vouchers
       case 9: return authProvider.can('Surveys.View'); // Khảo sát
-      case 10: return authProvider.can('Users.View'); // Khách hàng
-      case 11: return authProvider.can('Users.View'); // Nhân viên
+      case 10: return authProvider.can('Customers.View') || authProvider.can('Users.View'); // Khách hàng
+      case 11: return authProvider.can('Employees.View') || authProvider.can('Users.View'); // Nhân viên
       case 12: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
       case 13: return false; // Cài đặt (Admin only)
       default: return false;

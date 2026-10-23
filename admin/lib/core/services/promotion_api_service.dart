@@ -85,6 +85,11 @@ mixin PromotionApiService on BaseApiService {
       final uri = Uri.parse('$baseUrl/promotions').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final response = await httpGet(uri, token: token);
 
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        if (kDebugMode) print('[PromotionApiService] HTTP ${response.statusCode}: Không có quyền truy cập');
+        return <Promotion>[];
+      }
+
       final data = parseApiResponse(response);
       if (data != null && data is List) {
         return data.map((json) => Promotion.fromJson(json as Map<String, dynamic>)).toList();

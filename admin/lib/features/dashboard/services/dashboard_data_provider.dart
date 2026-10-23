@@ -9,6 +9,7 @@ import '../../../core/models/voucher.dart';
 import '../../../core/models/app_user.dart';
 import '../../../core/models/promotion.dart';
 import '../../../core/models/survey.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../models/dashboard_data.dart';
 
@@ -69,47 +70,73 @@ class DashboardDataProvider {
   Future<DashboardDataResult> fetchDashboardData({
     required DashboardTimePeriod period,
     required String? token,
+    required AuthProvider authProvider,
   }) async {
-    // 1. Fetch complete dataset in parallel with safe fallbacks (Future.wait)
-    final fetchOrdersFuture = _fetchAllOrders(token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error _fetchAllOrders: $e');
-      return <Order>[];
-    });
+    final hasOrders = authProvider.can('Orders.View');
+    final hasPOs = authProvider.can('PurchaseOrders.View');
+    final hasProducts = authProvider.can('Products.View');
+    final hasUsers = authProvider.can('Users.View');
+    final hasPromotions = authProvider.can('Promotions.View');
+    final hasVouchers = authProvider.can('Vouchers.View');
+    final hasSurveys = authProvider.can('Surveys.View');
+    final hasReviews = hasProducts;
 
-    final fetchPOsFuture = _fetchAllPurchaseOrders(token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error _fetchAllPurchaseOrders: $e');
-      return <PurchaseOrder>[];
-    });
+    // 1. Fetch only permitted dataset in parallel (no unnecessary 403 API calls)
+    final fetchOrdersFuture = hasOrders
+        ? _fetchAllOrders(token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error _fetchAllOrders: $e');
+            return <Order>[];
+          })
+        : Future.value(<Order>[]);
 
-    final fetchProductsFuture = apiService.getProductsWithVariants(token: token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getProductsWithVariants: $e');
-      return apiService.getProducts(token: token).catchError((_) => <Product>[]);
-    });
+    final fetchPOsFuture = hasPOs
+        ? _fetchAllPurchaseOrders(token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error _fetchAllPurchaseOrders: $e');
+            return <PurchaseOrder>[];
+          })
+        : Future.value(<PurchaseOrder>[]);
 
-    final fetchUsersFuture = apiService.getUsers(token: token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getUsers: $e');
-      return <AppUser>[];
-    });
+    final fetchProductsFuture = hasProducts
+        ? apiService.getProductsWithVariants(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getProductsWithVariants: $e');
+            return apiService.getProducts(token: token).catchError((_) => <Product>[]);
+          })
+        : Future.value(<Product>[]);
 
-    final fetchPromotionsFuture = apiService.getPromotions(token: token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getPromotions: $e');
-      return <Promotion>[];
-    });
+    final fetchUsersFuture = hasUsers
+        ? apiService.getUsers(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getUsers: $e');
+            return <AppUser>[];
+          })
+        : Future.value(<AppUser>[]);
 
-    final fetchVouchersFuture = apiService.getVouchers(token: token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getVouchers: $e');
-      return <Voucher>[];
-    });
+    final fetchPromotionsFuture = hasPromotions
+        ? apiService.getPromotions(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getPromotions: $e');
+            return <Promotion>[];
+          })
+        : Future.value(<Promotion>[]);
 
-    final fetchSurveysFuture = apiService.getSurveys(token: token).then((res) => res.items).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getSurveys: $e');
-      return <SurveyAdminList>[];
-    });
+    final fetchVouchersFuture = hasVouchers
+        ? apiService.getVouchers(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getVouchers: $e');
+            return <Voucher>[];
+          })
+        : Future.value(<Voucher>[]);
 
-    final fetchReviewStatsFuture = apiService.getReviewStatistics(token: token).catchError((e) {
-      if (kDebugMode) print('Dashboard Error getReviewStatistics: $e');
-      return CustomerReviewOverviewMetric.empty();
-    });
+    final fetchSurveysFuture = hasSurveys
+        ? apiService.getSurveys(token: token).then((res) => res.items).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getSurveys: $e');
+            return <SurveyAdminList>[];
+          })
+        : Future.value(<SurveyAdminList>[]);
+
+    final fetchReviewStatsFuture = hasReviews
+        ? apiService.getReviewStatistics(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getReviewStatistics: $e');
+            return CustomerReviewOverviewMetric.empty();
+          })
+        : Future.value(CustomerReviewOverviewMetric.empty());
 
     final results = await Future.wait([
       fetchOrdersFuture,
@@ -314,8 +341,9 @@ class DashboardDataProvider {
         }
       }
       return allOrders;
-    } catch (_) {
-      return apiService.getOrders(token: token);
+    } catch (e) {
+      if (kDebugMode) print('Dashboard Error _fetchAllOrders pagination: $e');
+      return <Order>[];
     }
   }
 

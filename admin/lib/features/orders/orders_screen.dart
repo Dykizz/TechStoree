@@ -355,6 +355,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       );
     }
 
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
@@ -664,30 +665,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                                 Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    if (order.orderStatus.toUpperCase() == 'PENDING') ...[
-                                                      AppButton(
-                                                        label: 'Duyệt',
-                                                        icon: Icons.check_circle_outline_rounded,
-                                                        variant: AppButtonVariant.primary,
-                                                        onPressed: () => _quickConfirmOrder(order),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                    ] else if (order.orderStatus.toUpperCase() == 'CONFIRMED') ...[
-                                                      AppButton(
-                                                        label: 'Đóng gói',
-                                                        icon: Icons.local_shipping_outlined,
-                                                        variant: AppButtonVariant.primary,
-                                                        onPressed: () => _quickShipOrder(order),
-                                                      ),
-                                                      const SizedBox(width: 4),
-                                                    ] else if (order.orderStatus.toUpperCase() == 'SHIPPING') ...[
-                                                      AppButton(
-                                                        label: 'Đã giao',
-                                                        icon: Icons.task_alt_rounded,
-                                                        variant: AppButtonVariant.outline,
-                                                        onPressed: () => _quickDeliverOrder(order),
-                                                      ),
-                                                      const SizedBox(width: 4),
+                                                    if (authProvider.can('Orders.UpdateStatus')) ...[
+                                                      if (order.orderStatus.toUpperCase() == 'PENDING') ...[
+                                                        AppButton(
+                                                          label: 'Duyệt',
+                                                          icon: Icons.check_circle_outline_rounded,
+                                                          variant: AppButtonVariant.primary,
+                                                          onPressed: () => _quickConfirmOrder(order),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                      ] else if (order.orderStatus.toUpperCase() == 'CONFIRMED') ...[
+                                                        AppButton(
+                                                          label: 'Đóng gói',
+                                                          icon: Icons.local_shipping_outlined,
+                                                          variant: AppButtonVariant.primary,
+                                                          onPressed: () => _quickShipOrder(order),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                      ] else if (order.orderStatus.toUpperCase() == 'SHIPPING') ...[
+                                                        AppButton(
+                                                          label: 'Đã giao',
+                                                          icon: Icons.task_alt_rounded,
+                                                          variant: AppButtonVariant.outline,
+                                                          onPressed: () => _quickDeliverOrder(order),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                      ],
                                                     ],
                                                     IconButton(
                                                       icon: const Icon(Icons.print_rounded, size: 18, color: AppColors.primary),

@@ -31,7 +31,7 @@ public class InvoicesController(IInvoiceService invoiceService) : BaseApiControl
     /// [ADMIN / BÁN HÀNG] Tra cứu toàn bộ danh sách hóa đơn trong hệ thống
     /// </summary>
     [HttpGet("admin/all")]
-    [HasPermission(AppPermissions.Orders.View)]
+    [HasPermission(AppPermissions.Invoices.View)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<InvoiceDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllInvoices([FromQuery] InvoiceQueryFilter filter)

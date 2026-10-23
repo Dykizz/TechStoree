@@ -17,6 +17,11 @@ mixin SupplierApiService on BaseApiService {
         token: token,
       );
 
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        debugPrint('[SupplierApiService] HTTP ${response.statusCode}: Không có quyền truy cập');
+        return <Supplier>[];
+      }
+
       final data = parseApiResponse(response);
       if (data != null && data is List) {
         return data.map((json) => Supplier.fromJson(json)).toList();
