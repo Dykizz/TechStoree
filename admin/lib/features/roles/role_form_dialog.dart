@@ -574,10 +574,24 @@ class _RoleFormDialogState extends State<RoleFormDialog> {
                                   ),
                                   onChanged: (val) {
                                     setState(() {
+                                      final isView = perm.permissionId.endsWith('.View');
+                                      final dotIdx = perm.permissionId.indexOf('.');
+                                      final prefix = dotIdx > 0 ? perm.permissionId.substring(0, dotIdx) : '';
+
                                       if (val == true) {
                                         _selectedPermissionIds.add(perm.permissionId);
+                                        // Ràng buộc thông minh: Tự động bật quyền Xem nếu chọn quyền thao tác
+                                        if (!isView && prefix.isNotEmpty) {
+                                          _selectedPermissionIds.add('$prefix.View');
+                                        }
                                       } else {
                                         _selectedPermissionIds.remove(perm.permissionId);
+                                        // Ràng buộc thông minh: Bỏ quyền Xem -> Bỏ toàn bộ quyền thao tác trong module
+                                        if (isView) {
+                                          for (var p in module.permissions) {
+                                            _selectedPermissionIds.remove(p.permissionId);
+                                          }
+                                        }
                                       }
                                     });
                                   },

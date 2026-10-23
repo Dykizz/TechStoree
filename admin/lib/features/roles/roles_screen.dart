@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/models/app_user.dart';
 import '../../core/models/role.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
@@ -20,6 +21,8 @@ class _RolesScreenState extends State<RolesScreen> {
   bool _isLoadingCatalog = false;
   bool _isLoadingDetail = false;
   bool _isSaving = false;
+  // Chế độ xem: true = Bảng Ma Trận CRUD 2D, false = Dạng Thẻ Chi Tiết
+  bool _isMatrixView = true;
 
   List<RoleModel> _roles = [];
   List<ModulePermissionsModel> _permissionModules = [];
@@ -76,12 +79,12 @@ class _RolesScreenState extends State<RolesScreen> {
     super.dispose();
   }
 
-  /// Các vai trò hệ thống không hiển thị trong màn hình phân quyền:
-  /// - ADMIN: Toàn quyền tối cao trong hệ thống, không cần/không thể sửa phân quyền.
+  /// Các vai trò không hiển thị trong màn hình phân quyền:
   /// - USER / CUSTOMER: Khách hàng mua sắm, không có quyền quản lý hệ thống.
+  /// (ADMIN hiển thị ở chế độ Toàn quyền Read-Only để quản trị viên đối chiếu).
   static bool _isManageableRole(RoleModel r) {
     final id = r.roleId.trim().toUpperCase();
-    return id != 'ADMIN' && id != 'USER' && id != 'CUSTOMER';
+    return id != 'USER' && id != 'CUSTOMER';
   }
 
   /// Icon nhận diện cho từng vai trò
@@ -149,9 +152,9 @@ class _RolesScreenState extends State<RolesScreen> {
       _isLoadingRoles = false;
       _isLoadingCatalog = false;
 
-      // Mặc định mở tất cả các module accordion
+      // Mặc định đóng tất cả các module accordion (chỉ mở khi người dùng click vào)
       for (var m in _permissionModules) {
-        _expandedModules[m.module] = true;
+        _expandedModules[m.module] = false;
       }
     });
 
@@ -855,11 +858,28 @@ class _RolesScreenState extends State<RolesScreen> {
                                                               style: TextStyle(fontSize: 11, color: textSecondary),
                                                             ),
                                                             const SizedBox(width: 8),
-                                                            Icon(Icons.person_outline_rounded, size: 12, color: textSecondary),
-                                                            const SizedBox(width: 2),
-                                                            Text(
-                                                              '${role.userCount}',
-                                                              style: TextStyle(fontSize: 11, color: textSecondary),
+                                                            InkWell(
+                                                              onTap: () => _showAssignedUsersDrawer(context, role),
+                                                              borderRadius: BorderRadius.circular(4),
+                                                              child: Padding(
+                                                                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                                                                child: Row(
+                                                                  mainAxisSize: MainAxisSize.min,
+                                                                  children: [
+                                                                    const Icon(Icons.person_outline_rounded, size: 12, color: AppColors.primary),
+                                                                    const SizedBox(width: 2),
+                                                                    Text(
+                                                                      '${role.userCount}',
+                                                                      style: const TextStyle(
+                                                                        fontSize: 11,
+                                                                        color: AppColors.primary,
+                                                                        fontWeight: FontWeight.w600,
+                                                                        decoration: TextDecoration.underline,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
                                                             ),
                                                           ],
                                                         ),
@@ -1059,9 +1079,30 @@ class _RolesScreenState extends State<RolesScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '· ${role.userCount} người dùng sở hữu',
-                          style: TextStyle(fontSize: 11.5, color: textSecondary),
+                        InkWell(
+                          onTap: () => _showAssignedUsersDrawer(context, role),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.people_alt_rounded, size: 13, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '· ${role.userCount} người dùng sở hữu',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(Icons.open_in_new_rounded, size: 11, color: AppColors.primary),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -1306,6 +1347,37 @@ class _RolesScreenState extends State<RolesScreen> {
               ),
               const Spacer(),
 
+              // Chuyển đổi giao diện: Bảng Ma Trận CRUD 2D vs Thẻ Chi Tiết
+              Container(
+                height: 32,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildViewModeToggleBtn(
+                      icon: Icons.table_chart_rounded,
+                      label: 'Bảng Ma trận',
+                      isActive: _isMatrixView,
+                      onTap: () => setState(() => _isMatrixView = true),
+                      isDark: isDark,
+                    ),
+                    _buildViewModeToggleBtn(
+                      icon: Icons.view_agenda_rounded,
+                      label: 'Thẻ chi tiết',
+                      isActive: !_isMatrixView,
+                      onTap: () => setState(() => _isMatrixView = false),
+                      isDark: isDark,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+
               // Thao tác nhanh: Chọn tất cả
               TextButton.icon(
                 style: TextButton.styleFrom(
@@ -1404,18 +1476,29 @@ class _RolesScreenState extends State<RolesScreen> {
                     ],
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: filteredModules.length,
-                  itemBuilder: (context, index) {
+              : (_isMatrixView
+                  ? _buildMatrixTableView(
+                      context,
+                      filteredModules: filteredModules,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                      isDark: isDark,
+                      isAdminRole: isAdminRole,
+                      isOffline: isOffline,
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: filteredModules.length,
+                      itemBuilder: (context, index) {
                     final module = filteredModules[index];
-                    final isExpanded = _expandedModules[module.module] ?? true;
+                    final isExpanded = _expandedModules[module.module] ?? false;
                     final selectedInModule = module.permissions
                         .where((p) => _selectedPermissions.contains(p.permissionId))
                         .length;
                     final totalInModule = module.permissions.length;
                     final isAllModuleSelected = selectedInModule == totalInModule && totalInModule > 0;
-                    final moduleIcon = _getModuleIcon(module.module);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -1446,8 +1529,6 @@ class _RolesScreenState extends State<RolesScreen> {
                                     size: 20,
                                     color: textSecondary,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Icon(moduleIcon, size: 18, color: AppColors.primary),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -1570,7 +1651,7 @@ class _RolesScreenState extends State<RolesScreen> {
                       ),
                     );
                   },
-                ),
+                )),
         ),
 
         // ==========================================
@@ -1671,6 +1752,35 @@ class _RolesScreenState extends State<RolesScreen> {
     );
   }
 
+  /// Bật/tắt quyền kèm ràng buộc phụ thuộc thông minh (Cascading Dependency)
+  void _togglePermission(PermissionDetailModel perm, bool willCheck) {
+    setState(() {
+      final isView = perm.permissionId.endsWith('.View');
+      final dotIndex = perm.permissionId.indexOf('.');
+      final modulePrefix = dotIndex > 0 ? perm.permissionId.substring(0, dotIndex) : '';
+
+      if (willCheck) {
+        _selectedPermissions.add(perm.permissionId);
+        // Ràng buộc thông minh: Tự động bật quyền Xem tương ứng nếu chưa có
+        if (!isView && modulePrefix.isNotEmpty) {
+          final viewPermId = '$modulePrefix.View';
+          _selectedPermissions.add(viewPermId);
+        }
+      } else {
+        _selectedPermissions.remove(perm.permissionId);
+        // Ràng buộc thông minh: Nếu bỏ quyền Xem, tự động bỏ toàn bộ các quyền thao tác khác trong cùng module
+        if (isView) {
+          final moduleObj = _permissionModules.where((m) => m.module == perm.module).firstOrNull;
+          if (moduleObj != null) {
+            for (var p in moduleObj.permissions) {
+              _selectedPermissions.remove(p.permissionId);
+            }
+          }
+        }
+      }
+    });
+  }
+
   /// Thẻ quyền hạn tinh gọn, bấm trực tiếp vào toàn bộ thẻ để bật/tắt
   Widget _buildPermissionCard({
     required PermissionDetailModel perm,
@@ -1687,17 +1797,7 @@ class _RolesScreenState extends State<RolesScreen> {
       borderRadius: BorderRadius.circular(6),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: canToggle
-            ? () {
-                setState(() {
-                  if (isChecked) {
-                    _selectedPermissions.remove(perm.permissionId);
-                  } else {
-                    _selectedPermissions.add(perm.permissionId);
-                  }
-                });
-              }
-            : null,
+        onTap: canToggle ? () => _togglePermission(perm, !isChecked) : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1726,17 +1826,7 @@ class _RolesScreenState extends State<RolesScreen> {
                   height: 20,
                   child: Checkbox(
                     value: isChecked,
-                    onChanged: canToggle
-                        ? (val) {
-                            setState(() {
-                              if (val == true) {
-                                _selectedPermissions.add(perm.permissionId);
-                              } else {
-                                _selectedPermissions.remove(perm.permissionId);
-                              }
-                            });
-                          }
-                        : null,
+                    onChanged: canToggle ? (val) => _togglePermission(perm, val == true) : null,
                   ),
                 ),
               ),
@@ -1881,14 +1971,6 @@ class _RolesScreenState extends State<RolesScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                icon,
-                size: 15,
-                color: isSelected
-                    ? Colors.white
-                    : (hasGranted ? AppColors.primary : AppColors.secondary),
-              ),
-              const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
@@ -1982,5 +2064,864 @@ class _RolesScreenState extends State<RolesScreen> {
       return 'Có thay đổi chưa lưu: -$removed hủy bỏ';
     }
     return 'Có thay đổi phân quyền chưa lưu';
+  }
+
+  /// Nút chuyển đổi chế độ xem (Bảng Ma trận / Thẻ chi tiết)
+  Widget _buildViewModeToggleBtn({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? (isDark ? const Color(0xFF334155) : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isActive ? AppColors.primary : (isDark ? Colors.grey[400] : Colors.grey[600]),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? AppColors.primary : (isDark ? Colors.grey[400] : Colors.grey[700]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// GIAO DIỆN BẢNG MA TRẬN CRUD 2D CHUẨN DOANH NGHIỆP
+  Widget _buildMatrixTableView(
+    BuildContext context, {
+    required List<ModulePermissionsModel> filteredModules,
+    required Color cardBg,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+    required bool isDark,
+    required bool isAdminRole,
+    required bool isOffline,
+  }) {
+    final canToggle = !isAdminRole && !isOffline;
+    final headerBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: borderColor),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 1050),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.vertical,
+              child: DataTable(
+                headingRowColor: WidgetStateProperty.all(headerBg),
+                headingRowHeight: 44,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 80,
+                horizontalMargin: 16,
+                columnSpacing: 14,
+                dividerThickness: 1,
+                columns: [
+                  DataColumn(
+                    label: Text(
+                      'PHÂN HỆ / MODULE',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Center(
+                      child: Text(
+                        'XEM (VIEW)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Center(
+                      child: Text(
+                        'THÊM (CREATE)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Center(
+                      child: Text(
+                        'SỬA (UPDATE)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Center(
+                      child: Text(
+                        'XÓA (DELETE)',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Text(
+                      'TÁC VỤ ĐẶC BIỆT',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: textPrimary,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  DataColumn(
+                    label: Center(
+                      child: Text(
+                        'THAO TÁC',
+                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                      ),
+                    ),
+                  ),
+                ],
+                rows: filteredModules.map((m) {
+                  // Phân loại quyền CRUD chuẩn
+                  final viewPerm = m.permissions.where((p) => p.permissionId.endsWith('.View')).firstOrNull;
+                  final createPerm = m.permissions.where((p) => p.permissionId.endsWith('.Create')).firstOrNull;
+                  final updatePerm = m.permissions.where((p) => p.permissionId.endsWith('.Update')).firstOrNull;
+                  final deletePerm = m.permissions.where((p) => p.permissionId.endsWith('.Delete')).firstOrNull;
+
+                  // Các quyền đặc thù không thuộc CRUD 4 cột
+                  final specialPerms = m.permissions.where((p) {
+                    return !p.permissionId.endsWith('.View') &&
+                        !p.permissionId.endsWith('.Create') &&
+                        !p.permissionId.endsWith('.Update') &&
+                        !p.permissionId.endsWith('.Delete');
+                  }).toList();
+
+                  final selectedCount = m.permissions.where((p) => _selectedPermissions.contains(p.permissionId)).length;
+                  final totalCount = m.permissions.length;
+                  final isAllSelected = selectedCount == totalCount && totalCount > 0;
+
+                  return DataRow(
+                    cells: [
+                      // 1. Phân hệ
+                      DataCell(
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              m.module,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isAllSelected
+                                    ? AppColors.successBg
+                                    : (selectedCount > 0
+                                        ? AppColors.primary.withValues(alpha: 0.12)
+                                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9))),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: isAllSelected
+                                      ? AppColors.successBorder
+                                      : (selectedCount > 0 ? AppColors.primary.withValues(alpha: 0.3) : borderColor),
+                                ),
+                              ),
+                              child: Text(
+                                '$selectedCount / $totalCount quyền',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: isAllSelected
+                                      ? AppColors.success
+                                      : (selectedCount > 0 ? AppColors.primary : textSecondary),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // 2. Xem (View)
+                      DataCell(
+                        Center(
+                          child: viewPerm != null
+                              ? _buildMatrixCheckbox(
+                                  perm: viewPerm,
+                                  isChecked: _selectedPermissions.contains(viewPerm.permissionId),
+                                  canToggle: canToggle,
+                                  onChanged: (checked) {
+                                    setState(() {
+                                      if (checked) {
+                                        _selectedPermissions.add(viewPerm.permissionId);
+                                      } else {
+                                        // Ràng buộc thông minh: Bỏ Xem -> Bỏ toàn bộ quyền thao tác trong module này
+                                        for (var p in m.permissions) {
+                                          _selectedPermissions.remove(p.permissionId);
+                                        }
+                                      }
+                                    });
+                                  },
+                                )
+                              : Text('—', style: TextStyle(color: textSecondary.withValues(alpha: 0.4))),
+                        ),
+                      ),
+
+                      // 3. Thêm (Create)
+                      DataCell(
+                        Center(
+                          child: createPerm != null
+                              ? _buildMatrixCheckbox(
+                                  perm: createPerm,
+                                  isChecked: _selectedPermissions.contains(createPerm.permissionId),
+                                  canToggle: canToggle,
+                                  onChanged: (checked) {
+                                    setState(() {
+                                      if (checked) {
+                                        _selectedPermissions.add(createPerm.permissionId);
+                                        // Ràng buộc thông minh: Tự động bật quyền Xem nếu chưa có
+                                        if (viewPerm != null) _selectedPermissions.add(viewPerm.permissionId);
+                                      } else {
+                                        _selectedPermissions.remove(createPerm.permissionId);
+                                      }
+                                    });
+                                  },
+                                )
+                              : Text('—', style: TextStyle(color: textSecondary.withValues(alpha: 0.4))),
+                        ),
+                      ),
+
+                      // 4. Sửa (Update)
+                      DataCell(
+                        Center(
+                          child: updatePerm != null
+                              ? _buildMatrixCheckbox(
+                                  perm: updatePerm,
+                                  isChecked: _selectedPermissions.contains(updatePerm.permissionId),
+                                  canToggle: canToggle,
+                                  onChanged: (checked) {
+                                    setState(() {
+                                      if (checked) {
+                                        _selectedPermissions.add(updatePerm.permissionId);
+                                        // Ràng buộc thông minh: Tự động bật quyền Xem nếu chưa có
+                                        if (viewPerm != null) _selectedPermissions.add(viewPerm.permissionId);
+                                      } else {
+                                        _selectedPermissions.remove(updatePerm.permissionId);
+                                      }
+                                    });
+                                  },
+                                )
+                              : Text('—', style: TextStyle(color: textSecondary.withValues(alpha: 0.4))),
+                        ),
+                      ),
+
+                      // 5. Xóa (Delete)
+                      DataCell(
+                        Center(
+                          child: deletePerm != null
+                              ? _buildMatrixCheckbox(
+                                  perm: deletePerm,
+                                  isChecked: _selectedPermissions.contains(deletePerm.permissionId),
+                                  canToggle: canToggle,
+                                  onChanged: (checked) {
+                                    setState(() {
+                                      if (checked) {
+                                        _selectedPermissions.add(deletePerm.permissionId);
+                                        // Ràng buộc thông minh: Tự động bật quyền Xem nếu chưa có
+                                        if (viewPerm != null) _selectedPermissions.add(viewPerm.permissionId);
+                                      } else {
+                                        _selectedPermissions.remove(deletePerm.permissionId);
+                                      }
+                                    });
+                                  },
+                                )
+                              : Text('—', style: TextStyle(color: textSecondary.withValues(alpha: 0.4))),
+                        ),
+                      ),
+
+                      // 6. Tác vụ đặc biệt (Chips tương tác)
+                      DataCell(
+                        specialPerms.isEmpty
+                            ? Text('—', style: TextStyle(color: textSecondary.withValues(alpha: 0.4)))
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  children: specialPerms.map((p) {
+                                    final isChecked = _selectedPermissions.contains(p.permissionId);
+                                    return Tooltip(
+                                      message: '${p.permissionName} (${p.permissionId})\n${p.description}',
+                                      child: InkWell(
+                                        onTap: canToggle
+                                            ? () {
+                                                setState(() {
+                                                  if (isChecked) {
+                                                    _selectedPermissions.remove(p.permissionId);
+                                                  } else {
+                                                    _selectedPermissions.add(p.permissionId);
+                                                    if (viewPerm != null) {
+                                                      _selectedPermissions.add(viewPerm.permissionId);
+                                                    }
+                                                  }
+                                                });
+                                              }
+                                            : null,
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: isChecked
+                                                ? (isDark
+                                                    ? AppColors.primary.withValues(alpha: 0.2)
+                                                    : const Color(0xFFE0F2FE))
+                                                : (isDark
+                                                    ? const Color(0xFF1E293B)
+                                                    : const Color(0xFFF1F5F9)),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: isChecked
+                                                  ? AppColors.primary.withValues(alpha: 0.6)
+                                                  : borderColor,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            p.permissionName,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: isChecked ? FontWeight.w600 : FontWeight.w500,
+                                              color: isChecked ? AppColors.primary : textPrimary,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                      ),
+
+                      // 7. Thao tác nhanh
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Nút Chỉ xem
+                            Tooltip(
+                              message: 'Chỉ cấp quyền Xem cho module này',
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                  side: BorderSide(color: borderColor),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                ),
+                                onPressed: canToggle && viewPerm != null
+                                    ? () {
+                                        setState(() {
+                                          for (var p in m.permissions) {
+                                            _selectedPermissions.remove(p.permissionId);
+                                          }
+                                          _selectedPermissions.add(viewPerm.permissionId);
+                                        });
+                                      }
+                                    : null,
+                                child: const Text('Chỉ xem', style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Nút Toàn quyền
+                            Tooltip(
+                              message: 'Cấp toàn bộ quyền của module này',
+                              child: OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  visualDensity: VisualDensity.compact,
+                                  side: BorderSide(color: borderColor),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                ),
+                                onPressed: canToggle
+                                    ? () {
+                                        setState(() {
+                                          for (var p in m.permissions) {
+                                            _selectedPermissions.add(p.permissionId);
+                                          }
+                                        });
+                                      }
+                                    : null,
+                                child: const Text('Toàn quyền', style: TextStyle(fontSize: 11)),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+
+                            // Nút Xóa/Bỏ chọn
+                            IconButton(
+                              tooltip: 'Bỏ chọn toàn bộ quyền của module này',
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              visualDensity: VisualDensity.compact,
+                              color: AppColors.danger,
+                              onPressed: canToggle && selectedCount > 0
+                                  ? () {
+                                      setState(() {
+                                        for (var p in m.permissions) {
+                                          _selectedPermissions.remove(p.permissionId);
+                                        }
+                                      });
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Ô Checkbox cho bảng ma trận có Tooltip giải thích chi tiết
+  Widget _buildMatrixCheckbox({
+    required PermissionDetailModel perm,
+    required bool isChecked,
+    required bool canToggle,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Tooltip(
+      message: '${perm.permissionName} (${perm.permissionId})\n${perm.description}',
+      child: SizedBox(
+        width: 28,
+        height: 28,
+        child: Checkbox(
+          value: isChecked,
+          onChanged: canToggle ? (v) => onChanged(v == true) : null,
+        ),
+      ),
+    );
+  }
+
+  /// Hiển thị Drawer trượt từ phải sang xem "Danh sách nhân viên sở hữu vai trò"
+  void _showAssignedUsersDrawer(BuildContext context, RoleModel role) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.4),
+      transitionDuration: const Duration(milliseconds: 250),
+      pageBuilder: (ctx, anim1, anim2) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.transparent,
+            child: _AssignedUsersDrawerContent(
+              role: role,
+              roleColor: _getRoleColor(role.roleId),
+              roleIcon: _getRoleIcon(role.roleId),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (ctx, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+          child: child,
+        );
+      },
+    );
+  }
+
+}
+
+
+/// Widget nội dung Drawer hiển thị danh sách nhân viên sở hữu vai trò
+class _AssignedUsersDrawerContent extends StatefulWidget {
+  final RoleModel role;
+  final Color roleColor;
+  final IconData roleIcon;
+
+  const _AssignedUsersDrawerContent({
+    required this.role,
+    required this.roleColor,
+    required this.roleIcon,
+  });
+
+  @override
+  State<_AssignedUsersDrawerContent> createState() => _AssignedUsersDrawerContentState();
+}
+
+class _AssignedUsersDrawerContentState extends State<_AssignedUsersDrawerContent> {
+  bool _isLoading = true;
+  String _searchQuery = '';
+  List<AppUser> _allUsers = [];
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(() {
+      setState(() => _searchQuery = _searchCtrl.text.trim().toLowerCase());
+    });
+    _loadUsers();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final token = authProvider.token;
+
+    try {
+      final users = await apiService.getUsers(token: token, isStaffOnly: true);
+      if (!mounted) return;
+      setState(() {
+        _allUsers = users;
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF0F172A) : Colors.white;
+    final cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+    final borderColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? const Color(0xFFF8FAFC) : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+
+    final targetRoleId = widget.role.roleId.toUpperCase();
+    final roleUsers = _allUsers.where((u) {
+      final inRoles = u.roles.any((r) => r.toUpperCase() == targetRoleId);
+      final inPrimary = u.role.toUpperCase() == targetRoleId;
+      return inRoles || inPrimary;
+    }).toList();
+
+    final filteredUsers = roleUsers.where((u) {
+      if (_searchQuery.isEmpty) return true;
+      return u.fullName.toLowerCase().contains(_searchQuery) ||
+          u.userName.toLowerCase().contains(_searchQuery) ||
+          u.email.toLowerCase().contains(_searchQuery) ||
+          u.phone.toLowerCase().contains(_searchQuery);
+    }).toList();
+
+    final activeCount = roleUsers.where((u) => !u.isLocked).length;
+    final lockedCount = roleUsers.where((u) => u.isLocked).length;
+
+    return Container(
+      width: 480,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        color: bg,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(-4, 0),
+          ),
+        ],
+        border: Border(left: BorderSide(color: borderColor)),
+      ),
+      child: Column(
+        children: [
+          // Drawer Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: cardBg,
+              border: Border(bottom: BorderSide(color: borderColor)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: widget.roleColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(widget.roleIcon, color: widget.roleColor, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nhân sự thuộc vai trò',
+                        style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.role.roleName,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Mã định danh: ${widget.role.roleId}',
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  tooltip: 'Đóng',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+
+          // Search Box & Stats Banner
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchCtrl,
+                  style: TextStyle(fontSize: 13, color: textPrimary),
+                  decoration: InputDecoration(
+                    hintText: 'Tìm nhân sự theo tên, username, email...',
+                    hintStyle: TextStyle(fontSize: 12.5, color: textSecondary),
+                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 16),
+                            onPressed: () => _searchCtrl.clear(),
+                          )
+                        : null,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: borderColor),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.badge_outlined, size: 16, color: widget.roleColor),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Tổng: ${roleUsers.length} nhân sự',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                      ),
+                      const Spacer(),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.success,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$activeCount hoạt động',
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                      if (lockedCount > 0) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.danger,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$lockedCount tạm khóa',
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // User List
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredUsers.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_off_rounded, size: 48, color: textSecondary.withValues(alpha: 0.4)),
+                            const SizedBox(height: 12),
+                            Text(
+                              roleUsers.isEmpty
+                                  ? 'Chưa có nhân viên nào được gán vai trò này'
+                                  : 'Không tìm thấy nhân viên phù hợp với từ khóa',
+                              style: TextStyle(fontSize: 13, color: textSecondary),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        itemCount: filteredUsers.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (context, idx) {
+                          final user = filteredUsers[idx];
+                          final initials = user.fullName.isNotEmpty
+                              ? user.fullName.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+                              : (user.userName.isNotEmpty ? user.userName.substring(0, 1).toUpperCase() : '?');
+
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: cardBg,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: borderColor),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: widget.roleColor.withValues(alpha: 0.15),
+                                  child: Text(
+                                    initials,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: widget.roleColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              user.fullName,
+                                              style: TextStyle(
+                                                fontSize: 13.5,
+                                                fontWeight: FontWeight.w600,
+                                                color: textPrimary,
+                                              ),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: user.isLocked ? AppColors.dangerBg : AppColors.successBg,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: user.isLocked ? AppColors.dangerBorder : AppColors.successBorder,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              user.isLocked ? 'Tạm khóa' : 'Hoạt động',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                                color: user.isLocked ? AppColors.danger : AppColors.success,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Username: ${user.userName}',
+                                        style: TextStyle(fontSize: 11.5, color: textSecondary),
+                                      ),
+                                      Text(
+                                        'Email: ${user.email}${user.phone.isNotEmpty ? " • SĐT: ${user.phone}" : ""}',
+                                        style: TextStyle(fontSize: 11.5, color: textSecondary),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
   }
 }
