@@ -2158,63 +2158,61 @@ class _RolesScreenState extends State<RolesScreen> {
                 columns: [
                   DataColumn(
                     label: Text(
-                      'PHÂN HỆ / MODULE',
+                      'Phân hệ / Module',
                       style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
-                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Center(
                       child: Text(
-                        'XEM (VIEW)',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                        'Xem (View)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Center(
                       child: Text(
-                        'THÊM (CREATE)',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                        'Thêm (Create)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Center(
                       child: Text(
-                        'SỬA (UPDATE)',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                        'Sửa (Update)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Center(
                       child: Text(
-                        'XÓA (DELETE)',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                        'Xóa (Delete)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Text(
-                      'TÁC VỤ ĐẶC BIỆT',
+                      'Tác vụ đặc biệt',
                       style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
                         color: textPrimary,
-                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
                   DataColumn(
                     label: Center(
                       child: Text(
-                        'THAO TÁC',
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary),
+                        'Thao tác',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: textPrimary),
                       ),
                     ),
                   ),

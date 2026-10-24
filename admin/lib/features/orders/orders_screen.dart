@@ -611,17 +611,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                         headingRowColor: WidgetStateProperty.all(
                                           isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                         ),
-                                        columns: const [
-                                          DataColumn(label: Text('Mã đơn hàng', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Người nhận', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Số điện thoại', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Trạng thái đơn', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('PT Thanh toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('TT Thanh toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Tổng món', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Ngày đặt', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                          DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                        columns: [
+                                          DataColumn(label: Text('Mã đơn hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Người nhận', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Số điện thoại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Trạng thái đơn', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('PT Thanh toán', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('TT Thanh toán', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Tổng món', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Ngày đặt', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                          DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                         ],
                                         rows: _orders.map((order) {
                                           return DataRow(

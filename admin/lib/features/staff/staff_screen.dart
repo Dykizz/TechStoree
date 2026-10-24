@@ -32,7 +32,7 @@ class _StaffScreenState extends State<StaffScreen> {
   String _selectedRole = 'Tất cả';
   String _selectedStatus = 'Tất cả';
   int _currentPage = 1;
-  int _itemsPerPage = 8;
+  int _itemsPerPage = 10;
   late Future<List<AppUser>> _staffFuture;
   List<RoleModel> _availableRoles = [];
 
@@ -238,13 +238,13 @@ class _StaffScreenState extends State<StaffScreen> {
                                   isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                 ),
                                 columns: [
-                                  DataColumn(label: Text('MÃ NV', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('HỌ TÊN / TÀI KHOẢN', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('EMAIL CÔNG VỤ / SĐT', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('VAI TRÒ & PHÂN QUYỀN', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('NGÀY GIA NHẬP', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                  DataColumn(label: Text('Mã NV', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Họ tên / Tài khoản', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Email công vụ / Số điện thoại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Vai trò & Phân quyền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Ngày gia nhập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 ],
                                 rows: paginatedStaff.map((u) {
                                   return DataRow(
