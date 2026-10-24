@@ -341,13 +341,13 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                         isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                       ),
                                       columns: [
-                                        DataColumn(label: Text('MÃ VOUCHER / TIÊU ĐỀ', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('GIẢM GIÁ', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('ĐIỀU KIỆN', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('THỜI GIAN HẠN DÙNG', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('LƯỢT SỬ DỤNG', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('HÀNH ĐỘNG', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
+                                        DataColumn(label: Text('Mã voucher / Tiêu đề', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Giảm giá', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Điều kiện', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Thời hạn áp dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Lượt sử dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                       ],
                                       rows: paginatedVouchers.map((voucher) {
                                         return DataRow(

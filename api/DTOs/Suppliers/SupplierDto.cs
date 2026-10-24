@@ -45,6 +45,12 @@ public class SupplierDto
     public DateTime? DeletedAt { get; set; }
 
     /// <summary>
+    /// Trạng thái hợp tác (true: đang hợp tác, false: tạm dừng/ngừng hợp tác)
+    /// </summary>
+    /// <example>true</example>
+    public bool IsActive { get; set; } = true;
+
+    /// <summary>
     /// Trạng thái đã bị xóa mềm hay chưa
     /// </summary>
     /// <example>false</example>

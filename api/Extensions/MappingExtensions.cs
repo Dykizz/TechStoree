@@ -119,7 +119,8 @@ public static class MappingExtensions
             Email = supplier.Email,
             Address = supplier.Address,
             CreatedAt = supplier.CreatedAt,
-            DeletedAt = supplier.DeletedAt
+            DeletedAt = supplier.DeletedAt,
+            IsActive = supplier.IsActive
         };
     }
 

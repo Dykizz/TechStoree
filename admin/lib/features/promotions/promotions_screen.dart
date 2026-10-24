@@ -296,14 +296,14 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                       dataRowMinHeight: 44,
                                       dataRowMaxHeight: 48,
                                       columns: [
-                                        DataColumn(label: Text('TÊN CHƯƠNG TRÌNH', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('LOẠI GIẢM GIÁ', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('MỨC GIẢM', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('THỜI GIAN ÁP DỤNG', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('SỐ SP ÁP DỤNG', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('BẬT/TẮT', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
-                                        DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w600, color: textSecondary, fontSize: 12))),
+                                        DataColumn(label: Text('Tên chương trình', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Loại giảm giá', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Mức giảm', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Thời gian áp dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Số SP áp dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Kích hoạt', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                       ],
                                       rows: paginatedPromotions.map((promo) {
                                         return DataRow(

@@ -27,7 +27,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   int _currentPage = 1;
-  int _itemsPerPage = 8;
+  int _itemsPerPage = 10;
   late Future<List<Category>> _categoriesFuture;
 
   @override
@@ -136,9 +136,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                       ),
                                       columns: [
-                                        DataColumn(label: Text('Mã loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('Tên loại', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                        DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                        DataColumn(label: Text('Mã loại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Tên loại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                        DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                       ],
                                       rows: paginatedCategories.map((cat) {
                                         final canUpdate = authProvider.can('Categories.Update');

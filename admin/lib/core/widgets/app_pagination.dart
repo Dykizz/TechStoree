@@ -20,7 +20,7 @@ class AppPagination extends StatelessWidget {
     required this.itemsPerPage,
     required this.onPageChanged,
     this.onItemsPerPageChanged,
-    this.itemsPerPageOptions = const [5, 10, 20, 50],
+    this.itemsPerPageOptions = const [10, 20, 50, 100],
   });
 
   @override

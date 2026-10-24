@@ -14,6 +14,7 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
     public async Task<PagedResult<PurchaseOrderBaseDto>> GetPurchaseOrdersAsync(PurchaseOrderQueryFilter filter)
     {
         IQueryable<PurchaseOrder> query = context.PurchaseOrders
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(po => po.Supplier)
             .Include(po => po.CreatedByUser)
@@ -64,6 +65,7 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
     public async Task<PurchaseOrderDetailDto> GetPurchaseOrderByIdAsync(int id)
     {
         var po = await context.PurchaseOrders
+            .IgnoreQueryFilters()
             .AsNoTracking()
             .Include(po => po.Supplier)
             .Include(po => po.CreatedByUser)
@@ -88,11 +90,18 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
         }
 
         // 2. Kiểm tra Nhà cung cấp
-        var supplierExists = await context.Suppliers
-            .AnyAsync(s => s.SupplierId == dto.SupplierId && s.DeletedAt == null);
-        if (!supplierExists)
+        var supplier = await context.Suppliers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.SupplierId == dto.SupplierId)
+            ?? throw new NotFoundException($"Không tìm thấy nhà cung cấp với mã ID: {dto.SupplierId}.");
+
+        if (supplier.DeletedAt != null)
         {
             throw new NotFoundException($"Không tìm thấy nhà cung cấp với mã ID: {dto.SupplierId}.");
+        }
+
+        if (!supplier.IsActive)
+        {
+            throw new BadRequestException("Không thể tạo phiếu nhập hàng vì nhà cung cấp này đã ngừng hợp tác!");
         }
 
         // 3. Kiểm tra tính hợp lệ của các biến thể
@@ -169,19 +178,43 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
         }
 
         // 3. Kiểm tra Nhà cung cấp
-        var supplierExists = await context.Suppliers
-            .AnyAsync(s => s.SupplierId == dto.SupplierId && s.DeletedAt == null);
-        if (!supplierExists)
+        var isCompleting = dto.Status == PurchaseOrderStatus.COMPLETED;
+        var isChangingSupplier = dto.SupplierId != po.SupplierId;
+
+        var supplier = await context.Suppliers.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(s => s.SupplierId == dto.SupplierId)
+            ?? throw new NotFoundException($"Không tìm thấy nhà cung cấp với mã ID: {dto.SupplierId}.");
+
+        // Nếu người dùng chọn đổi sang một NCC khác: NCC mới phải chưa bị xóa và đang hoạt động
+        if (isChangingSupplier)
         {
-            throw new NotFoundException($"Không tìm thấy nhà cung cấp với mã ID: {dto.SupplierId}.");
+            if (supplier.DeletedAt != null)
+            {
+                throw new NotFoundException($"Không tìm thấy nhà cung cấp với mã ID: {dto.SupplierId}.");
+            }
+            if (!supplier.IsActive)
+            {
+                throw new BadRequestException("Không thể chọn nhà cung cấp này vì đang ở trạng thái ngừng hợp tác!");
+            }
+        }
+
+        // Nếu người dùng duyệt hoàn thành nhập kho (DRAFT -> COMPLETED):
+        // Bắt buộc NCC của phiếu phải chưa bị xóa mềm và đang hợp tác (IsActive == true)
+        if (isCompleting)
+        {
+            if (supplier.DeletedAt != null)
+            {
+                throw new BadRequestException("Không thể hoàn thành phiếu nhập hàng vì nhà cung cấp này đã bị xóa khỏi hệ thống. Vui lòng đổi sang nhà cung cấp đang hoạt động trước khi duyệt phiếu.");
+            }
+            if (!supplier.IsActive)
+            {
+                throw new BadRequestException("Không thể hoàn thành phiếu nhập hàng vì nhà cung cấp này đã ngừng hợp tác. Vui lòng đổi sang nhà cung cấp đang hoạt động trước khi duyệt phiếu.");
+            }
         }
 
         // 4. Kiểm tra các biến thể nhập
         var variants = await ValidateAndGetVariantsAsync(dto.Items.Select(i => i.VariantId));
         var variantMap = variants.ToDictionary(v => v.VariantId);
-
-        // 5. Xác định trạng thái mới sau khi update
-        var isCompleting = dto.Status == PurchaseOrderStatus.COMPLETED;
 
         using var transaction = await context.Database.BeginTransactionAsync();
         try

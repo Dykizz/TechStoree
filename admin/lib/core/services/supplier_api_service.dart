@@ -4,16 +4,15 @@ import '../models/supplier.dart';
 import 'base_api_service.dart';
 
 mixin SupplierApiService on BaseApiService {
-  final List<Supplier> mockSuppliers = [
-    Supplier(id: '1', name: 'Apple Vietnam LLC', code: 'SUP-AAPL', contactName: 'Trần Minh Đức', phone: '028-3829-1000', email: 'distro@apple.com.vn', address: 'Tòa nhà Bitexco, Q.1, TP.HCM', description: 'Nhà phân phối ủy quyền sản phẩm Apple chính hãng.'),
-    Supplier(id: '2', name: 'Samsung Electronics VN', code: 'SUP-SSNG', contactName: 'Nguyễn Thanh Hà', phone: '028-3914-2222', email: 'b2b@samsung.com.vn', address: 'Khu Công Nghệ Cao, Q.9, TP.HCM', description: 'Cung cấp smartphone, máy tính bảng và màn hình Samsung.'),
-    Supplier(id: '3', name: 'Dell Technologies Distro', code: 'SUP-DELL', contactName: 'Lê Hoàng Nam', phone: '024-3772-8888', email: 'sales@dell.com.vn', address: 'Tòa nhà Keangnam, Cầu Giấy, Hà Nội', description: 'Nhà phân phối độc quyền dòng laptop Dell XPS, Inspiron, Latitude.'),
-  ];
-
-  Future<List<Supplier>> getSuppliers({String? token}) async {
+  Future<List<Supplier>> getSuppliers({String? token, String? status = 'all'}) async {
     try {
+      final queryParams = <String, String>{'pageSize': '100'};
+      if (status != null && status.isNotEmpty) {
+        queryParams['status'] = status;
+      }
+      final uri = Uri.parse('$baseUrl/suppliers').replace(queryParameters: queryParams);
       final response = await httpGet(
-        Uri.parse('$baseUrl/suppliers'),
+        uri,
         token: token,
       );
 
@@ -24,12 +23,13 @@ mixin SupplierApiService on BaseApiService {
 
       final data = parseApiResponse(response);
       if (data != null && data is List) {
-        return data.map((json) => Supplier.fromJson(json)).toList();
+        return data.map((json) => Supplier.fromJson(json as Map<String, dynamic>)).toList();
       }
+      debugPrint('[SupplierApiService] getSuppliers: data không hợp lệ: $data');
     } catch (e) {
-      debugPrint('API Error getSuppliers: $e');
+      debugPrint('[SupplierApiService] Error getSuppliers: $e');
     }
-    return mockSuppliers;
+    return <Supplier>[];
   }
 
   Future<bool> createSupplier(Supplier supplier, {String? token}) async {
@@ -45,12 +45,11 @@ mixin SupplierApiService on BaseApiService {
         notifyListeners();
         return true;
       }
+      debugPrint('[SupplierApiService] createSupplier thất bại: ${response.statusCode} ${response.body}');
     } catch (e) {
-      debugPrint('API Error createSupplier: $e');
+      debugPrint('[SupplierApiService] Error createSupplier: $e');
     }
-    mockSuppliers.add(supplier);
-    notifyListeners();
-    return true;
+    return false;
   }
 
   Future<bool> updateSupplier(Supplier supplier, {String? token}) async {
@@ -66,19 +65,58 @@ mixin SupplierApiService on BaseApiService {
         notifyListeners();
         return true;
       }
+      debugPrint('[SupplierApiService] updateSupplier thất bại: ${response.statusCode} ${response.body}');
     } catch (e) {
-      debugPrint('API Error updateSupplier: $e');
+      debugPrint('[SupplierApiService] Error updateSupplier: $e');
     }
-    final idx = mockSuppliers.indexWhere((s) => s.id == supplier.id);
-    if (idx != -1) mockSuppliers[idx] = supplier;
-    notifyListeners();
-    return true;
+    return false;
   }
 
-  Future<bool> deleteSupplier(String id, {String? token}) async {
+  Future<ApiResult> deleteSupplier(String id, {String? token}) async {
     try {
       final response = await httpDelete(
         Uri.parse('$baseUrl/suppliers/$id'),
+        token: token,
+      );
+
+      if (response.statusCode == 204 || parseApiResponse(response) != null) {
+        notifyListeners();
+        return ApiResult(success: true, message: 'Xóa nhà cung cấp thành công!');
+      }
+      final errorMsg = extractErrorMessage(response);
+      debugPrint('[SupplierApiService] deleteSupplier thất bại: ${response.statusCode} $errorMsg');
+      return ApiResult(success: false, message: errorMsg);
+    } catch (e) {
+      debugPrint('[SupplierApiService] Error deleteSupplier: $e');
+      return ApiResult(success: false, message: 'Lỗi kết nối: $e');
+    }
+  }
+
+  Future<ApiResult> toggleActiveSupplier(String id, {String? token}) async {
+    try {
+      final response = await httpPatch(
+        Uri.parse('$baseUrl/suppliers/$id/toggle-active'),
+        token: token,
+      );
+
+      final data = parseApiResponse(response);
+      if (data != null) {
+        notifyListeners();
+        return ApiResult(success: true, message: 'Cập nhật trạng thái hợp tác thành công!');
+      }
+      final errorMsg = extractErrorMessage(response);
+      debugPrint('[SupplierApiService] toggleActiveSupplier thất bại: ${response.statusCode} $errorMsg');
+      return ApiResult(success: false, message: errorMsg);
+    } catch (e) {
+      debugPrint('[SupplierApiService] Error toggleActiveSupplier: $e');
+      return ApiResult(success: false, message: 'Lỗi kết nối: $e');
+    }
+  }
+
+  Future<bool> restoreSupplier(String id, {String? token}) async {
+    try {
+      final response = await httpPost(
+        Uri.parse('$baseUrl/suppliers/$id/restore'),
         token: token,
       );
 
@@ -87,11 +125,10 @@ mixin SupplierApiService on BaseApiService {
         notifyListeners();
         return true;
       }
+      debugPrint('[SupplierApiService] restoreSupplier thất bại: ${response.statusCode} ${response.body}');
     } catch (e) {
-      debugPrint('API Error deleteSupplier: $e');
+      debugPrint('[SupplierApiService] Error restoreSupplier: $e');
     }
-    mockSuppliers.removeWhere((s) => s.id == id);
-    notifyListeners();
-    return true;
+    return false;
   }
 }
