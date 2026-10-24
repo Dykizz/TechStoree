@@ -36,19 +36,62 @@ export default function OrderConfirmation({
   const isBanking = order.paymentMethod === "BANKING";
   const isPaid = order.paymentStatus === "PAID";
   const [paymentConfirmed, setPaymentConfirmed] = useState(isPaid);
-  const [isConfirming, setIsConfirming] = useState(false);
-  const [confirmError, setConfirmError] = useState("");
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simError, setSimError] = useState("");
+  const [scanPayUrl, setScanPayUrl] = useState<string>("");
 
   const effectivePaid = isPaid || paymentConfirmed;
 
-  const bankBin = customBank?.bin || process.env.NEXT_PUBLIC_BANK_BIN || "970422";
-  const bankName = customBank?.name || process.env.NEXT_PUBLIC_BANK_NAME || "MBBank";
-  const bankAccount = customBank?.account || process.env.NEXT_PUBLIC_BANK_ACCOUNT || "0372933562";
-  const bankAccountName = customBank?.accountName || process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "NGUYEN HONG SON";
-  const bankConfigured = !!(bankBin && bankAccount && bankAccountName);
-  const qrUrl = bankConfigured
-    ? `https://img.vietqr.io/image/${bankBin}-${bankAccount}-compact2.png?amount=${order.totalAmount}&addInfo=${encodeURIComponent(order.orderCode)}&accountName=${encodeURIComponent(bankAccountName)}`
+  // Lấy URL quét thanh toán cho mã QR (Ưu tiên IP mạng nội bộ để điện thoại quét được cùng Wi-Fi)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isLocal =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+      const host = isLocal ? "192.168.100.226:3000" : window.location.host;
+      setScanPayUrl(`http://${host}/api/orders/${order.orderId}/scan-pay`);
+    }
+  }, [order.orderId]);
+
+  // Tạo ảnh mã QR chứa URL quét thanh toán
+  const qrUrl = scanPayUrl
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=${encodeURIComponent(scanPayUrl)}`
     : null;
+
+  // Tự động lắng nghe tín hiệu quét mã (Auto-polling mỗi 2 giây)
+  useEffect(() => {
+    if (!isBanking || effectivePaid) return;
+
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${order.orderId}/check-payment`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && data?.isPaid) {
+          setPaymentConfirmed(true);
+          if (order.userId) {
+            publishNotification(order.userId, {
+              id: `payment:${order.orderId}`,
+              kind: "order",
+              title: "Thanh toán thành công",
+              message: `Đơn hàng ${order.orderCode} đã quét mã và hoàn tất thanh toán thành công!`,
+              href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+            });
+          }
+        }
+      } catch {
+        // Polling background error silently ignored
+      }
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [isBanking, effectivePaid, order.orderId, order.orderCode, order.userId]);
 
   const copyToClipboard = (text: string, key: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -58,17 +101,17 @@ export default function OrderConfirmation({
     }
   };
 
-  const handleConfirmPayment = async () => {
-    if (effectivePaid || isConfirming) return;
-    setIsConfirming(true);
-    setConfirmError("");
+  const handleSimulateScan = async () => {
+    if (effectivePaid || isSimulating) return;
+    setIsSimulating(true);
+    setSimError("");
     try {
-      const res = await fetch(`/api/orders/${order.orderId}/confirm-payment`, {
+      const res = await fetch(`/api/orders/${order.orderId}/scan-pay`, {
         method: "POST",
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || "Không thể cập nhật trạng thái thanh toán.");
+        throw new Error(data.message || "Không thể mô phỏng quét mã.");
       }
       setPaymentConfirmed(true);
       if (order.userId) {
@@ -76,16 +119,16 @@ export default function OrderConfirmation({
           id: `payment:${order.orderId}`,
           kind: "order",
           title: "Thanh toán thành công",
-          message: `Đơn hàng ${order.orderCode} đã được ghi nhận thanh toán chuyển khoản thành công.`,
+          message: `Đơn hàng ${order.orderCode} đã được quét mã và ghi nhận thanh toán thành công!`,
           href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
         });
       }
     } catch (err: unknown) {
-      setConfirmError(
-        err instanceof Error ? err.message : "Lỗi khi xác nhận thanh toán.",
+      setSimError(
+        err instanceof Error ? err.message : "Lỗi khi mô phỏng quét mã.",
       );
     } finally {
-      setIsConfirming(false);
+      setIsSimulating(false);
     }
   };
 
@@ -129,7 +172,7 @@ export default function OrderConfirmation({
               <div><dt>Số điện thoại</dt><dd>{order.recipientPhone}</dd></div>
               <div><dt>Địa chỉ giao hàng</dt><dd>{order.shippingAddress}</dd></div>
               {order.note && <div><dt>Ghi chú</dt><dd>{order.note}</dd></div>}
-              <div><dt>Thanh toán</dt><dd>{isBanking ? "Chuyển khoản ngân hàng" : "Thanh toán khi nhận hàng (COD)"}</dd></div>
+              <div><dt>Thanh toán</dt><dd>{isBanking ? "Chuyển khoản (Quét mã QR tự động)" : "Thanh toán khi nhận hàng (COD)"}</dd></div>
             </dl>
           </div>
 
@@ -138,7 +181,7 @@ export default function OrderConfirmation({
             <p className={styles.amountValue}>{formatPrice(order.totalAmount)}</p>
             <span className={`${styles.paymentStatus} ${effectivePaid ? styles.paidStatus : ""}`}>
               <span aria-hidden="true" />
-              {effectivePaid ? "Đã thanh toán (PAID)" : isBanking ? "Chờ chuyển khoản" : "Thanh toán khi nhận hàng"}
+              {effectivePaid ? "Đã thanh toán (PAID)" : isBanking ? "Chờ quét mã QR" : "Thanh toán khi nhận hàng"}
             </span>
             <dl className={styles.amountBreakdown}>
               <div><dt>Tạm tính</dt><dd>{formatPrice(order.subtotalAmount)}</dd></div>
@@ -150,7 +193,7 @@ export default function OrderConfirmation({
               {effectivePaid
                 ? "Hệ thống đã xác nhận thanh toán cho đơn hàng này. Quản trị viên (Admin) và cửa hàng đã nhận được trạng thái ĐÃ THANH TOÁN."
                 : isBanking
-                  ? "Đơn đã được tạo. Vui lòng quét mã VietQR bên dưới để chuyển khoản, sau đó nhấn nút 'Tôi đã thanh toán' để báo tín hiệu cho hệ thống."
+                  ? "Đơn đã được tạo. Vui lòng quét mã QR bên dưới bằng Camera hoặc Zalo để hệ thống tự động nhận diện thanh toán (không cần chuyển tiền thật)."
                   : "Đơn hàng chưa thanh toán. Bạn sẽ thanh toán khi nhận hàng."}
             </p>
           </div>
@@ -174,40 +217,32 @@ export default function OrderConfirmation({
       {isBanking && !effectivePaid && (
         <section className={styles.transferSection} aria-labelledby="transfer-title">
           <div className={styles.transferHeading}>
-            <p className={styles.eyebrow}>HOÀN TẤT THANH TOÁN</p>
-            <h2 id="transfer-title">Thông tin chuyển khoản</h2>
-            <p>Quét mã VietQR bằng ứng dụng ngân hàng hoặc sao chép thông tin để chuyển khoản nhanh 24/7.</p>
+            <p className={styles.eyebrow}>HOÀN TẤT THANH TOÁN TỰ ĐỘNG</p>
+            <h2 id="transfer-title">Quét mã QR để nhận diện thanh toán</h2>
+            <p>Mở ứng dụng Camera điện thoại hoặc Zalo giơ vào mã QR để hệ thống tự động nhận diện mà không cần chuyển tiền thật.</p>
           </div>
           {qrUrl ? (
             <div className={styles.transferGrid}>
               <div className={styles.qrFrame}>
-                <Image src={qrUrl} alt={`VietQR cho đơn ${order.orderCode}`} width={240} height={300} unoptimized />
-                <span>Quét bằng ứng dụng ngân hàng</span>
+                <Image src={qrUrl} alt={`Mã QR nhận diện cho đơn ${order.orderCode}`} width={240} height={240} unoptimized />
+                <span>Quét bằng Camera điện thoại hoặc Zalo</span>
               </div>
               <dl className={`${styles.detailList} ${styles.transferDetails}`}>
                 <div>
-                  <dt>Ngân hàng</dt>
-                  <dd>{bankName} (BIN: {bankBin})</dd>
-                </div>
-                <div>
-                  <dt>Số tài khoản</dt>
-                  <dd>
-                    <strong>{bankAccount}</strong>
+                  <dt>Mã đơn hàng</dt>
+                  <dd className={styles.transferValue}>
+                    <strong>{order.orderCode}</strong>
                     <button
                       type="button"
                       className={styles.copyBtn}
-                      onClick={() => copyToClipboard(bankAccount, "account")}
+                      onClick={() => copyToClipboard(order.orderCode, "code")}
                     >
-                      {copiedKey === "account" ? "✓ Đã chép" : "Sao chép"}
+                      {copiedKey === "code" ? "✓ Đã chép" : "Sao chép"}
                     </button>
                   </dd>
                 </div>
                 <div>
-                  <dt>Chủ tài khoản</dt>
-                  <dd>{bankAccountName}</dd>
-                </div>
-                <div>
-                  <dt>Số tiền</dt>
+                  <dt>Số tiền thanh toán</dt>
                   <dd className={styles.transferValue}>
                     {formatPrice(order.totalAmount)}
                     <button
@@ -220,43 +255,42 @@ export default function OrderConfirmation({
                   </dd>
                 </div>
                 <div>
-                  <dt>Nội dung</dt>
-                  <dd className={styles.transferValue}>
-                    {order.orderCode}
-                    <button
-                      type="button"
-                      className={styles.copyBtn}
-                      onClick={() => copyToClipboard(order.orderCode, "code")}
-                    >
-                      {copiedKey === "code" ? "✓ Đã chép" : "Sao chép"}
-                    </button>
-                  </dd>
+                  <dt>Hình thức</dt>
+                  <dd>Nhận diện tự động qua quét mã QR (Cách 1)</dd>
+                </div>
+                <div>
+                  <dt>Trạng thái</dt>
+                  <dd style={{ color: "#d97706", fontWeight: 600 }}>Đang chờ quét...</dd>
                 </div>
               </dl>
             </div>
           ) : (
             <p className={styles.transferUnavailable} role="status">
-              Chưa có đủ thông tin tài khoản nhận tiền để hiển thị QR.
+              Đang tạo mã QR nhận diện...
             </p>
           )}
 
-          <div className={styles.confirmPaymentBox}>
-            <p className={styles.confirmPaymentHeading}>
-              ⚡ Đã quét mã và chuyển tiền thành công?
+          <div className={styles.autoScanBox}>
+            <div className={styles.scannerBadge}>
+              <span className={styles.radarPulse} aria-hidden="true" />
+              <span>Đang chờ quét mã QR... (Hệ thống tự động nhận diện)</span>
+            </div>
+            <p className={styles.autoScanHint}>
+              Mở <strong>Camera điện thoại</strong> hoặc <strong>Zalo</strong> hướng vào mã QR ở trên để hoàn tất thanh toán tức thì mà <em>không cần chuyển tiền thật</em>. Màn hình máy tính sẽ tự động chuyển sang ĐÃ THANH TOÁN ngay sau khi quét!
             </p>
-            <p className={styles.confirmPaymentSub}>
-              Bấm nút bên dưới để báo tín hiệu đã thanh toán cho hệ thống. Đơn hàng sẽ lập tức chuyển sang trạng thái <strong>Đã thanh toán</strong> và Quản trị viên (Admin) sẽ thấy ngay!
-            </p>
-            <button
-              type="button"
-              className={styles.confirmPaymentBtn}
-              onClick={handleConfirmPayment}
-              disabled={isConfirming}
-            >
-              {isConfirming ? "Đang xử lý xác nhận..." : "✓ Tôi đã thanh toán (Báo tín hiệu chuyển khoản)"}
-            </button>
-            {confirmError && (
-              <p className={styles.confirmErrorText}>{confirmError}</p>
+            <div className={styles.simScanWrapper}>
+              <button
+                type="button"
+                className={styles.simScanBtn}
+                onClick={handleSimulateScan}
+                disabled={isSimulating}
+              >
+                {isSimulating ? "Đang xử lý quét..." : "⚡ Thử nghiệm quét mã ngay (Dành cho test trên máy tính)"}
+              </button>
+              <span className={styles.scanLiveNotice}>Tự động đồng bộ và hiển thị trên màn hình Admin</span>
+            </div>
+            {simError && (
+              <p className={styles.confirmErrorText}>{simError}</p>
             )}
           </div>
         </section>

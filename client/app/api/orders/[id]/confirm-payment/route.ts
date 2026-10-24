@@ -114,15 +114,15 @@ export async function POST(
     let adminToken = await getSystemAdminToken();
 
     // 3. Update payment status to PAID using existing backend endpoint
-    let patchRes = await fetch(apiEndpoint(`Orders/${id}/status`), {
+    let patchRes = await fetch(apiEndpoint(`Orders/${id}/payment-status`), {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${adminToken}`,
       },
       body: JSON.stringify({
-        status: existingOrder.orderStatus || "PENDING",
         paymentStatus: "PAID",
+        note: "Xác nhận chuyển khoản thành công",
       }),
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
@@ -132,19 +132,36 @@ export async function POST(
     if (patchRes.status === 401) {
       cachedAdminToken = null;
       adminToken = await getSystemAdminToken();
-      patchRes = await fetch(apiEndpoint(`Orders/${id}/status`), {
+      patchRes = await fetch(apiEndpoint(`Orders/${id}/payment-status`), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({
-          status: existingOrder.orderStatus || "PENDING",
           paymentStatus: "PAID",
+          note: "Xác nhận chuyển khoản thành công",
         }),
         cache: "no-store",
         signal: AbortSignal.timeout(8000),
       });
+    }
+
+    // Also confirm order if status was PENDING
+    const currentOrderStatus = existingOrder.orderStatus || existingOrder.OrderStatus;
+    if (currentOrderStatus === "PENDING") {
+      await fetch(apiEndpoint(`Orders/${id}/status`), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          status: "CONFIRMED",
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      }).catch(() => {});
     }
 
     const patchData = await patchRes.json().catch(() => ({}));

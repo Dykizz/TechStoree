@@ -45,7 +45,7 @@ export default function SearchBar({
   onChange,
   onSearch,
   allProducts,
-  placeholder = "Tìm kiếm máy tính, điện thoại, phụ kiện... (Thử: 'iphon', 'sam sung galxy')",
+  placeholder = "Tìm kiếm máy tính, điện thoại, phụ kiện...",
 }: SearchBarProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
