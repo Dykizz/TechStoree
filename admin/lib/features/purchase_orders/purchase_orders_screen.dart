@@ -36,7 +36,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
   String _selectedStatus = 'Tất cả';
   int _selectedSupplierId = 0;
   int _currentPage = 1;
-  int _itemsPerPage = 12;
+  int _itemsPerPage = 10;
 
   late Future<List<PurchaseOrder>> _ordersFuture;
   late Future<List<Supplier>> _suppliersFuture;
@@ -108,7 +108,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
             final endIndex = (startIndex + _itemsPerPage).clamp(0, totalItems);
             final paginatedOrders = orders.sublist(startIndex, endIndex);
 
-            return Padding(
+            return SingleChildScrollView(
               padding: const EdgeInsets.all(AppTokens.space16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +148,8 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                           const DropdownMenuItem(value: 0, child: Text('Tất cả nhà cung cấp')),
                           ...suppliers.map((s) {
                             final sId = int.tryParse(s.id) ?? 0;
-                            return DropdownMenuItem(value: sId, child: Text(s.name, overflow: TextOverflow.ellipsis));
+                            final label = !s.isActive ? '${s.name} [Ngừng HT]' : s.name;
+                            return DropdownMenuItem(value: sId, child: Text(label, overflow: TextOverflow.ellipsis));
                           }),
                         ],
                         onChanged: (val) => setState(() => _selectedSupplierId = val ?? 0),
@@ -167,14 +168,12 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                   ),
 
                   // Table Container
-                  Flexible(
-                    child: DataTableContainer(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Flexible(
-                            child: orders.isEmpty
+                  DataTableContainer(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        orders.isEmpty
                                 ? const EmptyState(
                                     title: 'Chưa có phiếu nhập hàng nào',
                                     message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
@@ -190,15 +189,15 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                               headingRowColor: WidgetStateProperty.all(
                                                 isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                               ),
-                                              columns: const [
-                                                DataColumn(label: Text('Mã PO', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Người tạo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Số dòng hàng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Tổng chi phí', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                                                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                                              columns: [
+                                                DataColumn(label: Text('Mã PO', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Người tạo', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Số dòng hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Tổng chi phí', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                               ],
                                               rows: paginatedOrders.map((po) {
                                                 return DataRow(
@@ -287,7 +286,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                               }).toList(),
                                              ),
                                 ),
-                          ),
                           if (totalItems > 0)
                             AppPagination(
                               currentPage: safePage,
@@ -303,7 +301,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                         ],
                       ),
                     ),
-                  ),
                 ],
               ),
             );
@@ -329,7 +326,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     final isCompleting = targetStatus == 'COMPLETE';
     final actionLabel = isCompleting ? 'Hoàn thành (COMPLETE)' : 'Hủy phiếu (CANCLE)';
     final message = isCompleting
-        ? 'Chốt phiếu nhập "${po.poCode}"? Sau khi hoàn thành, số lượng tồn kho của các biến thể sẽ được Backend tự động cộng vào hệ thống.'
+        ? 'Chốt phiếu nhập "${po.poCode}"? Sau khi hoàn thành, số lượng tồn kho của các biến thể sẽ được cộng vào hệ thống.'
         : 'Bạn có chắc muốn hủy phiếu nhập "${po.poCode}"? Phiếu nhập sẽ chuyển sang trạng thái CANCLE và tồn kho giữ nguyên.';
 
     showDialog(
@@ -577,9 +574,13 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
 
     if (!context.mounted) return;
 
-    if (suppliers.isEmpty) {
+    final isEditing = existingPoId != null && existingPoId > 0;
+    final availableSuppliers = isEditing
+        ? suppliers.where((s) => s.isActive || int.tryParse(s.id) == existingPo?.supplierId).toList()
+        : suppliers.where((s) => s.isActive).toList();
+    if (availableSuppliers.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng tạo ít nhất 1 Nhà cung cấp trước khi lập phiếu nhập hàng.'), backgroundColor: AppColors.warning),
+        const SnackBar(content: Text('Không có Nhà cung cấp nào đang hợp tác để lập phiếu nhập hàng.'), backgroundColor: AppColors.warning),
       );
       return;
     }
@@ -632,7 +633,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
       barrierDismissible: false,
       builder: (ctx) => _PurchaseOrderFormDialog(
         existingPo: existingPo,
-        suppliers: suppliers,
+        suppliers: availableSuppliers,
         variantOptions: variantOptions,
         apiService: apiService,
         token: token,
@@ -1006,9 +1007,10 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
                               : (int.tryParse(widget.suppliers.first.id) ?? 1),
                           items: widget.suppliers.map((s) {
                             final sId = int.tryParse(s.id) ?? 1;
+                            final label = !s.isActive ? '${s.name} [Ngừng HT]' : s.name;
                             return DropdownMenuItem<int>(
                               value: sId,
-                              child: Text(s.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                              child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
                             );
                           }).toList(),
                           onChanged: (val) {

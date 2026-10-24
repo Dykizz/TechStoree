@@ -450,15 +450,15 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 headingRowColor: WidgetStateProperty.all(
                                   isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                 ),
-                                columns: const [
-                                  DataColumn(label: Text('MÃ HÓA ĐƠN', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('ĐƠN HÀNG', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('KHÁCH HÀNG', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('TỔNG TIỀN', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('THANH TOÁN', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('NGÀY LẬP', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
-                                  DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12))),
+                                columns: [
+                                  DataColumn(label: Text('Mã hóa đơn', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Đơn hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Thanh toán', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Ngày lập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 ],
                                 rows: _invoices.map((inv) {
                                   return DataRow(

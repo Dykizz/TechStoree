@@ -831,7 +831,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 totalPages: totalPages,
                                 totalItems: totalItems,
                                 itemsPerPage: _itemsPerPage,
-                                itemsPerPageOptions: const [8, 10, 16, 24],
                                 onPageChanged: (page) => setState(() => _currentPage = page),
                                 onItemsPerPageChanged: (size) => setState(() {
                                   _itemsPerPage = size;
@@ -878,16 +877,16 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     headingRowColor: WidgetStateProperty.all(
                       isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                     ),
-                    columns: const [
-                      DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Danh mục', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Khoảng giá', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Tổng tồn kho', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Số biến thể', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Khuyến mãi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-                      DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                    columns: [
+                      DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Danh mục', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Khoảng giá', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Tổng tồn kho', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Số biến thể', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Khuyến mãi', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                      DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                     ],
                     rows: products.map((product) {
                       return DataRow(
@@ -1072,7 +1071,6 @@ class _ProductsScreenState extends State<ProductsScreen> {
               totalPages: totalPages,
               totalItems: totalItems,
               itemsPerPage: _itemsPerPage,
-              itemsPerPageOptions: const [8, 10, 16, 24],
               onPageChanged: (page) => setState(() => _currentPage = page),
               onItemsPerPageChanged: (size) => setState(() {
                 _itemsPerPage = size;

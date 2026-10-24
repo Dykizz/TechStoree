@@ -20,7 +20,7 @@ public class SuppliersController(ISupplierService supplierService) : BaseApiCont
     [ProducesResponseType(typeof(ApiResponse<PagedResult<SupplierDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetSuppliers([FromQuery] PaginationParams filter)
+    public async Task<IActionResult> GetSuppliers([FromQuery] SupplierQueryFilter filter)
     {
         var result = await supplierService.GetSuppliersAsync(filter);
         return Success(result, "Lấy danh sách nhà cung cấp thành công.");
@@ -90,5 +90,37 @@ public class SuppliersController(ISupplierService supplierService) : BaseApiCont
     {
         await supplierService.DeleteSupplierAsync(id);
         return Success<object?>(null, "Xóa nhà cung cấp thành công.");
+    }
+
+    /// <summary>
+    /// Bật/tắt trạng thái hợp tác của nhà cung cấp đối tác
+    /// </summary>
+    /// <param name="id">Mã ID nhà cung cấp</param>
+    [HttpPatch("{id:int}/toggle-active")]
+    [HasPermission(AppPermissions.Suppliers.Update)]
+    [ProducesResponseType(typeof(ApiResponse<SupplierDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ToggleActiveSupplier(int id)
+    {
+        var result = await supplierService.ToggleActiveSupplierAsync(id);
+        return Success(result, result.IsActive ? "Đã kích hoạt hợp tác lại với nhà cung cấp." : "Đã tạm dừng hợp tác với nhà cung cấp.");
+    }
+
+    /// <summary>
+    /// Khôi phục nhà cung cấp đối tác đã bị xóa mềm
+    /// </summary>
+    /// <param name="id">Mã ID nhà cung cấp</param>
+    [HttpPost("{id:int}/restore")]
+    [HasPermission(AppPermissions.Suppliers.Update)]
+    [ProducesResponseType(typeof(ApiResponse<SupplierDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RestoreSupplier(int id)
+    {
+        var result = await supplierService.RestoreSupplierAsync(id);
+        return Success(result, "Khôi phục nhà cung cấp thành công.");
     }
 }

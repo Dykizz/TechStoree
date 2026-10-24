@@ -196,6 +196,7 @@ public class AppDbContext : DbContext
             entity.Property(s => s.Address).HasMaxLength(255);
             entity.Property(s => s.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(s => s.DeletedAt);
+            entity.Property(s => s.IsActive).HasDefaultValue(true);
 
             // Tự động bỏ qua các bản ghi đã bị xóa mềm
             entity.HasQueryFilter(s => s.DeletedAt == null);

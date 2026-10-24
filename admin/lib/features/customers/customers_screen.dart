@@ -32,7 +32,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   String _selectedTechInterest = 'Tất cả';
   String _selectedStatus = 'Tất cả';
   int _currentPage = 1;
-  int _itemsPerPage = 8;
+  int _itemsPerPage = 10;
   late Future<List<AppUser>> _customersFuture;
   bool _showDemographics = false;
 
@@ -246,15 +246,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                   isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                 ),
                                 columns: [
-                                  DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('KHÁCH HÀNG / TÀI KHOẢN', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('EMAIL / SĐT', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('SỞ THÍCH CÔNG NGHỆ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('NGÀY SINH / TUỔI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('ĐỊA CHỈ', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('NGÀY THAM GIA', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('TRẠNG THÁI', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
-                                  DataColumn(label: Text('THAO TÁC', style: TextStyle(fontWeight: FontWeight.w700, color: textSecondary, fontSize: 11))),
+                                  DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Khách hàng / Tài khoản', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Email / Số điện thoại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Sở thích công nghệ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Ngày sinh / Tuổi', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Địa chỉ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Ngày tham gia', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                  DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 ],
                                 rows: paginatedCustomers.map((u) {
                                   return DataRow(
