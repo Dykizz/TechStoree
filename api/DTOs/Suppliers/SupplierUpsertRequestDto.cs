@@ -35,4 +35,10 @@ public class SupplierUpsertRequestDto
     /// <example>Tòa nhà Bitexco, Q.1, TP.HCM</example>
     [MaxLength(255, ErrorMessage = "Địa chỉ tối đa 255 ký tự.")]
     public string? Address { get; set; }
+
+    /// <summary>
+    /// Trạng thái hợp tác (mặc định là true)
+    /// </summary>
+    /// <example>true</example>
+    public bool? IsActive { get; set; }
 }

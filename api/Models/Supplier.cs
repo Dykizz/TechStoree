@@ -23,4 +23,6 @@ public class Supplier
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? DeletedAt { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }
