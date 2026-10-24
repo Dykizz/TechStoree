@@ -15,6 +15,8 @@ export type BackendOrder = {
   totalAmount: number;
   voucherCode?: string;
   createdAt: string;
+  updatedAt?: string | null;
+  paidAt?: string | null;
   cancelledAt?: string | null;
   cancellationReason?: string | null;
   items?: {
@@ -44,6 +46,8 @@ export function mapOrder(data: BackendOrder): Order {
     totalAmount: data.totalAmount,
     voucherCode: data.voucherCode,
     createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    paidAt: data.paidAt,
     cancelledAt: data.cancelledAt,
     cancellationReason: data.cancellationReason,
     items: (data.items || []).map((it) => ({

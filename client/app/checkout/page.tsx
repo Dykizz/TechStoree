@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCart } from "../../lib/context/CartContext";
 import { useProtectedSession } from "../../lib/use-protected-session";
 import { mapOrder, type BackendOrder } from "../../lib/orders-api";
@@ -42,7 +43,11 @@ export const SUPPORTED_BANKS = [
   { bin: "970448", shortName: "OCB", name: "OCB (Ngân hàng Phương Đông)" },
 ];
 
-export default function CheckoutPage() {
+function CheckoutContent() {
+  const searchParams = useSearchParams();
+  const orderIdParam = searchParams.get("orderId");
+  const orderCodeParam = searchParams.get("orderCode") || searchParams.get("code");
+
   const session = useProtectedSession();
   const {
     items,
@@ -73,7 +78,52 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState<boolean>(
+    !!(orderIdParam || orderCodeParam),
+  );
+  const [orderError, setOrderError] = useState<string>("");
   const submitting = useRef(false);
+
+  // Tải thông tin đơn hàng nếu có orderId hoặc orderCode trên URL (Khách bấm quay lại từ danh sách đơn hàng)
+  useEffect(() => {
+    if (!orderIdParam && !orderCodeParam) return;
+    if (session.status !== "ready") return;
+
+    let active = true;
+    async function loadExistingOrder() {
+      setLoadingOrder(true);
+      setOrderError("");
+      try {
+        const url = orderIdParam
+          ? `/api/orders/${orderIdParam}`
+          : `/api/orders/code/${encodeURIComponent(orderCodeParam!)}`;
+
+        const res = await fetch(url, { cache: "no-store" });
+        const result = await res.json();
+        if (!res.ok || !result.success || !result.data) {
+          throw new Error(result.message || "Không tìm thấy thông tin đơn hàng.");
+        }
+        if (active) {
+          const order = mapOrder(result.data);
+          setCreatedOrder(order);
+        }
+      } catch (err: unknown) {
+        if (active) {
+          setOrderError(
+            err instanceof Error ? err.message : "Lỗi khi tải thông tin đơn hàng.",
+          );
+        }
+      } finally {
+        if (active) setLoadingOrder(false);
+      }
+    }
+
+    void loadExistingOrder();
+
+    return () => {
+      active = false;
+    };
+  }, [orderIdParam, orderCodeParam, session.status]);
 
   const activeBank =
     SUPPORTED_BANKS.find((b) => b.bin === selectedBankBin) || SUPPORTED_BANKS[0];
@@ -246,18 +296,60 @@ export default function CheckoutPage() {
       </main>
     );
 
+  if (loadingOrder) {
+    return (
+      <main className={styles.main}>
+        <div className={styles.container} role="status">
+          <p>Đang tải thông tin đơn hàng và mã QR thanh toán…</p>
+        </div>
+      </main>
+    );
+  }
+
+  if (orderError) {
+    return (
+      <main className={styles.main}>
+        <div className={styles.container} role="alert">
+          <p style={{ color: "#dc2626", marginBottom: "16px" }}>{orderError}</p>
+          <Link href="/orders" className={styles.backLink}>
+            ← Quay lại danh sách đơn hàng
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   if (createdOrder) {
+    let customBank = {
+      bin: selectedBankBin,
+      name: activeBank.name,
+      account: bankAccount,
+      accountName: bankAccountName,
+    };
+
+    if (createdOrder.note) {
+      const match = createdOrder.note.match(
+        /\[VIETQR \| ([^-]+) - STK: ([^-]+) - ([^\]]+)\]/,
+      );
+      if (match) {
+        const parsedBank = SUPPORTED_BANKS.find(
+          (b) => b.shortName.toLowerCase() === match[1].trim().toLowerCase(),
+        );
+        customBank = {
+          bin: parsedBank?.bin || selectedBankBin,
+          name: parsedBank?.name || match[1].trim(),
+          account: match[2].trim(),
+          accountName: match[3].trim(),
+        };
+      }
+    }
+
     return (
       <main className={styles.main}>
         <div className={styles.container}>
           <OrderConfirmation
             order={createdOrder}
-            customBank={{
-              bin: selectedBankBin,
-              name: activeBank.name,
-              account: bankAccount,
-              accountName: bankAccountName,
-            }}
+            customBank={customBank}
           />
         </div>
       </main>
@@ -661,3 +753,20 @@ export default function CheckoutPage() {
     </main>
   );
 }
+
+export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className={styles.main}>
+          <div className={styles.container} role="status">
+            <p>Đang tải trang thanh toán…</p>
+          </div>
+        </main>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+

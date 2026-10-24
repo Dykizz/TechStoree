@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useMemo, useRef, useCallback } from "react";
 import VariantSelector from "../../../components/products/VariantSelector";
 import { useCart } from "../../../lib/context/CartContext";
 import { fetchProductById, formatPrice } from "../../../lib/products-client";
@@ -34,6 +34,18 @@ export default function ProductDetailPage({
   const [loadError, setLoadError] = useState("");
   const [addedSuccess, setAddedSuccess] = useState(false);
 
+  // Gallery, Swipe Slider & Lightbox States
+  const [currentImageIndex, setCurrentImageIndex] = useState<number>(0);
+  const [dragDeltaX, setDragDeltaX] = useState<number>(0);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number>(0);
+
+  // Drag Gesture Refs
+  const dragStartXRef = useRef<number>(0);
+  const dragStartTimeRef = useRef<number>(0);
+  const isDraggingRef = useRef<boolean>(false);
+
   useEffect(() => {
     async function loadProduct() {
       setLoading(true);
@@ -61,6 +73,200 @@ export default function ProductDetailPage({
     }
     void loadProduct();
   }, [productId]);
+
+  // Tập hợp danh sách tất cả hình ảnh từ sản phẩm và toàn bộ các biến thể (luôn gọi hook ở cấp cao nhất)
+  const galleryImages = useMemo(() => {
+    if (!product) return [];
+    const list: {
+      url: string;
+      variantId?: number;
+      variantName?: string;
+      label?: string;
+    }[] = [];
+    const seenUrls = new Set<string>();
+
+    const addImg = (
+      url?: string | null,
+      variantId?: number,
+      variantName?: string,
+      label?: string,
+    ) => {
+      if (url && url.trim() && !seenUrls.has(url.trim())) {
+        seenUrls.add(url.trim());
+        list.push({
+          url: url.trim(),
+          variantId,
+          variantName,
+          label: label || "Ảnh sản phẩm",
+        });
+      }
+    };
+
+    // 1. Ảnh chính sản phẩm
+    addImg(product.imageUrl, undefined, undefined, "Ảnh đại diện");
+
+    // 2. Ảnh từ toàn bộ biến thể
+    if (product.variants && Array.isArray(product.variants)) {
+      for (const v of product.variants) {
+        addImg(v.imageUrl, v.variantId, v.variantName, v.variantName);
+      }
+    }
+
+    return list;
+  }, [product]);
+
+  // Tìm hình ảnh hiển thị theo biến thể đang chọn hoặc màu sắc đang click
+  const colorPreviewVariant =
+    product && selectedAttrs["Màu sắc"]
+      ? product.variants.find(
+          (v) =>
+            v.attributes &&
+            v.attributes["Màu sắc"] === selectedAttrs["Màu sắc"] &&
+            v.imageUrl,
+        )
+      : null;
+
+  // Đồng bộ ảnh khi người dùng chọn biến thể hoặc màu sắc
+  useEffect(() => {
+    if (galleryImages.length === 0) return;
+    const targetUrl =
+      selectedVariant?.imageUrl || colorPreviewVariant?.imageUrl;
+    if (targetUrl) {
+      const idx = galleryImages.findIndex((item) => item.url === targetUrl);
+      if (idx !== -1) {
+        setCurrentImageIndex(idx);
+      }
+    }
+  }, [selectedVariant, colorPreviewVariant, galleryImages]);
+
+  // Lightbox navigation handlers
+  const handlePrevImage = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      setLightboxIndex(
+        (prev) => (prev - 1 + galleryImages.length) % galleryImages.length,
+      );
+    },
+    [galleryImages.length],
+  );
+
+  const handleNextImage = useCallback(
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      setLightboxIndex((prev) => (prev + 1) % galleryImages.length);
+    },
+    [galleryImages.length],
+  );
+
+  // Phím tắt bàn phím (Esc, ArrowLeft, ArrowRight) và khóa cuộn trang khi mở Lightbox
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCurrentImageIndex(lightboxIndex);
+        setIsLightboxOpen(false);
+      } else if (e.key === "ArrowLeft") {
+        handlePrevImage();
+      } else if (e.key === "ArrowRight") {
+        handleNextImage();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isLightboxOpen, lightboxIndex, handlePrevImage, handleNextImage]);
+
+  // Chuyển ảnh mượt mà độc lập, không tự ý can thiệp vào biến thể khách đang chọn
+  const goToImageIndex = useCallback(
+    (index: number) => {
+      if (galleryImages.length === 0) return;
+      const targetIdx = Math.max(0, Math.min(index, galleryImages.length - 1));
+      setCurrentImageIndex(targetIdx);
+    },
+    [galleryImages.length],
+  );
+
+  // Xử lý cử chỉ KÉO / LƯỚT ảnh (Drag & Swipe Gesture)
+  const handleDragStart = (clientX: number) => {
+    dragStartXRef.current = clientX;
+    dragStartTimeRef.current = Date.now();
+    isDraggingRef.current = true;
+    setIsDragging(true);
+    setDragDeltaX(0);
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDraggingRef.current) return;
+    const delta = clientX - dragStartXRef.current;
+
+    // Giảm độ trượt nhẹ (resistance) nếu kéo quá mép đầu hoặc mép cuối
+    if (
+      (currentImageIndex === 0 && delta > 0) ||
+      (currentImageIndex === galleryImages.length - 1 && delta < 0)
+    ) {
+      setDragDeltaX(delta * 0.35);
+    } else {
+      setDragDeltaX(delta);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+
+    const duration = Date.now() - dragStartTimeRef.current;
+    const delta = dragDeltaX;
+    setDragDeltaX(0);
+
+    // Nếu chỉ nhấp chuột nhanh (< 6px dịch chuyển và < 300ms) -> Click: Phóng to Lightbox!
+    if (Math.abs(delta) < 6 && duration < 300) {
+      setLightboxIndex(currentImageIndex);
+      setIsLightboxOpen(true);
+      return;
+    }
+
+    // Kéo sang trái đủ xa (delta < -38px) -> Lướt sang ảnh tiếp theo
+    if (delta < -38 && currentImageIndex < galleryImages.length - 1) {
+      goToImageIndex(currentImageIndex + 1);
+    }
+    // Kéo sang phải đủ xa (delta > 38px) -> Lướt về ảnh trước đó
+    else if (delta > 38 && currentImageIndex > 0) {
+      goToImageIndex(currentImageIndex - 1);
+    }
+    // Kéo mạnh sang trái khi ở ảnh cuối cùng -> quay về ảnh đầu tiên
+    else if (delta < -70 && currentImageIndex === galleryImages.length - 1 && galleryImages.length > 1) {
+      goToImageIndex(0);
+    }
+    // Kéo mạnh sang phải khi ở ảnh đầu tiên -> chuyển đến ảnh cuối cùng
+    else if (delta > 70 && currentImageIndex === 0 && galleryImages.length > 1) {
+      goToImageIndex(galleryImages.length - 1);
+    }
+  };
+
+  // Nút mũi tên lùi / tiến ảnh trên khung hình
+  const handleSlidePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentImageIndex > 0) {
+      goToImageIndex(currentImageIndex - 1);
+    } else if (galleryImages.length > 1) {
+      goToImageIndex(galleryImages.length - 1);
+    }
+  };
+
+  const handleSlideNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (currentImageIndex < galleryImages.length - 1) {
+      goToImageIndex(currentImageIndex + 1);
+    } else if (galleryImages.length > 1) {
+      goToImageIndex(0);
+    }
+  };
 
   if (loading) {
     return (
@@ -121,20 +327,13 @@ export default function ProductDetailPage({
     ? selectedVariant.stockQuantity
     : product.totalStock;
   const isOutOfStock = currentStock <= 0;
-  // Tìm hình ảnh hiển thị: ưu tiên biến thể đang chọn -> biến thể khớp với màu sắc đang click -> ảnh chính sản phẩm
-  const colorPreviewVariant = selectedAttrs["Màu sắc"]
-    ? product.variants.find(
-        (v) =>
-          v.attributes &&
-          v.attributes["Màu sắc"] === selectedAttrs["Màu sắc"] &&
-          v.imageUrl,
-      )
-    : null;
 
   const activeImage =
+    galleryImages[currentImageIndex]?.url ||
     (selectedVariant && selectedVariant.imageUrl) ||
     colorPreviewVariant?.imageUrl ||
-    product.imageUrl;
+    product.imageUrl ||
+    "";
 
   const handleAddToCart = async () => {
     if (!selectedVariant || isOutOfStock || busy) return;
@@ -199,20 +398,143 @@ export default function ProductDetailPage({
 
         <div className={styles.productLayout}>
           <div className={styles.gallery}>
-            <div className={styles.mainImageWrap}>
-              {activeImage ? (
-                <Image
-                  src={activeImage}
-                  alt={product.productName}
-                  fill
-                  priority
-                  className={styles.mainImage}
-                  sizes="(max-width: 900px) 100vw, 50vw"
-                />
-              ) : (
-                <div className={styles.mainImage} />
+            <div
+              className={`${styles.mainImageWrap} ${isDragging ? styles.isDragging : ""}`}
+              onMouseDown={(e) => handleDragStart(e.clientX)}
+              onMouseMove={(e) => handleDragMove(e.clientX)}
+              onMouseUp={handleDragEnd}
+              onMouseLeave={handleDragEnd}
+              onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
+              onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
+              onTouchEnd={handleDragEnd}
+              onTouchCancel={handleDragEnd}
+              title="Kéo sang trái/phải để lướt ảnh • Nhấp để phóng to"
+            >
+              {/* Dải trượt các hình ảnh liên tục (Carousel Slider Track) */}
+              <div
+                className={styles.galleryTrack}
+                style={{
+                  transform: `translateX(calc(-${currentImageIndex * 100}% + ${dragDeltaX}px))`,
+                  transition: isDragging
+                    ? "none"
+                    : "transform 0.35s cubic-bezier(0.2, 0.8, 0.25, 1)",
+                }}
+              >
+                {galleryImages.length > 0 ? (
+                  galleryImages.map((img, idx) => (
+                    <div key={img.url + idx} className={styles.gallerySlide}>
+                      <Image
+                        src={img.url}
+                        alt={img.label || product.productName}
+                        fill
+                        priority={idx === 0}
+                        className={styles.mainImage}
+                        sizes="(max-width: 900px) 100vw, 50vw"
+                        draggable={false}
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className={styles.gallerySlide}>
+                    <div className={styles.mainImage} />
+                  </div>
+                )}
+              </div>
+
+              {/* Badge chỉ số ảnh */}
+              {galleryImages.length > 1 && (
+                <div className={styles.galleryTopBadge}>
+                  <span>
+                    {currentImageIndex + 1} / {galleryImages.length}
+                  </span>
+                </div>
+              )}
+
+              {/* Nút chuyển ảnh sang trái / phải khi hover */}
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className={`${styles.gallerySlideBtn} ${styles.gallerySlideBtnPrev}`}
+                    onClick={handleSlidePrev}
+                    title="Ảnh trước"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="15 18 9 12 15 6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.gallerySlideBtn} ${styles.gallerySlideBtnNext}`}
+                    onClick={handleSlideNext}
+                    title="Ảnh tiếp theo"
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* Chấm tròn định vị trang (Pagination Dots) */}
+              {galleryImages.length > 1 && (
+                <div
+                  className={styles.galleryDotsBar}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {galleryImages.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`${styles.galleryDotItem} ${
+                        i === currentImageIndex ? styles.galleryDotItemActive : ""
+                      }`}
+                      onClick={() => goToImageIndex(i)}
+                      title={`Xem ảnh ${i + 1}`}
+                    />
+                  ))}
+                </div>
               )}
             </div>
+
+            {/* Dải ảnh Thumbnail bên dưới ảnh chính */}
+            {galleryImages.length > 1 && (
+              <div className={styles.thumbnailsStrip}>
+                {galleryImages.map((img, idx) => (
+                  <button
+                    key={img.url + idx}
+                    type="button"
+                    className={`${styles.thumbBtn} ${
+                      idx === currentImageIndex ? styles.thumbBtnActive : ""
+                    }`}
+                    onClick={() => goToImageIndex(idx)}
+                    title={img.label || `Ảnh ${idx + 1}`}
+                  >
+                    <Image
+                      src={img.url}
+                      alt={img.label || `Thumbnail ${idx + 1}`}
+                      fill
+                      className={styles.thumbImg}
+                      sizes="68px"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={styles.details}>
@@ -506,6 +828,140 @@ export default function ProductDetailPage({
           </div>
         </div>
       </div>
+
+      {/* Target Modal / Lightbox phóng to chi tiết */}
+      {isLightboxOpen && (
+        <div
+          className={styles.lightboxModal}
+          onClick={() => {
+            setCurrentImageIndex(lightboxIndex);
+            setIsLightboxOpen(false);
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className={styles.lightboxHeader}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.lightboxTitleWrap}>
+              <span className={styles.lightboxCounter}>
+                {lightboxIndex + 1} / {galleryImages.length}
+              </span>
+              <span className={styles.lightboxTitle}>
+                {product.productName}
+              </span>
+            </div>
+            <button
+              type="button"
+              className={styles.lightboxCloseBtn}
+              onClick={() => {
+                setCurrentImageIndex(lightboxIndex);
+                setIsLightboxOpen(false);
+              }}
+              title="Đóng xem ảnh (Phím Esc)"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            className={styles.lightboxBody}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {galleryImages.length > 1 && (
+              <button
+                type="button"
+                className={`${styles.lightboxNavBtn} ${styles.lightboxNavBtnPrev}`}
+                onClick={handlePrevImage}
+                title="Ảnh trước (Mũi tên trái)"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+            )}
+
+            <div className={styles.lightboxImageWrap}>
+              {galleryImages[lightboxIndex]?.url && (
+                <Image
+                  src={galleryImages[lightboxIndex].url}
+                  alt={
+                    galleryImages[lightboxIndex]?.label || product.productName
+                  }
+                  fill
+                  className={styles.lightboxImage}
+                  sizes="90vw"
+                  priority
+                />
+              )}
+            </div>
+
+            {galleryImages.length > 1 && (
+              <button
+                type="button"
+                className={`${styles.lightboxNavBtn} ${styles.lightboxNavBtnNext}`}
+                onClick={handleNextImage}
+                title="Ảnh tiếp theo (Mũi tên phải)"
+              >
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {galleryImages.length > 1 && (
+            <div
+              className={styles.lightboxFooter}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {galleryImages.map((img, idx) => (
+                <button
+                  key={"modal-thumb-" + img.url + idx}
+                  type="button"
+                  className={`${styles.lightboxThumbBtn} ${
+                    idx === lightboxIndex ? styles.lightboxThumbBtnActive : ""
+                  }`}
+                  onClick={() => setLightboxIndex(idx)}
+                >
+                  <Image
+                    src={img.url}
+                    alt={img.label || `Thumb ${idx + 1}`}
+                    fill
+                    className={styles.lightboxThumbImg}
+                    sizes="54px"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </main>
   );
 }

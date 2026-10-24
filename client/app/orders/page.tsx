@@ -29,6 +29,18 @@ const tabs = [
   { key: "CANCELLED", label: "Đã hủy" },
 ];
 
+function formatOrderDateTime(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${hours}:${minutes} · ${day}/${month}/${year}`;
+}
+
 function OrdersContent() {
   const query = useSearchParams();
   const session = useProtectedSession();
@@ -36,6 +48,11 @@ function OrdersContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState(query.get("code") || "");
+  const [sortBy, setSortBy] = useState("created_desc");
+  const [dateMode, setDateMode] = useState("all");
+  const [exactDate, setExactDate] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -43,6 +60,24 @@ function OrdersContent() {
   const [notice, setNotice] = useState("");
   const [actionId, setActionId] = useState("");
   const [attempt, setAttempt] = useState(0);
+
+  const isFilterActive =
+    sortBy !== "created_desc" ||
+    dateMode !== "all" ||
+    Boolean(search.trim()) ||
+    Boolean(fromDate) ||
+    Boolean(toDate) ||
+    Boolean(exactDate);
+
+  const handleResetFilters = () => {
+    setSortBy("created_desc");
+    setDateMode("all");
+    setExactDate("");
+    setFromDate("");
+    setToDate("");
+    setSearch("");
+    setPage(1);
+  };
 
   useEffect(() => {
     if (session.status !== "ready") return;
@@ -59,6 +94,48 @@ function OrdersContent() {
         });
         if (status) params.set("status", status);
         if (search.trim()) params.set("search", search.trim());
+
+        // Tiêu chí sắp xếp: giá hoặc thời gian
+        if (sortBy === "price_desc") {
+          params.set("sortBy", "totalAmount");
+          params.set("isAscending", "false");
+        } else if (sortBy === "price_asc") {
+          params.set("sortBy", "totalAmount");
+          params.set("isAscending", "true");
+        } else if (sortBy === "created_asc") {
+          params.set("sortBy", "createdAt");
+          params.set("isAscending", "true");
+        } else {
+          // created_desc: thời gian gần nhất (mặc định)
+          params.set("sortBy", "createdAt");
+          params.set("isAscending", "false");
+        }
+
+        // Lọc theo mốc thời gian
+        const todayStr = new Date().toISOString().split("T")[0];
+        if (dateMode === "exact" && exactDate) {
+          params.set("fromDate", exactDate);
+          params.set("toDate", exactDate);
+        } else if (dateMode === "from" && fromDate) {
+          params.set("fromDate", fromDate);
+          params.set("toDate", todayStr);
+        } else if (dateMode === "range") {
+          if (fromDate) params.set("fromDate", fromDate);
+          if (toDate) params.set("toDate", toDate);
+        } else if (dateMode === "today") {
+          params.set("fromDate", todayStr);
+          params.set("toDate", todayStr);
+        } else if (dateMode === "7days") {
+          const d7 = new Date();
+          d7.setDate(d7.getDate() - 7);
+          params.set("fromDate", d7.toISOString().split("T")[0]);
+          params.set("toDate", todayStr);
+        } else if (dateMode === "30days") {
+          const d30 = new Date();
+          d30.setDate(d30.getDate() - 30);
+          params.set("fromDate", d30.toISOString().split("T")[0]);
+          params.set("toDate", todayStr);
+        }
 
         const response = await fetch(`/api/orders?${params}`, {
           cache: "no-store",
@@ -101,7 +178,19 @@ function OrdersContent() {
     return () => {
       active = false;
     };
-  }, [session.status, session.user, page, status, search, attempt]);
+  }, [
+    session.status,
+    session.user,
+    page,
+    status,
+    search,
+    sortBy,
+    dateMode,
+    exactDate,
+    fromDate,
+    toDate,
+    attempt,
+  ]);
 
   async function cancel(order: Order) {
     if (actionId) return;
@@ -144,49 +233,6 @@ function OrdersContent() {
     }
   }
 
-  async function confirmPayment(order: Order) {
-    if (actionId) return;
-    setActionId(`pay-${order.orderId}`);
-    setError("");
-    setNotice("");
-    try {
-      const response = await fetch(
-        `/api/orders/${order.orderId}/confirm-payment`,
-        {
-          method: "POST",
-        },
-      );
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Không thể cập nhật thanh toán.");
-      }
-      setOrders((prev) =>
-        prev.map((o) =>
-          o.orderId === order.orderId ? { ...o, paymentStatus: "PAID" } : o,
-        ),
-      );
-      setNotice(
-        `Đơn hàng ${order.orderCode} đã được ghi nhận ĐÃ THANH TOÁN (Admin đã ghi nhận).`,
-      );
-      if (session.user?.userId) {
-        publishNotification(session.user.userId, {
-          id: `payment:${order.orderId}`,
-          kind: "order",
-          title: "Thanh toán thành công",
-          message: `Đơn hàng ${order.orderCode} đã được xác nhận thanh toán chuyển khoản thành công.`,
-          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
-        });
-      }
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "Không thể xác nhận thanh toán. Vui lòng thử lại.",
-      );
-    } finally {
-      setActionId("");
-    }
-  }
 
   async function reorder(item: Order["items"][number]) {
     if (actionId || busy) return;
@@ -272,17 +318,177 @@ function OrdersContent() {
             ))}
           </div>
         </div>
-        <div className={styles.searchBox}>
-          <input
-            className={styles.searchInput}
-            aria-label="Tìm đơn hàng"
-            placeholder="Tìm theo mã đơn, tên hoặc số điện thoại người nhận…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-          />
+        <div className={styles.filtersContainer}>
+          {/* Hàng 1: Ô tìm kiếm nhanh */}
+          <div className={styles.searchRow}>
+            <div className={styles.searchIconWrap}>
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <input
+              className={styles.searchInput}
+              aria-label="Tìm đơn hàng"
+              placeholder="Tìm theo mã đơn (ORD-...), tên người nhận hoặc số điện thoại…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+            {search && (
+              <button
+                type="button"
+                className={styles.clearSearchBtn}
+                onClick={() => {
+                  setSearch("");
+                  setPage(1);
+                }}
+                title="Xóa tìm kiếm"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Hàng 2: Bộ chọn cách hiển thị / sắp xếp & mốc thời gian */}
+          <div className={styles.controlsRow}>
+            <div className={styles.controlGroup}>
+              <label htmlFor="order-sort-select" className={styles.controlLabel}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M6 12h12m-9 6h6" />
+                </svg>
+                <span>Hiển thị theo:</span>
+              </label>
+              <select
+                id="order-sort-select"
+                className={styles.controlSelect}
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="created_desc">Thời gian: Gần nhất (Mới nhất)</option>
+                <option value="created_asc">Thời gian: Cũ nhất trước</option>
+                <option value="price_desc">Giá: Cao nhất đến thấp nhất</option>
+                <option value="price_asc">Giá: Thấp nhất đến cao nhất</option>
+              </select>
+            </div>
+
+            <div className={styles.controlGroup}>
+              <label htmlFor="order-date-mode-select" className={styles.controlLabel}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                <span>Mốc thời gian:</span>
+              </label>
+              <select
+                id="order-date-mode-select"
+                className={styles.controlSelect}
+                value={dateMode}
+                onChange={(e) => {
+                  setDateMode(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="all">Tất cả thời gian</option>
+                <option value="from">Từ mốc ngày... đến nay</option>
+                <option value="exact">Tại 1 ngày cụ thể</option>
+                <option value="range">Khoảng ngày tùy chọn</option>
+                <option value="today">Hôm nay</option>
+                <option value="7days">7 ngày qua</option>
+                <option value="30days">30 ngày qua</option>
+              </select>
+            </div>
+
+            {isFilterActive && (
+              <button
+                type="button"
+                className={styles.resetFilterBtn}
+                onClick={handleResetFilters}
+                title="Khôi phục về mặc định"
+              >
+                ↺ Đặt lại bộ lọc
+              </button>
+            )}
+          </div>
+
+          {/* Hàng 3: Ô nhập mốc ngày nếu chọn 'exact', 'from' hoặc 'range' */}
+          {dateMode === "exact" && (
+            <div className={styles.datePickerRow}>
+              <label className={styles.datePickerLabel}>
+                <span>Chọn ngày cụ thể:</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={exactDate}
+                  onChange={(e) => {
+                    setExactDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+              <span className={styles.datePickerHint}>
+                (Chỉ hiển thị các đơn phát sinh trong ngày này)
+              </span>
+            </div>
+          )}
+
+          {dateMode === "from" && (
+            <div className={styles.datePickerRow}>
+              <label className={styles.datePickerLabel}>
+                <span>Từ ngày:</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+              <span className={styles.datePickerArrow}>→</span>
+              <span className={styles.datePickerToNow}>
+                Cho đến hiện tại ({new Date().toLocaleDateString("vi-VN")})
+              </span>
+            </div>
+          )}
+
+          {dateMode === "range" && (
+            <div className={styles.datePickerRow}>
+              <label className={styles.datePickerLabel}>
+                <span>Từ ngày:</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+              <span className={styles.datePickerArrow}>→</span>
+              <label className={styles.datePickerLabel}>
+                <span>Đến ngày:</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+            </div>
+          )}
         </div>
         {notice && (
           <p role="status" className={styles.integrationNotice}>
@@ -302,7 +508,7 @@ function OrdersContent() {
         ) : !error && !orders.length ? (
           <div className={styles.emptyState}>
             <h2>Chưa có đơn hàng phù hợp</h2>
-            <p>Đơn hàng sẽ xuất hiện ở đây sau khi bạn đặt hàng.</p>
+            <p>Đơn hàng sẽ xuất hiện ở đây sau khi bạn đặt hàng hoặc khớp bộ lọc.</p>
             <Link href="/products">Khám phá sản phẩm →</Link>
           </div>
         ) : (
@@ -316,7 +522,7 @@ function OrdersContent() {
                         {order.orderCode}
                       </strong>
                       <p className={styles.orderDate}>
-                        {new Date(order.createdAt).toLocaleString("vi-VN")}
+                        📅 <strong>Đặt lúc:</strong> {formatOrderDateTime(order.createdAt)}
                       </p>
                     </div>
                     <span
@@ -357,11 +563,9 @@ function OrdersContent() {
                           <line x1="9" y1="9" x2="15" y2="15" />
                         </svg>
                         <span>Đơn hàng đã bị hủy</span>
-                        {order.cancelledAt && (
-                          <span className={styles.cancellationDate}>
-                            · Lúc {new Date(order.cancelledAt).toLocaleString("vi-VN")}
-                          </span>
-                        )}
+                        <span className={styles.cancellationDate}>
+                          · Đã hủy lúc: <strong>{formatOrderDateTime(order.cancelledAt || order.updatedAt)}</strong>
+                        </span>
                       </div>
                       <p className={styles.cancellationReasonText}>
                         <strong>Lý do hủy đơn:</strong>{" "}
@@ -371,45 +575,68 @@ function OrdersContent() {
                   )}
                   <div className={styles.orderBody}>
                     <div className={styles.itemsList}>
-                      {order.items.map((item) => (
-                        <div
-                          className={styles.itemWrapper}
-                          key={item.orderItemId}
-                        >
-                          <div className={styles.itemRow}>
-                            <div className={styles.itemImageWrap}>
-                              {item.imageUrl && (
-                                <Image
-                                  src={item.imageUrl}
-                                  alt={item.productName}
-                                  fill
-                                  sizes="80px"
-                                  className={styles.itemImage}
-                                />
-                              )}
+                      {order.items.map((item) => {
+                        const isAwaitingPayment =
+                          order.paymentMethod !== "COD" &&
+                          order.paymentStatus !== "PAID" &&
+                          order.status !== "CANCELLED";
+                        const itemHref = isAwaitingPayment
+                          ? `/checkout?orderId=${order.orderId}`
+                          : `/products/${item.productId}`;
+                        const itemTitle = isAwaitingPayment
+                          ? "Đơn hàng đang chờ thanh toán - Bấm để vào lại trang thanh toán quét mã QR"
+                          : item.productName;
+
+                        return (
+                          <div
+                            className={styles.itemWrapper}
+                            key={item.orderItemId}
+                          >
+                            <div className={styles.itemRow}>
+                              <Link
+                                href={itemHref}
+                                className={styles.itemImageWrap}
+                                title={itemTitle}
+                              >
+                                {item.imageUrl && (
+                                  <Image
+                                    src={item.imageUrl}
+                                    alt={item.productName}
+                                    fill
+                                    sizes="80px"
+                                    className={styles.itemImage}
+                                  />
+                                )}
+                              </Link>
+                              <div className={styles.itemInfo}>
+                                <strong className={styles.itemName}>
+                                  <Link
+                                    href={itemHref}
+                                    title={itemTitle}
+                                    style={{ color: "inherit", textDecoration: "none" }}
+                                  >
+                                    {item.productName}
+                                  </Link>
+                                </strong>
+                                <p className={styles.itemVariant}>
+                                  {item.variantName}
+                                </p>
+                                <p className={styles.itemPriceQty}>
+                                  {formatPrice(item.unitPrice)} · Số lượng{" "}
+                                  {item.quantity}
+                                </p>
+                              </div>
+                              <button
+                                className={styles.actionBtnReorder}
+                                disabled={!!actionId || busy}
+                                onClick={() => void reorder(item)}
+                              >
+                                Mua lại
+                              </button>
                             </div>
-                            <div className={styles.itemInfo}>
-                              <strong className={styles.itemName}>
-                                {item.productName}
-                              </strong>
-                              <p className={styles.itemVariant}>
-                                {item.variantName}
-                              </p>
-                              <p className={styles.itemPriceQty}>
-                                {formatPrice(item.unitPrice)} · Số lượng{" "}
-                                {item.quantity}
-                              </p>
-                            </div>
-                            <button
-                              className={styles.actionBtnReorder}
-                              disabled={!!actionId || busy}
-                              onClick={() => void reorder(item)}
-                            >
-                              Mua lại
-                            </button>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <div className={styles.orderFooter}>
                       <div className={styles.deliveryInfo}>
@@ -422,8 +649,8 @@ function OrdersContent() {
                         <p>{order.shippingAddress}</p>
                         <p>
                           {order.paymentMethod === "COD"
-                            ? "Thanh toán khi nhận hàng"
-                            : "Chuyển khoản"}{" "}
+                            ? "Thanh toán khi nhận hàng (COD)"
+                            : "Chuyển khoản (VietQR)"}{" "}
                           ·{" "}
                           <span
                             className={
@@ -433,23 +660,20 @@ function OrdersContent() {
                             }
                           >
                             {order.paymentStatus === "PAID"
-                              ? "✓ Đã thanh toán"
-                              : "Chờ chuyển khoản"}
+                              ? `✓ Đã thanh toán (lúc ${formatOrderDateTime(order.paidAt || order.updatedAt || order.createdAt)})`
+                              : `⏳ Chờ chuyển khoản (tạo lúc ${formatOrderDateTime(order.createdAt)})`}
                           </span>
                         </p>
                         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "6px" }}>
                           {order.paymentMethod !== "COD" &&
                             order.paymentStatus !== "PAID" &&
                             order.status !== "CANCELLED" && (
-                              <button
+                              <Link
+                                href={`/checkout?orderId=${order.orderId}`}
                                 className={styles.actionBtnPay}
-                                disabled={!!actionId}
-                                onClick={() => void confirmPayment(order)}
                               >
-                                {actionId === `pay-${order.orderId}`
-                                  ? "Đang xử lý…"
-                                  : "✓ Báo đã thanh toán"}
-                              </button>
+                                Thanh toán
+                              </Link>
                             )}
                           {["PENDING", "CONFIRMED"].includes(order.status) && (
                             <button
