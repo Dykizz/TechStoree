@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useEffect, useState, useMemo, useRef, useCallback } from "react";
 import VariantSelector from "../../../components/products/VariantSelector";
+import ProductReviews from "../../../components/reviews/ProductReviews";
 import { useCart } from "../../../lib/context/CartContext";
 import { fetchProductById, formatPrice } from "../../../lib/products-client";
 import {
@@ -815,16 +816,7 @@ export default function ProductDetailPage({
               </div>
             )}
 
-            <section
-              className={styles.reviewsSection}
-              aria-label="Đánh giá sản phẩm"
-            >
-              <h2 className={styles.reviewsTitle}>Đánh giá & nhận xét</h2>
-              <p className={styles.descContent}>
-                Tính năng đánh giá đang được hoàn thiện. Chưa có đánh giá được
-                xác nhận bởi hệ thống.
-              </p>
-            </section>
+            <ProductReviews key={productId} productId={productId} />
           </div>
         </div>
       </div>

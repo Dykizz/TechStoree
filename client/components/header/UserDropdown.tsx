@@ -201,6 +201,18 @@ export default function UserDropdown({
             </Link>
 
             <Link
+              href="/reviews"
+              className={`${styles.menuItem} ${pathname === "/reviews" ? styles.menuItemActive : ""}`}
+              onClick={closeDropdown}
+              role="menuitem"
+            >
+              <svg className={styles.itemIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z" />
+              </svg>
+              <span>Đánh giá của tôi</span>
+            </Link>
+
+            <Link
               href="/surveys"
               className={`${styles.menuItem} ${
                 pathname === "/surveys" ? styles.menuItemActive : ""
