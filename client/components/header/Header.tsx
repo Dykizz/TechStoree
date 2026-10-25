@@ -92,7 +92,7 @@ export default function Header() {
     try {
       await logoutCustomer();
       setUser(null);
-      const privateRoutes = ["/profile", "/orders", "/cart", "/checkout", "/surveys"];
+      const privateRoutes = ["/profile", "/orders", "/cart", "/checkout", "/surveys", "/reviews"];
       const isPrivateRoute = privateRoutes.some(
         (route) => pathname === route || pathname.startsWith(`${route}/`),
       );

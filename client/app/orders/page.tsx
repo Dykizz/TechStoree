@@ -18,6 +18,7 @@ import {
   formatPrice,
 } from "../../lib/products-client";
 import type { Order } from "../../lib/types/order";
+import OrderReviewActions, { OrderReviewProvider } from "../../components/reviews/OrderReviewActions";
 import styles from "./orders.module.css";
 
 const tabs = [
@@ -513,6 +514,7 @@ function OrdersContent() {
           </div>
         ) : (
           !error && (
+            <OrderReviewProvider itemIds={orders.filter((order) => order.status === "DELIVERED").flatMap((order) => order.items.map((item) => item.orderItemId))}>
             <div className={styles.orderList}>
               {orders.map((order) => (
                 <article className={styles.orderCard} key={order.orderId}>
@@ -634,6 +636,7 @@ function OrdersContent() {
                                 Mua lại
                               </button>
                             </div>
+                            {order.status === "DELIVERED" && <OrderReviewActions orderItemId={item.orderItemId} />}
                           </div>
                         );
                       })}
@@ -709,6 +712,7 @@ function OrdersContent() {
                 </article>
               ))}
             </div>
+            </OrderReviewProvider>
           )
         )}
         {!loading && !error && totalPages > 1 && (
