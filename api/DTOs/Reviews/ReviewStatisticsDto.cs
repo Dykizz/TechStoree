@@ -34,4 +34,28 @@ public class ReviewStatisticsDto
     /// </summary>
     /// <example>{"5.0": 90, "4.5": 20, "4.0": 10, "3.5": 5, "3.0": 2, "2.0": 1}</example>
     public Dictionary<string, int> RatingDistribution { get; set; } = new();
+
+    /// <summary>
+    /// Top 5 sản phẩm đánh giá tốt nhất
+    /// </summary>
+    public List<ProductRatingRankingDto> TopRatedProducts { get; set; } = new();
+
+    /// <summary>
+    /// Top 5 sản phẩm đánh giá tiêu cực nhất / cần lưu ý
+    /// </summary>
+    public List<ProductRatingRankingDto> LowestRatedProducts { get; set; } = new();
+}
+
+/// <summary>
+/// DTO xếp hạng đánh giá của một sản phẩm
+/// </summary>
+public class ProductRatingRankingDto
+{
+    public int ProductId { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string? ProductImageUrl { get; set; }
+    public decimal AverageRating { get; set; }
+    public int TotalReviews { get; set; }
+    public int PositiveReviewCount { get; set; }
+    public int NegativeReviewCount { get; set; }
 }

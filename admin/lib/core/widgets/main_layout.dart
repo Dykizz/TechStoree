@@ -20,6 +20,7 @@ import '../../features/customers/customers_screen.dart';
 import '../../features/staff/staff_screen.dart';
 import '../../features/roles/roles_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/reviews/reviews_screen.dart';
 
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
@@ -38,6 +39,7 @@ class MainLayout extends StatelessWidget {
       case 7: return authProvider.can('Promotions.View'); // Khuyến mãi
       case 8: return authProvider.can('Vouchers.View'); // Vouchers
       case 9: return authProvider.can('Surveys.View'); // Khảo sát
+      case 14: return authProvider.can('Reviews.View'); // Đánh giá sản phẩm
       case 10: return authProvider.can('Customers.View') || authProvider.can('Users.View'); // Khách hàng
       case 11: return authProvider.can('Employees.View') || authProvider.can('Users.View'); // Nhân viên
       case 12: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
@@ -76,6 +78,8 @@ class MainLayout extends StatelessWidget {
         return const RolesScreen();
       case 13:
         return const SettingsScreen();
+      case 14:
+        return const ReviewsScreen();
       default:
         return const DashboardScreen();
     }
@@ -102,6 +106,7 @@ class MainLayout extends StatelessWidget {
       'Nhân viên',
       'Vai Trò & Phân Quyền',
       'Cài đặt hệ thống',
+      'Đánh giá sản phẩm',
     ];
 
     final rawIndex = navProvider.currentIndex;

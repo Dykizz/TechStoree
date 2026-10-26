@@ -356,13 +356,50 @@ public class ReviewService(AppDbContext dbContext) : IReviewService
             g => g.Count
         );
 
+        var topRatedProducts = new List<ProductRatingRankingDto>();
+        var lowestRatedProducts = new List<ProductRatingRankingDto>();
+
+        if (!productId.HasValue)
+        {
+            var productStats = await dbContext.ProductReviews
+                .AsNoTracking()
+                .Where(r => !r.IsHidden)
+                .GroupBy(r => new { r.ProductId, r.Product.ProductName, r.Product.ImageUrl })
+                .Select(g => new ProductRatingRankingDto
+                {
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.ProductName,
+                    ProductImageUrl = g.Key.ImageUrl,
+                    TotalReviews = g.Count(),
+                    AverageRating = Math.Round((decimal)g.Average(r => r.Rating), 1),
+                    PositiveReviewCount = g.Count(r => r.Rating >= 4.0m),
+                    NegativeReviewCount = g.Count(r => r.Rating <= 2.0m)
+                })
+                .ToListAsync();
+
+            topRatedProducts = productStats
+                .OrderByDescending(p => p.AverageRating)
+                .ThenByDescending(p => p.TotalReviews)
+                .Take(5)
+                .ToList();
+
+            lowestRatedProducts = productStats
+                .OrderByDescending(p => p.NegativeReviewCount)
+                .ThenBy(p => p.AverageRating)
+                .ThenByDescending(p => p.TotalReviews)
+                .Take(5)
+                .ToList();
+        }
+
         return new ReviewStatisticsDto
         {
             TotalReviews = totalReviews,
             AverageRating = Math.Round(avgRating, 1),
             TotalReplied = totalReplied,
             TotalHidden = totalHidden,
-            RatingDistribution = distributionDict
+            RatingDistribution = distributionDict,
+            TopRatedProducts = topRatedProducts,
+            LowestRatedProducts = lowestRatedProducts
         };
     }
 
