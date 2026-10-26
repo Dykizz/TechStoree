@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -97,7 +99,7 @@ class _SurveyListViewState extends State<SurveyListView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageHeader(
-                title: 'Quản Lý Khảo Sát Thị Trường & CRM',
+                title: 'Quản lý khảo sát',
                 subtitle: 'Tạo biểu mẫu thăm dò ý kiến, gắn voucher phần thưởng và phân tích tỷ lệ phản hồi khách hàng',
                 action: authProvider.can('Surveys.Create')
                     ? AppButton(
@@ -249,9 +251,12 @@ class _SurveyListViewState extends State<SurveyListView> {
                                             // Active Status
                                             DataCell(
                                               StatusBadge(
-                                                label: s.isActive ? 'ĐANG MỞ' : 'TẠM DỪNG',
-                                                isSuccess: s.isActive,
-                                                isDanger: !s.isActive,
+                                                label: s.isExpired
+                                                    ? 'HẾT HẠN'
+                                                    : (s.isActive ? 'ĐANG MỞ' : 'TẠM DỪNG'),
+                                                isSuccess: !s.isExpired && s.isActive,
+                                                isDanger: s.isExpired,
+                                                isWarning: !s.isExpired && !s.isActive,
                                               ),
                                             ),
 
@@ -264,8 +269,28 @@ class _SurveyListViewState extends State<SurveyListView> {
                                             // Response Rate & Progress Bar
                                             DataCell(_buildResponseRateCell(s, textPrimary, textSecondary)),
 
-                                            // Created At
-                                            DataCell(Text('${s.createdAt.day}/${s.createdAt.month}/${s.createdAt.year}', style: TextStyle(color: textSecondary, fontSize: 11))),
+                                            // Created & Expiry At
+                                            DataCell(
+                                              Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    '${s.createdAt.day}/${s.createdAt.month}/${s.createdAt.year}',
+                                                    style: TextStyle(color: textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
+                                                  ),
+                                                  if (s.expiredAt != null)
+                                                    Text(
+                                                      'Hạn: ${s.expiredAt!.day}/${s.expiredAt!.month}/${s.expiredAt!.year}',
+                                                      style: TextStyle(
+                                                        color: s.isExpired ? AppColors.danger : AppColors.warning,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
 
                                             // Compact Actions: [View] [⋯]
                                             DataCell(
@@ -315,6 +340,16 @@ class _SurveyListViewState extends State<SurveyListView> {
                                                             Icon(Icons.bar_chart_rounded, size: 14),
                                                             SizedBox(width: 8),
                                                             Text('Xem thống kê', style: TextStyle(fontSize: 12)),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                      const PopupMenuItem(
+                                                        value: 'EXPORT',
+                                                        child: Row(
+                                                          children: [
+                                                            Icon(Icons.download_rounded, size: 14),
+                                                            SizedBox(width: 8),
+                                                            Text('Xuất báo cáo (CSV)', style: TextStyle(fontSize: 12)),
                                                           ],
                                                         ),
                                                       ),
@@ -468,6 +503,53 @@ class _SurveyListViewState extends State<SurveyListView> {
         break;
       case 'STATS':
         widget.onViewStats(s.surveyId);
+        break;
+      case 'EXPORT':
+        final (bytes, filename) = await apiService.exportSurveyCsv(s.surveyId, token: token);
+        if (bytes != null && bytes.isNotEmpty) {
+          String? targetPath;
+          try {
+            final savedUri = await FilePicker.saveFile(
+              dialogTitle: 'Chọn nơi lưu báo cáo khảo sát CSV',
+              fileName: filename,
+              bytes: bytes,
+              type: FileType.custom,
+              allowedExtensions: ['csv'],
+            );
+            if (savedUri != null) {
+              final file = File.fromUri(savedUri);
+              if (!await file.exists() || await file.length() == 0) {
+                await file.writeAsBytes(bytes);
+              }
+              targetPath = file.path;
+            }
+          } catch (pickerErr) {
+            debugPrint('FilePicker error: $pickerErr');
+          }
+
+          if (targetPath == null) {
+            final userProfile = Platform.environment['USERPROFILE'] ?? 'C:\\Users\\Public';
+            final downloadsDir = Directory('$userProfile\\Downloads');
+            final saveDir = await downloadsDir.exists() ? downloadsDir.path : userProfile;
+            final fallbackFile = File('$saveDir\\$filename');
+            await fallbackFile.writeAsBytes(bytes);
+            targetPath = fallbackFile.path;
+          }
+
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
+              backgroundColor: AppColors.success,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
+          );
+        }
         break;
       case 'CLONE':
         final res = await apiService.cloneSurvey(s.surveyId, token: token);

@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +29,7 @@ class SurveyStatisticsView extends StatefulWidget {
 
 class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
   late Future<SurveyStatistics?> _statsFuture;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -38,6 +41,68 @@ class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     _statsFuture = apiService.getSurveyStatistics(widget.surveyId, token: token);
+  }
+
+  Future<void> _exportCsv(int surveyId) async {
+    setState(() => _isExporting = true);
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+
+    try {
+      final (bytes, filename) = await apiService.exportSurveyCsv(surveyId, token: token);
+      if (bytes != null && bytes.isNotEmpty) {
+        String? targetPath;
+        try {
+          final savedUri = await FilePicker.saveFile(
+            dialogTitle: 'Chọn nơi lưu báo cáo kết quả khảo sát CSV',
+            fileName: filename,
+            bytes: bytes,
+            type: FileType.custom,
+            allowedExtensions: ['csv'],
+          );
+          if (savedUri != null) {
+            final file = File.fromUri(savedUri);
+            if (!await file.exists() || await file.length() == 0) {
+              await file.writeAsBytes(bytes);
+            }
+            targetPath = file.path;
+          }
+        } catch (pickerErr) {
+          debugPrint('FilePicker error: $pickerErr');
+        }
+
+        // Tự động lưu vào thư mục Downloads của máy tính nếu chưa có đường dẫn
+        if (targetPath == null) {
+          final userProfile = Platform.environment['USERPROFILE'] ?? 'C:\\Users\\Public';
+          final downloadsDir = Directory('$userProfile\\Downloads');
+          final saveDir = await downloadsDir.exists() ? downloadsDir.path : userProfile;
+          final fallbackFile = File('$saveDir\\$filename');
+          await fallbackFile.writeAsBytes(bytes);
+          targetPath = fallbackFile.path;
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi xuất file: $e'), backgroundColor: AppColors.danger),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
   }
 
   @override
@@ -115,25 +180,30 @@ class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
               const SizedBox(height: 12),
 
               PageHeader(
-                title: 'Báo Cáo Thống Kê & Phân Tích Kết Quả Khảo Sát',
+                title: 'Báo cáo thống kê & phân tích kết quả khảo sát',
                 subtitle: stats.title,
+                action: AppButton(
+                  label: _isExporting ? 'Đang xuất file...' : 'Xuất báo cáo (CSV)',
+                  icon: Icons.download_rounded,
+                  onPressed: _isExporting ? null : () => _exportCsv(stats.surveyId),
+                ),
               ),
 
               // KPI Cards Row
               Row(
                 children: [
-                  Expanded(child: _buildKpiCard('Đã Phát Khảo Sát', '${stats.totalAssigned}', Icons.send_rounded, AppColors.info, isDark, cardBg, borderColor, textPrimary, textSecondary)),
+                  Expanded(child: _buildKpiCard('Đã phát khảo sát', '${stats.totalAssigned}', Icons.send_rounded, AppColors.info, isDark, cardBg, borderColor, textPrimary, textSecondary)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildKpiCard('Hoàn Thành Nộp Bài', '${stats.totalCompleted}', Icons.check_circle_rounded, AppColors.success, isDark, cardBg, borderColor, textPrimary, textSecondary)),
+                  Expanded(child: _buildKpiCard('Hoàn thành nộp bài', '${stats.totalCompleted}', Icons.check_circle_rounded, AppColors.success, isDark, cardBg, borderColor, textPrimary, textSecondary)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildKpiCard('Tỷ Lệ Phản Hồi (%)', '${stats.responseRatePercent}%', Icons.pie_chart_rounded, AppColors.primary, isDark, cardBg, borderColor, textPrimary, textSecondary)),
+                  Expanded(child: _buildKpiCard('Tỷ lệ phản hồi (%)', '${stats.responseRatePercent}%', Icons.pie_chart_rounded, AppColors.primary, isDark, cardBg, borderColor, textPrimary, textSecondary)),
                 ],
               ),
 
               const SizedBox(height: 20),
 
               Text(
-                'PHÂN TÍCH CHI TIẾT THEO CÂU HỎI (${stats.questions.length} CÂU)',
+                'Phân tích chi tiết theo câu hỏi (${stats.questions.length} câu)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textSecondary, letterSpacing: 0.5),
               ),
               const SizedBox(height: 12),

@@ -32,6 +32,7 @@ class _SurveyFormViewState extends State<SurveyFormView> {
   late TextEditingController _descCtrl;
   int? _selectedRewardVoucherId;
   bool _isActive = true;
+  DateTime? _expiredAt;
   bool _isSubmitting = false;
 
   List<Voucher> _availableVouchers = [];
@@ -51,6 +52,7 @@ class _SurveyFormViewState extends State<SurveyFormView> {
     _descCtrl = TextEditingController(text: existing?.description ?? '');
     _selectedRewardVoucherId = existing?.rewardVoucherId;
     _isActive = existing?.isActive ?? true;
+    _expiredAt = existing?.expiredAt;
 
     if (existing != null && existing.questions.isNotEmpty) {
       _questionDrafts = existing.questions.map((q) {
@@ -347,6 +349,85 @@ class _SurveyFormViewState extends State<SurveyFormView> {
                 ],
               );
             },
+          ),
+
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 14),
+
+          // Expiration Date Time Picker
+          Row(
+            children: [
+              Icon(Icons.timer_outlined, size: 18, color: _expiredAt != null ? AppColors.warning : textSecondary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hạn chót kết thúc nhận bài (Tự động đóng)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _expiredAt == null
+                          ? 'Chưa thiết lập hạn chót (Khảo sát chạy không thời hạn)'
+                          : 'Tự động đóng vào: ${_expiredAt!.hour.toString().padLeft(2, '0')}:${_expiredAt!.minute.toString().padLeft(2, '0')} ngày ${_expiredAt!.day}/${_expiredAt!.month}/${_expiredAt!.year}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _expiredAt == null ? textSecondary : AppColors.warning,
+                        fontWeight: _expiredAt == null ? FontWeight.normal : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_expiredAt != null)
+                IconButton(
+                  icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
+                  tooltip: 'Hủy hẹn giờ (Chạy không thời hạn)',
+                  onPressed: () => setState(() => _expiredAt = null),
+                ),
+              const SizedBox(width: 4),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  side: BorderSide(color: AppColors.primary.withOpacity(0.5)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+                icon: const Icon(Icons.calendar_month_rounded, size: 16, color: AppColors.primary),
+                label: Text(
+                  _expiredAt == null ? 'Đặt hạn chót' : 'Đổi thời gian',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+                ),
+                onPressed: () async {
+                  final initial = _expiredAt ?? DateTime.now().add(const Duration(days: 7));
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: initial,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                  );
+                  if (pickedDate != null && mounted) {
+                    final pickedTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+                    );
+                    if (pickedTime != null && mounted) {
+                      setState(() {
+                        _expiredAt = DateTime(
+                          pickedDate.year,
+                          pickedDate.month,
+                          pickedDate.day,
+                          pickedTime.hour,
+                          pickedTime.minute,
+                        );
+                      });
+                    }
+                  }
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -932,6 +1013,7 @@ class _SurveyFormViewState extends State<SurveyFormView> {
         description: _descCtrl.text.trim().isNotEmpty ? _descCtrl.text.trim() : null,
         rewardVoucherId: _selectedRewardVoucherId,
         isActive: _isActive,
+        expiredAt: _expiredAt,
         questions: hasResponses ? null : questionDtos,
       );
       res = await apiService.updateSurvey(widget.existingSurvey!.surveyId, req, token: token);
@@ -941,6 +1023,7 @@ class _SurveyFormViewState extends State<SurveyFormView> {
         description: _descCtrl.text.trim().isNotEmpty ? _descCtrl.text.trim() : null,
         rewardVoucherId: _selectedRewardVoucherId,
         isActive: _isActive,
+        expiredAt: _expiredAt,
         questions: questionDtos,
       );
       res = await apiService.createSurvey(req, token: token);

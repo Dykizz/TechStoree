@@ -116,7 +116,13 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     public async Task<IActionResult> AssignSurvey([FromRoute] int id, [FromBody] AssignSurveyRequestDto dto)
     {
         var count = await surveyService.AssignSurveyAsync(id, dto);
-        return Success(count, $"Đã phát bài khảo sát thành công tới {count} khách hàng.");
+        var msg = dto.TargetType switch
+        {
+            SurveyTargetType.BY_IDS => $"Đã phát bài khảo sát tới {count} khách hàng được chỉ định.",
+            SurveyTargetType.BY_INTEREST => $"Đã phát bài khảo sát tới {count} khách hàng thuộc phân khúc sở thích '{dto.TechInterest}'.",
+            _ => $"Đã phát bài khảo sát thành công tới {count} khách hàng."
+        };
+        return Success(count, msg);
     }
 
     /// <summary>
@@ -145,6 +151,19 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
         return CreatedSuccess(cloned, "Nhân bản bài khảo sát thành công.");
     }
 
+    /// <summary>
+    /// [Admin] Xuất báo cáo dữ liệu khảo sát ra file CSV (UTF-8 BOM hỗ trợ Excel tiếng Việt)
+    /// </summary>
+    /// <param name="id">Mã ID bài khảo sát</param>
+    [HttpGet("{id:int}/export-csv")]
+    [HasPermission(AppPermissions.Surveys.View)]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ExportSurveyCsv([FromRoute] int id)
+    {
+        var (bytes, fileName) = await surveyService.ExportSurveyCsvAsync(id);
+        return File(bytes, "text/csv; charset=utf-8", fileName);
+    }
+
     // =========================================================================
     // KHÁCH HÀNG (CUSTOMER PORTAL)
     // =========================================================================
@@ -159,6 +178,19 @@ public class SurveysController(ISurveyService surveyService) : BaseApiController
     {
         var result = await surveyService.GetCustomerSurveysAsync(CurrentUserId);
         return Success(result, "Lấy danh sách bài khảo sát của bạn thành công.");
+    }
+
+    /// <summary>
+    /// [Khách hàng] Đánh dấu đã nhận/hiển thị thông báo về bài khảo sát (Giải pháp 1)
+    /// </summary>
+    /// <param name="id">Mã ID bài khảo sát</param>
+    [HttpPost("{id:int}/mark-notified")]
+    [Authorize]
+    [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> MarkSurveyNotified([FromRoute] int id)
+    {
+        var success = await surveyService.MarkSurveyNotifiedAsync(id, CurrentUserId);
+        return Success(success, "Đã đánh dấu thông báo khảo sát.");
     }
 
     /// <summary>

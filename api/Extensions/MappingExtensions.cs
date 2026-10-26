@@ -721,8 +721,11 @@ public static class MappingExtensions
             RewardVoucherTitle = survey.RewardVoucher?.Title,
             IsActive = survey.IsActive,
             CreatedAt = survey.CreatedAt,
+            StartAt = survey.StartAt,
+            ExpiredAt = survey.ExpiredAt,
             TotalAssigned = assigned,
-            TotalCompleted = completed
+            TotalCompleted = completed,
+            AssignedUserIds = survey.Assignments?.Select(a => a.UserId).ToList() ?? new List<int>()
         };
     }
 
@@ -741,8 +744,11 @@ public static class MappingExtensions
             RewardVoucherTitle = survey.RewardVoucher?.Title,
             IsActive = survey.IsActive,
             CreatedAt = survey.CreatedAt,
+            StartAt = survey.StartAt,
+            ExpiredAt = survey.ExpiredAt,
             TotalAssigned = survey.Assignments?.Count ?? 0,
             TotalCompleted = completedAssignments.Count,
+            AssignedUserIds = survey.Assignments?.Select(a => a.UserId).ToList() ?? new List<int>(),
             RewardVoucher = survey.RewardVoucher?.ToVoucherBaseDto(),
             Questions = survey.Questions?
                 .OrderBy(q => q.OrderNum)
@@ -766,7 +772,9 @@ public static class MappingExtensions
             RewardVoucherDiscountType = survey?.RewardVoucher?.DiscountType,
             IsCompleted = assignment.CompletedAt.HasValue,
             AssignedAt = assignment.AssignedAt,
-            CompletedAt = assignment.CompletedAt
+            CompletedAt = assignment.CompletedAt,
+            ExpiredAt = survey?.ExpiredAt,
+            IsNotified = assignment.IsNotified
         };
     }
 
@@ -804,6 +812,7 @@ public static class MappingExtensions
             Title = survey.Title,
             Description = survey.Description,
             RewardVoucherTitle = survey.RewardVoucher?.Title,
+            ExpiredAt = survey.ExpiredAt,
             Questions = survey.Questions?
                 .OrderBy(q => q.OrderNum)
                 .Select(q => q.ToTakeQuestionDto())

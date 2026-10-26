@@ -98,10 +98,15 @@ class SurveyAdminList {
   final String? rewardVoucherTitle;
   final bool isActive;
   final DateTime createdAt;
+  final DateTime? startAt;
+  final DateTime? expiredAt;
   final int totalAssigned;
   final int totalCompleted;
   final double responseRatePercent;
   final bool hasResponses;
+  final List<int> assignedUserIds;
+
+  bool get isExpired => expiredAt != null && expiredAt!.isBefore(DateTime.now());
 
   SurveyAdminList({
     required this.surveyId,
@@ -112,16 +117,24 @@ class SurveyAdminList {
     this.rewardVoucherTitle,
     required this.isActive,
     required this.createdAt,
+    this.startAt,
+    this.expiredAt,
     required this.totalAssigned,
     required this.totalCompleted,
     required this.responseRatePercent,
     required this.hasResponses,
+    this.assignedUserIds = const [],
   });
 
   factory SurveyAdminList.fromJson(Map<String, dynamic> json) {
     DateTime parseDate(dynamic val) {
       if (val == null) return DateTime.now();
       return DateTime.tryParse(val.toString())?.toLocal() ?? DateTime.now();
+    }
+
+    DateTime? parseNullableDate(dynamic val) {
+      if (val == null) return null;
+      return DateTime.tryParse(val.toString())?.toLocal();
     }
 
     final totalAssigned = (json['totalAssigned'] ?? 0) as int;
@@ -135,6 +148,13 @@ class SurveyAdminList {
 
     final bool hasResp = json['hasResponses'] == true || totalCompleted > 0;
 
+    List<int> assignedIds = [];
+    if (json['assignedUserIds'] is List) {
+      assignedIds = (json['assignedUserIds'] as List)
+          .map((e) => (e as num).toInt())
+          .toList();
+    }
+
     return SurveyAdminList(
       surveyId: (json['surveyId'] ?? json['id'] ?? 0) as int,
       title: (json['title'] ?? '').toString(),
@@ -144,10 +164,13 @@ class SurveyAdminList {
       rewardVoucherTitle: json['rewardVoucherTitle']?.toString(),
       isActive: (json['isActive'] ?? true) as bool,
       createdAt: parseDate(json['createdAt']),
+      startAt: parseNullableDate(json['startAt']),
+      expiredAt: parseNullableDate(json['expiredAt']),
       totalAssigned: totalAssigned,
       totalCompleted: totalCompleted,
       responseRatePercent: double.parse(responseRate.toStringAsFixed(1)),
       hasResponses: hasResp,
+      assignedUserIds: assignedIds,
     );
   }
 }
@@ -165,10 +188,13 @@ class SurveyAdminDetail extends SurveyAdminList {
     super.rewardVoucherTitle,
     required super.isActive,
     required super.createdAt,
+    super.startAt,
+    super.expiredAt,
     required super.totalAssigned,
     required super.totalCompleted,
     required super.responseRatePercent,
     required super.hasResponses,
+    super.assignedUserIds,
     required this.questions,
     this.rewardVoucher,
   });
@@ -196,6 +222,8 @@ class SurveyAdminDetail extends SurveyAdminList {
       rewardVoucherTitle: base.rewardVoucherTitle,
       isActive: base.isActive,
       createdAt: base.createdAt,
+      startAt: base.startAt,
+      expiredAt: base.expiredAt,
       totalAssigned: base.totalAssigned,
       totalCompleted: base.totalCompleted,
       responseRatePercent: base.responseRatePercent,
@@ -422,6 +450,8 @@ class CreateSurveyRequest {
   final String? description;
   final int? rewardVoucherId;
   final bool isActive;
+  final DateTime? startAt;
+  final DateTime? expiredAt;
   final List<CreateSurveyQuestion> questions;
 
   CreateSurveyRequest({
@@ -429,6 +459,8 @@ class CreateSurveyRequest {
     this.description,
     this.rewardVoucherId,
     this.isActive = true,
+    this.startAt,
+    this.expiredAt,
     required this.questions,
   });
 
@@ -438,6 +470,8 @@ class CreateSurveyRequest {
       'description': description,
       'rewardVoucherId': rewardVoucherId,
       'isActive': isActive,
+      'startAt': startAt?.toUtc().toIso8601String(),
+      'expiredAt': expiredAt?.toUtc().toIso8601String(),
       'questions': questions.map((q) => q.toJson()).toList(),
     };
   }
@@ -496,6 +530,8 @@ class UpdateSurveyRequest {
   final String? description;
   final int? rewardVoucherId;
   final bool isActive;
+  final DateTime? startAt;
+  final DateTime? expiredAt;
   final List<CreateSurveyQuestion>? questions;
 
   UpdateSurveyRequest({
@@ -503,6 +539,8 @@ class UpdateSurveyRequest {
     this.description,
     this.rewardVoucherId,
     required this.isActive,
+    this.startAt,
+    this.expiredAt,
     this.questions,
   });
 
@@ -512,6 +550,8 @@ class UpdateSurveyRequest {
       'description': description,
       'rewardVoucherId': rewardVoucherId,
       'isActive': isActive,
+      'startAt': startAt?.toUtc().toIso8601String(),
+      'expiredAt': expiredAt?.toUtc().toIso8601String(),
     };
     if (questions != null) {
       data['questions'] = questions!.map((q) => q.toJson()).toList();
