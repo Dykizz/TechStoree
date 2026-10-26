@@ -40,6 +40,19 @@ public class CustomerSurveyListDto
 
     /// <example>null</example>
     public DateTime? CompletedAt { get; set; }
+
+    /// <example>2026-11-30T23:59:59Z</example>
+    public DateTime? ExpiredAt { get; set; }
+
+    /// <summary>
+    /// Đã hết hạn làm khảo sát hay chưa
+    /// </summary>
+    public bool IsExpired => ExpiredAt.HasValue && ExpiredAt.Value < DateTime.UtcNow;
+
+    /// <summary>
+    /// Đã gửi/hiển thị thông báo cho khách hàng hay chưa (Giải pháp 1)
+    /// </summary>
+    public bool IsNotified { get; set; }
 }
 
 /// <summary>
@@ -58,6 +71,9 @@ public class TakeSurveyDto
 
     /// <example>Voucher Giảm 50K Phụ kiện Âm thanh</example>
     public string? RewardVoucherTitle { get; set; }
+
+    /// <example>2026-11-30T23:59:59Z</example>
+    public DateTime? ExpiredAt { get; set; }
 
     public List<TakeQuestionDto> Questions { get; set; } = new();
 }

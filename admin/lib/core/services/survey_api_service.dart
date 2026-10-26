@@ -204,9 +204,10 @@ mixin SurveyApiService on BaseApiService {
         if (jsonRes is Map<String, dynamic> && jsonRes['data'] != null) {
           count = (jsonRes['data'] as num).toInt();
         }
+        final serverMessage = jsonRes is Map<String, dynamic> ? jsonRes['message']?.toString() : null;
         return ApiResult(
           success: true,
-          message: 'Đã phát bài khảo sát thành công tới $count khách hàng.',
+          message: serverMessage ?? 'Đã phát bài khảo sát thành công tới $count khách hàng.',
           data: count,
         );
       }
@@ -262,5 +263,43 @@ mixin SurveyApiService on BaseApiService {
       debugPrint('API Error cloneSurvey: $e');
       return ApiResult(success: false, message: 'Lỗi khi nhân bản khảo sát: $e');
     }
+  }
+
+  Future<(Uint8List?, String)> exportSurveyCsv(int id, {String? token}) async {
+    try {
+      final response = await httpGet(
+        Uri.parse('$baseUrl/surveys/$id/export-csv'),
+        token: token,
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        String fileName = 'KhaoSat_${id}_KetQua.csv';
+        final disp = response.headers['content-disposition'];
+        if (disp != null) {
+          final starMatch = RegExp(r"filename\*=UTF-8''([^;\r\n]+)").firstMatch(disp);
+          if (starMatch != null) {
+            try {
+              fileName = Uri.decodeComponent(starMatch.group(1)!);
+            } catch (_) {
+              fileName = starMatch.group(1)!;
+            }
+          } else {
+            final match = RegExp(r'filename="?([^";\r\n]+)"?').firstMatch(disp);
+            if (match != null) {
+              fileName = match.group(1)!.trim();
+            }
+          }
+        }
+        // Sanitize fileName to strictly remove illegal Win32 characters: < > : " / \ | ? *
+        fileName = fileName.replaceAll(RegExp(r'[<>:/\\|?*"]'), '_').trim();
+        if (!fileName.toLowerCase().endsWith('.csv')) {
+          fileName = '$fileName.csv';
+        }
+        return (response.bodyBytes, fileName);
+      }
+    } catch (e) {
+      debugPrint('API Error exportSurveyCsv: $e');
+    }
+    return (null, '');
   }
 }

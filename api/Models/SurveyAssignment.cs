@@ -42,6 +42,18 @@ public class SurveyAssignment
     public DateTime? CompletedAt { get; set; }
 
     /// <summary>
+    /// Đã gửi thông báo tới khách hàng về bài khảo sát này hay chưa
+    /// </summary>
+    [Column("is_notified")]
+    public bool IsNotified { get; set; } = false;
+
+    /// <summary>
+    /// Thời điểm gửi thông báo thành công
+    /// </summary>
+    [Column("notified_at")]
+    public DateTime? NotifiedAt { get; set; }
+
+    /// <summary>
     /// Các câu trả lời thuộc lượt nộp bài này
     /// </summary>
     public ICollection<SurveyAnswer> Answers { get; set; } = new List<SurveyAnswer>();

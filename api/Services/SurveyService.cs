@@ -86,6 +86,8 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             Description = dto.Description?.Trim(),
             RewardVoucherId = dto.RewardVoucherId,
             IsActive = dto.IsActive,
+            StartAt = dto.StartAt,
+            ExpiredAt = dto.ExpiredAt,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -166,6 +168,8 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             survey.Description = dto.Description?.Trim();
             survey.RewardVoucherId = dto.RewardVoucherId;
             survey.IsActive = dto.IsActive;
+            survey.StartAt = dto.StartAt;
+            survey.ExpiredAt = dto.ExpiredAt;
         }
         else
         {
@@ -174,6 +178,8 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             survey.Description = dto.Description?.Trim();
             survey.RewardVoucherId = dto.RewardVoucherId;
             survey.IsActive = dto.IsActive;
+            survey.StartAt = dto.StartAt;
+            survey.ExpiredAt = dto.ExpiredAt;
 
             if (dto.Questions != null)
             {
@@ -259,8 +265,16 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             throw new BadRequestException("Bài khảo sát đang bị đóng. Vui lòng kích hoạt khảo sát trước khi phát bài.");
         }
 
-        // 1. Lọc danh sách người dùng mục tiêu đang hoạt động
-        var usersQuery = context.Users.Where(u => !u.IsLocked);
+        if (survey.ExpiredAt.HasValue && survey.ExpiredAt.Value < DateTime.UtcNow)
+        {
+            throw new BadRequestException("Bài khảo sát đã hết hạn nhận bài. Vui lòng cập nhật thời hạn trước khi phát.");
+        }
+
+        // 1. Lọc danh sách khách hàng mục tiêu đang hoạt động (Chỉ khách hàng có vai trò USER, loại trừ nhân viên & tài khoản bị khóa)
+        var allActiveCustomersQuery = context.Users
+            .Where(u => !u.IsLocked && u.UserRoles.All(ur => ur.RoleId == UserRoleTypeExtensions.User));
+
+        List<int> targetUserIds;
 
         switch (dto.TargetType)
         {
@@ -269,7 +283,10 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                 {
                     throw new BadRequestException("Vui lòng cung cấp danh sách ID khách hàng nhận bài.");
                 }
-                usersQuery = usersQuery.Where(u => dto.UserIds.Contains(u.UserId));
+                targetUserIds = await allActiveCustomersQuery
+                    .Where(u => dto.UserIds.Contains(u.UserId))
+                    .Select(u => u.UserId)
+                    .ToListAsync();
                 break;
 
             case SurveyTargetType.BY_INTEREST:
@@ -278,38 +295,81 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                     throw new BadRequestException("Vui lòng chọn sở thích công nghệ mục tiêu.");
                 }
                 var interestLower = dto.TechInterest.Trim().ToLower();
-                usersQuery = usersQuery.Where(u => u.Customer != null && u.Customer.TechInterest != null && u.Customer.TechInterest.ToLower().Contains(interestLower));
+                var matchedKeywords = new List<string> { interestLower };
+                if (interestLower.Contains("gaming")) matchedKeywords.Add("gaming");
+                if (interestLower.Contains("văn phòng") || interestLower.Contains("học tập") || interestLower.Contains("office")) { matchedKeywords.Add("office_study"); matchedKeywords.Add("văn phòng"); }
+                if (interestLower.Contains("âm thanh") || interestLower.Contains("studio") || interestLower.Contains("audio")) { matchedKeywords.Add("audio_studio"); matchedKeywords.Add("âm thanh"); }
+                if (interestLower.Contains("lập trình") || interestLower.Contains("ai") || interestLower.Contains("coding")) { matchedKeywords.Add("coding_ai"); matchedKeywords.Add("lập trình"); }
+                if (interestLower.Contains("smartwatch") || interestLower.Contains("sức khỏe") || interestLower.Contains("health")) { matchedKeywords.Add("smartwatch_health"); matchedKeywords.Add("đồng hồ"); }
+                if (interestLower.Contains("nhiếp ảnh") || interestLower.Contains("quay phim") || interestLower.Contains("photography")) { matchedKeywords.Add("photography_video"); matchedKeywords.Add("nhiếp ảnh"); }
+                if (interestLower.Contains("smarthome") || interestLower.Contains("nhà thông minh") || interestLower.Contains("gia dụng")) { matchedKeywords.Add("smarthome"); matchedKeywords.Add("nhà thông minh"); }
+
+                targetUserIds = await allActiveCustomersQuery
+                    .Where(u => u.Customer != null && u.Customer.TechInterest != null &&
+                        matchedKeywords.Any(k => u.Customer.TechInterest.ToLower().Contains(k)))
+                    .Select(u => u.UserId)
+                    .ToListAsync();
                 break;
 
             case SurveyTargetType.ALL:
             default:
-                // Giao cho toàn bộ khách hàng đang hoạt động
+                targetUserIds = await allActiveCustomersQuery
+                    .Select(u => u.UserId)
+                    .ToListAsync();
                 break;
         }
 
-        // 2. Loại trừ những khách hàng đã được phát bài này từ trước trực tiếp trên SQL (tối ưu hiệu năng, tránh kéo toàn bộ User về RAM)
-        usersQuery = usersQuery.Where(u => !context.SurveyAssignments.Any(a => a.SurveyId == surveyId && a.UserId == u.UserId));
-
-        var newUserIdsToAssign = await usersQuery.Select(u => u.UserId).ToListAsync();
-
-        if (newUserIdsToAssign.Count == 0)
+        if (targetUserIds.Count == 0)
         {
-            return 0;
+            throw new BadRequestException(dto.TargetType == SurveyTargetType.BY_INTEREST
+                ? $"Không tìm thấy khách hàng nào có sở thích phù hợp với '{dto.TechInterest}'."
+                : "Không tìm thấy khách hàng mục tiêu hợp lệ để phát bài.");
         }
 
-        // 3. Chèn bản ghi phát bài hàng loạt
-        var newAssignments = newUserIdsToAssign.Select(userId => new SurveyAssignment
-        {
-            SurveyId = surveyId,
-            UserId = userId,
-            AssignedAt = DateTime.UtcNow,
-            CompletedAt = null
-        }).ToList();
+        // 2. Lấy danh sách các phân công hiện có cho bài khảo sát này
+        var existingAssignments = await context.SurveyAssignments
+            .Where(a => a.SurveyId == surveyId)
+            .ToListAsync();
 
-        context.SurveyAssignments.AddRange(newAssignments);
+        var existingUserIds = existingAssignments.Select(a => a.UserId).ToHashSet();
+
+        // 3. Nếu là phát CHỈ ĐỊNH (BY_IDS hoặc BY_INTEREST):
+        // Những khách hàng KHÔNG nằm trong targetUserIds mà CHƯA LÀM BÀI (CompletedAt == null) sẽ được hủy phân công (Unassign)
+        // để đảm bảo bài khảo sát chỉ gửi đúng cho đối tượng được chỉ định.
+        if (dto.TargetType == SurveyTargetType.BY_IDS || dto.TargetType == SurveyTargetType.BY_INTEREST)
+        {
+            var assignmentsToRemove = existingAssignments
+                .Where(a => !targetUserIds.Contains(a.UserId) && a.CompletedAt == null)
+                .ToList();
+
+            if (assignmentsToRemove.Count > 0)
+            {
+                context.SurveyAssignments.RemoveRange(assignmentsToRemove);
+            }
+        }
+
+        // 4. Thêm phân công mới cho những khách hàng trong targetUserIds chưa từng được gán
+        var newUserIdsToAssign = targetUserIds
+            .Where(userId => !existingUserIds.Contains(userId))
+            .ToList();
+
+        if (newUserIdsToAssign.Count > 0)
+        {
+            var newAssignments = newUserIdsToAssign.Select(userId => new SurveyAssignment
+            {
+                SurveyId = surveyId,
+                UserId = userId,
+                AssignedAt = DateTime.UtcNow,
+                CompletedAt = null
+            }).ToList();
+
+            context.SurveyAssignments.AddRange(newAssignments);
+        }
+
         await context.SaveChangesAsync();
 
-        return newAssignments.Count;
+        // 5. Trả về tổng số khách hàng hiện được chỉ định nhận bài khảo sát này
+        return targetUserIds.Count;
     }
 
     public async Task<SurveyStatisticsDto> GetSurveyStatisticsAsync(int surveyId)
@@ -471,6 +531,11 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             throw new BadRequestException("Bài khảo sát này hiện đã đóng nhận câu trả lời.");
         }
 
+        if (assignment.Survey.ExpiredAt.HasValue && assignment.Survey.ExpiredAt.Value < DateTime.UtcNow)
+        {
+            throw new BadRequestException("Bài khảo sát này đã kết thúc thời gian nhận phản hồi.");
+        }
+
         if (assignment.CompletedAt.HasValue)
         {
             throw new BadRequestException("Bạn đã hoàn thành bài khảo sát này trước đó.");
@@ -493,6 +558,11 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
         if (!assignment.Survey.IsActive)
         {
             throw new BadRequestException("Bài khảo sát đã dừng nhận phản hồi.");
+        }
+
+        if (assignment.Survey.ExpiredAt.HasValue && assignment.Survey.ExpiredAt.Value < DateTime.UtcNow)
+        {
+            throw new BadRequestException("Bài khảo sát này đã kết thúc thời gian nhận phản hồi.");
         }
 
         if (assignment.CompletedAt.HasValue)
@@ -684,5 +754,156 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
 
         // Không có bất kỳ thay đổi nào về cấu trúc hoặc nội dung câu hỏi
         return false;
+    }
+
+    public async Task<bool> MarkSurveyNotifiedAsync(int surveyId, int userId)
+    {
+        var assignment = await context.SurveyAssignments
+            .FirstOrDefaultAsync(a => a.SurveyId == surveyId && a.UserId == userId);
+
+        if (assignment == null) return false;
+
+        if (!assignment.IsNotified)
+        {
+            assignment.IsNotified = true;
+            assignment.NotifiedAt = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+        }
+
+        return true;
+    }
+
+    public async Task<(byte[] Bytes, string FileName)> ExportSurveyCsvAsync(int surveyId)
+    {
+        var survey = await context.Surveys
+            .AsSplitQuery()
+            .Include(s => s.RewardVoucher)
+            .Include(s => s.Questions.OrderBy(q => q.OrderNum))
+                .ThenInclude(q => q.Options.OrderBy(o => o.OrderNum))
+            .Include(s => s.Assignments)
+                .ThenInclude(a => a.User)
+            .Include(s => s.Assignments)
+                .ThenInclude(a => a.Answers)
+                    .ThenInclude(ans => ans.SelectedOption)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.SurveyId == surveyId)
+            ?? throw new NotFoundException($"Không tìm thấy bài khảo sát với ID = {surveyId}.");
+
+        var sb = new System.Text.StringBuilder();
+
+        // Helper escape CSV cell
+        string Escape(string? s)
+        {
+            if (string.IsNullOrEmpty(s)) return "\"\"";
+            return $"\"{s.Replace("\"", "\"\"")}\"";
+        }
+
+        // PHẦN 1: TỔNG QUAN CHIẾN DỊCH KHẢO SÁT
+        sb.AppendLine("=== BÁO CÁO KẾT QUẢ KHẢO SÁT THỊ TRƯỜNG ===");
+        sb.AppendLine($"Mã khảo sát,{survey.SurveyId}");
+        sb.AppendLine($"Tiêu đề,{Escape(survey.Title)}");
+        sb.AppendLine($"Mô tả,{Escape(survey.Description)}");
+        sb.AppendLine($"Trạng thái,{(survey.IsActive ? "Đang mở" : "Đã tạm dừng")}");
+        sb.AppendLine($"Hạn chót,{(survey.ExpiredAt.HasValue ? survey.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm:ss") : "Không thời hạn")}");
+        sb.AppendLine($"Voucher quà tặng,{Escape(survey.RewardVoucher != null ? $"{survey.RewardVoucher.Code} - {survey.RewardVoucher.Title}" : "Không có")}");
+        sb.AppendLine($"Ngày tạo,{survey.CreatedAt:dd/MM/yyyy HH:mm:ss}");
+
+        var totalAssigned = survey.Assignments.Count;
+        var completedAssignments = survey.Assignments.Where(a => a.CompletedAt != null).ToList();
+        var totalCompleted = completedAssignments.Count;
+        var responseRate = totalAssigned > 0 ? Math.Round((double)totalCompleted / totalAssigned * 100, 1) : 0;
+
+        sb.AppendLine($"Tổng số lượng đã phát,{totalAssigned}");
+        sb.AppendLine($"Tổng số lượng đã hoàn thành,{totalCompleted}");
+        sb.AppendLine($"Tỷ lệ phản hồi,{responseRate}%");
+        sb.AppendLine();
+
+        // PHẦN 2: THỐNG KÊ PHÂN BỔ ĐÁP ÁN THEO CÂU HỎI
+        sb.AppendLine("=== THỐNG KÊ TỶ LỆ THEO CÂU HỎI ===");
+        sb.AppendLine("STT,Nội dung câu hỏi,Loại câu hỏi,Bắt buộc,Phương án / Phân loại,Số lượt chọn,Tỷ lệ (%)");
+
+        var allAnswers = completedAssignments.SelectMany(a => a.Answers).ToList();
+        int qIdx = 1;
+        foreach (var q in survey.Questions)
+        {
+            var qAnswers = allAnswers.Where(ans => ans.QuestionId == q.QuestionId).ToList();
+            var qRespondents = qAnswers.Select(ans => ans.AssignmentId).Distinct().Count();
+            var qTypeStr = q.QuestionType switch
+            {
+                SurveyQuestionType.SINGLE_CHOICE => "Trắc nghiệm 1 đáp án",
+                SurveyQuestionType.MULTI_CHOICE => "Trắc nghiệm nhiều đáp án",
+                SurveyQuestionType.TEXT => "Tự luận",
+                _ => q.QuestionType.ToString()
+            };
+
+            if (q.QuestionType == SurveyQuestionType.TEXT)
+            {
+                sb.AppendLine($"{qIdx},{Escape(q.QuestionText)},{Escape(qTypeStr)},{(q.IsRequired ? "Có" : "Không")},Ý kiến tự luận,{qAnswers.Count(a => !string.IsNullOrWhiteSpace(a.TextAnswer))},100%");
+            }
+            else
+            {
+                foreach (var opt in q.Options)
+                {
+                    var optVotes = qAnswers.Count(a => a.SelectedOptionId == opt.OptionId);
+                    var percent = qRespondents > 0 ? Math.Round((double)optVotes / qRespondents * 100, 1) : 0;
+                    sb.AppendLine($"{qIdx},{Escape(q.QuestionText)},{Escape(qTypeStr)},{(q.IsRequired ? "Có" : "Không")},{Escape(opt.OptionText)},{optVotes},{percent}%");
+                }
+            }
+            qIdx++;
+        }
+        sb.AppendLine();
+
+        // PHẦN 3: BẢNG DỮ LIỆU CHI TIẾT TỪNG PHẢN HỒI CỦA KHÁCH HÀNG
+        sb.AppendLine("=== CHI TIẾT CÂU TRẢ LỜI CỦA TỪNG KHÁCH HÀNG ===");
+        var headers = new List<string> { "Mã lượt nộp", "Mã KH", "Họ tên / Email", "Thời điểm nộp bài" };
+        foreach (var q in survey.Questions)
+        {
+            headers.Add(Escape($"[C{q.OrderNum}] {q.QuestionText}"));
+        }
+        sb.AppendLine(string.Join(",", headers));
+
+        foreach (var assign in completedAssignments.OrderByDescending(a => a.CompletedAt))
+        {
+            var userDisplay = assign.User != null ? (!string.IsNullOrWhiteSpace(assign.User.FullName) ? assign.User.FullName : assign.User.Email) : $"User #{assign.UserId}";
+            var row = new List<string>
+            {
+                assign.AssignmentId.ToString(),
+                assign.UserId.ToString(),
+                Escape(userDisplay),
+                assign.CompletedAt.HasValue ? assign.CompletedAt.Value.ToString("dd/MM/yyyy HH:mm:ss") : ""
+            };
+
+            var userAnswers = assign.Answers.ToList();
+            foreach (var q in survey.Questions)
+            {
+                var answersForQ = userAnswers.Where(a => a.QuestionId == q.QuestionId).ToList();
+                if (q.QuestionType == SurveyQuestionType.TEXT)
+                {
+                    var text = string.Join("; ", answersForQ.Select(a => a.TextAnswer).Where(t => !string.IsNullOrWhiteSpace(t)));
+                    row.Add(Escape(text));
+                }
+                else
+                {
+                    var selectedTexts = answersForQ
+                        .Select(a => a.SelectedOption?.OptionText)
+                        .Where(t => !string.IsNullOrWhiteSpace(t));
+                    row.Add(Escape(string.Join(" | ", selectedTexts)));
+                }
+            }
+            sb.AppendLine(string.Join(",", row));
+        }
+
+        // Xuất file UTF-8 kèm BOM để Excel trên Windows hiển thị đúng tiếng Việt không bị lỗi font
+        var preamble = System.Text.Encoding.UTF8.GetPreamble();
+        var bodyBytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var fileBytes = new byte[preamble.Length + bodyBytes.Length];
+        Buffer.BlockCopy(preamble, 0, fileBytes, 0, preamble.Length);
+        Buffer.BlockCopy(bodyBytes, 0, fileBytes, preamble.Length, bodyBytes.Length);
+
+        var safeTitle = string.Concat(survey.Title.Split(System.IO.Path.GetInvalidFileNameChars())).Replace(" ", "_");
+        if (safeTitle.Length > 30) safeTitle = safeTitle.Substring(0, 30);
+        var fileName = $"KhaoSat_{survey.SurveyId}_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
+
+        return (fileBytes, fileName);
     }
 }

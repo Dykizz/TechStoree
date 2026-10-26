@@ -8,6 +8,7 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
+import '../../core/widgets/app_text_field.dart';
 
 class SurveyAssignDialog extends StatefulWidget {
   final SurveyAdminList survey;
@@ -27,9 +28,11 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
   SurveyTargetType _targetType = SurveyTargetType.ALL;
   String _selectedTechInterest = 'Gaming';
   final List<int> _selectedUserIds = [];
-  List<AppUser> _allUsers = [];
+  List<AppUser> _allCustomers = [];
   bool _isLoadingUsers = false;
   bool _isSubmitting = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   static const List<String> techInterestOptions = [
     'Gaming',
@@ -44,18 +47,26 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
   @override
   void initState() {
     super.initState();
-    _fetchUsers();
+    _selectedUserIds.addAll(widget.survey.assignedUserIds);
+    _fetchCustomers();
   }
 
-  Future<void> _fetchUsers() async {
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchCustomers() async {
     setState(() => _isLoadingUsers = true);
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     try {
-      final users = await apiService.getUsers(token: token);
+      // Chỉ lấy tài khoản KHÁCH HÀNG (loại trừ tài khoản nhân viên & quản trị)
+      final users = await apiService.getUsers(token: token, isStaffOnly: false);
       if (mounted) {
         setState(() {
-          _allUsers = users;
+          _allCustomers = users.where((u) => !u.isLocked).toList();
           _isLoadingUsers = false;
         });
       }
@@ -71,6 +82,16 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+
+    final filteredCustomers = _allCustomers.where((u) {
+      if (_searchQuery.trim().isEmpty) return true;
+      final q = _searchQuery.trim().toLowerCase();
+      final name = u.fullName.toLowerCase();
+      final email = u.email.toLowerCase();
+      final phone = u.phone.toLowerCase();
+      final id = u.id;
+      return name.contains(q) || email.contains(q) || phone.contains(q) || id == q;
+    }).toList();
 
     return AlertDialog(
       backgroundColor: cardBg,
@@ -91,7 +112,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Phát Khảo Sát',
+                  'Phát khảo sát tới khách hàng',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
                 ),
                 Text(
@@ -106,7 +127,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
         ],
       ),
       content: SizedBox(
-        width: 520,
+        width: 560,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,39 +183,128 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
               ),
             ],
 
-            // BY_IDS
+            // BY_IDS (Chỉ định danh sách khách hàng)
             if (_targetType == SurveyTargetType.BY_IDS) ...[
-              Text(
-                'Chọn danh sách khách hàng nhắm mục tiêu (${_selectedUserIds.length} đã chọn):',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Chọn khách hàng (${_selectedUserIds.length} đã chọn):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                  ),
+                  Row(
+                    children: [
+                      TextButton(
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                        onPressed: () {
+                          setState(() {
+                            // Chọn tất cả khách hàng chưa nhận bài này
+                            for (var c in _allCustomers) {
+                              final uid = int.tryParse(c.id) ?? 0;
+                              if (!widget.survey.assignedUserIds.contains(uid)) {
+                                if (!_selectedUserIds.contains(uid)) {
+                                  _selectedUserIds.add(uid);
+                                }
+                              }
+                            }
+                          });
+                        },
+                        child: const Text('Chọn chưa giao', style: TextStyle(fontSize: 11)),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                        onPressed: () => setState(() => _selectedUserIds.clear()),
+                        child: const Text('Bỏ chọn', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               const SizedBox(height: 6),
+
+              // Ô tìm kiếm khách hàng
+              AppTextField(
+                controller: _searchCtrl,
+                hintText: 'Tìm theo họ tên, email, SĐT khách hàng...',
+                prefixIcon: Icons.search_rounded,
+                onChanged: (val) => setState(() => _searchQuery = val),
+              ),
+              const SizedBox(height: 8),
+
               if (_isLoadingUsers)
                 const Padding(
-                  padding: EdgeInsets.all(16),
+                  padding: EdgeInsets.all(24),
                   child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                )
+              else if (filteredCustomers.isEmpty)
+                Container(
+                  height: 120,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor),
+                    borderRadius: BorderRadius.circular(6),
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFAFAFA),
+                  ),
+                  child: Text(
+                    _searchQuery.isEmpty ? 'Không có dữ liệu khách hàng nào.' : 'Không tìm thấy khách hàng phù hợp.',
+                    style: TextStyle(fontSize: 12, color: textSecondary),
+                  ),
                 )
               else
                 Container(
-                  height: 180,
+                  height: 200,
                   decoration: BoxDecoration(
                     border: Border.all(color: borderColor),
                     borderRadius: BorderRadius.circular(6),
                     color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFAFAFA),
                   ),
                   child: ListView.separated(
-                    itemCount: _allUsers.length,
+                    itemCount: filteredCustomers.length,
                     separatorBuilder: (_, __) => Divider(height: 1, color: borderColor.withOpacity(0.5)),
                     itemBuilder: (context, index) {
-                      final u = _allUsers[index];
+                      final u = filteredCustomers[index];
                       final int uid = int.tryParse(u.id) ?? 0;
+                      final isAlreadyAssigned = widget.survey.assignedUserIds.contains(uid);
                       final isChecked = _selectedUserIds.contains(uid);
 
                       return CheckboxListTile(
                         dense: true,
                         value: isChecked,
-                        title: Text(u.fullName, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary)),
-                        subtitle: Text('${u.email} • ID #${u.id}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                        title: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                u.fullName,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (isAlreadyAssigned) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.success.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                                ),
+                                child: const Text(
+                                  'Đã giao bài',
+                                  style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        subtitle: Text(
+                          '${u.email} • ID #${u.id}${u.techInterest != null && u.techInterest!.isNotEmpty ? " • Sở thích: ${u.techInterest}" : ""}',
+                          style: TextStyle(fontSize: 11, color: textSecondary),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         onChanged: (bool? val) {
                           setState(() {
                             if (val == true) {
@@ -224,7 +334,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Bài khảo sát sẽ được gửi tới tất cả khách hàng đang hoạt động trên hệ thống.',
+                        'Bài khảo sát sẽ được gửi tới tất cả khách hàng (Customer) đang hoạt động trên hệ thống.',
                         style: TextStyle(fontSize: 12, color: textPrimary),
                       ),
                     ),
@@ -242,7 +352,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
           onPressed: _isSubmitting ? null : () => Navigator.pop(context),
         ),
         AppButton(
-          label: _isSubmitting ? 'Đang gửi...' : 'Phát Khảo Sát',
+          label: _isSubmitting ? 'Đang gửi...' : 'Phát khảo sát',
           icon: Icons.send_rounded,
           onPressed: _isSubmitting ? null : _submitAssign,
         ),

@@ -17,6 +17,7 @@ public interface ISurveyService
     Task<int> AssignSurveyAsync(int surveyId, AssignSurveyRequestDto dto);
     Task<SurveyStatisticsDto> GetSurveyStatisticsAsync(int surveyId);
     Task<SurveyAdminDetailDto> CloneSurveyAsync(int surveyId);
+    Task<(byte[] Bytes, string FileName)> ExportSurveyCsvAsync(int surveyId);
 
     // ==========================================
     // Khách hàng (Customer)
@@ -24,4 +25,5 @@ public interface ISurveyService
     Task<IEnumerable<CustomerSurveyListDto>> GetCustomerSurveysAsync(int userId);
     Task<TakeSurveyDto> GetSurveyForTakingAsync(int surveyId, int userId);
     Task<SurveySubmitResponseDto> SubmitSurveyAsync(int surveyId, int userId, SubmitSurveyRequestDto dto);
+    Task<bool> MarkSurveyNotifiedAsync(int surveyId, int userId);
 }

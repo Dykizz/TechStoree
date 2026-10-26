@@ -24,6 +24,7 @@ class _SurveysScreenState extends State<SurveysScreen> {
   _SurveyScreenMode _mode = _SurveyScreenMode.LIST;
   int? _selectedSurveyId;
   SurveyAdminDetail? _editingSurvey;
+  int _refreshKey = 0;
 
   void _goToList() {
     setState(() {
@@ -67,9 +68,9 @@ class _SurveysScreenState extends State<SurveysScreen> {
       builder: (ctx) => SurveyAssignDialog(
         survey: survey,
         onAssigned: () {
-          if (_mode == _SurveyScreenMode.LIST) {
-            setState(() {});
-          }
+          setState(() {
+            _refreshKey++;
+          });
         },
       ),
     );
@@ -80,19 +81,23 @@ class _SurveysScreenState extends State<SurveysScreen> {
     switch (_mode) {
       case _SurveyScreenMode.DETAIL:
         return SurveyDetailView(
+          key: ValueKey('detail_${_selectedSurveyId}_$_refreshKey'),
           surveyId: _selectedSurveyId!,
           onBack: _goToList,
           onEdit: (survey) => _goToEdit(survey),
           onAssign: (survey) => _openAssignDialog(survey),
           onViewStats: (id) => _goToStatistics(id),
-          onSurveyChanged: () => setState(() {}),
+          onSurveyChanged: () => setState(() => _refreshKey++),
         );
 
       case _SurveyScreenMode.FORM:
         return SurveyFormView(
           existingSurvey: _editingSurvey,
           onCancel: _goToList,
-          onSuccess: _goToList,
+          onSuccess: () {
+            setState(() => _refreshKey++);
+            _goToList();
+          },
         );
 
       case _SurveyScreenMode.STATISTICS:
@@ -103,6 +108,7 @@ class _SurveysScreenState extends State<SurveysScreen> {
 
       case _SurveyScreenMode.LIST:
         return SurveyListView(
+          key: ValueKey('list_$_refreshKey'),
           onViewDetail: (s) => _goToDetail(s.surveyId),
           onEdit: (s) => _goToEdit(s),
           onAssign: (s) => _openAssignDialog(s),

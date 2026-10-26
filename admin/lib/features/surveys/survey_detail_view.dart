@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -38,6 +40,7 @@ class SurveyDetailView extends StatefulWidget {
 class _SurveyDetailViewState extends State<SurveyDetailView> {
   late Future<SurveyAdminDetail?> _detailFuture;
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -130,33 +133,39 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                   children: [
                     if (authProvider.can('Surveys.Assign'))
                       AppButton(
-                        label: 'Phát Khảo Sát',
+                        label: 'Phát khảo sát',
                         icon: Icons.send_rounded,
                         onPressed: () => widget.onAssign(survey),
                       ),
                     AppButton(
-                      label: 'Thống Kê',
+                      label: 'Thống kê',
                       icon: Icons.bar_chart_rounded,
                       variant: AppButtonVariant.outline,
                       onPressed: () => widget.onViewStats(survey.surveyId),
                     ),
+                    AppButton(
+                      label: _isExporting ? 'Đang xuất...' : 'Xuất báo cáo',
+                      icon: Icons.file_download_outlined,
+                      variant: AppButtonVariant.outline,
+                      onPressed: _isExporting ? null : () => _exportReport(context, apiService, token, survey.surveyId),
+                    ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
-                        label: 'Chỉnh Sửa',
+                        label: 'Chỉnh sửa',
                         icon: Icons.edit_outlined,
                         variant: AppButtonVariant.outline,
                         onPressed: () => widget.onEdit(survey),
                       ),
                     if (authProvider.can('Surveys.Create'))
                       AppButton(
-                        label: 'Nhân Bản',
+                        label: 'Nhân bản',
                         icon: Icons.copy_rounded,
                         variant: AppButtonVariant.outline,
                         onPressed: () => _confirmClone(context, apiService, token, survey),
                       ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
-                        label: survey.isActive ? 'Tạm Dừng' : 'Mở Nhận Bài',
+                        label: survey.isActive ? 'Tạm dừng' : 'Mở nhận bài',
                         icon: survey.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
                         variant: AppButtonVariant.outline,
                         onPressed: () => _toggleActive(apiService, token, survey),
@@ -202,9 +211,12 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                           ),
                         ),
                         StatusBadge(
-                          label: survey.isActive ? 'ĐANG MỞ NỘP BÀI' : 'TẠM DỪNG',
-                          isSuccess: survey.isActive,
-                          isDanger: !survey.isActive,
+                          label: survey.isExpired
+                              ? 'ĐÃ HẾT HẠN'
+                              : (survey.isActive ? 'ĐANG MỞ NỘP BÀI' : 'TẠM DỪNG'),
+                          isSuccess: !survey.isExpired && survey.isActive,
+                          isDanger: survey.isExpired,
+                          isWarning: !survey.isExpired && !survey.isActive,
                         ),
                       ],
                     ),
@@ -219,6 +231,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                         _buildInfoTile('Tổng phát bài', '${survey.totalAssigned} KH', textPrimary, textSecondary),
                         _buildInfoTile('Đã nộp bài', '${survey.totalCompleted} KH', textPrimary, textSecondary),
                         _buildInfoTile('Tỷ lệ phản hồi', '${survey.responseRatePercent}%', AppColors.primary, textSecondary, isBold: true),
+                        _buildInfoTile('Hạn chót', survey.expiredAt != null ? '${survey.expiredAt!.hour.toString().padLeft(2, '0')}:${survey.expiredAt!.minute.toString().padLeft(2, '0')} ${survey.expiredAt!.day}/${survey.expiredAt!.month}/${survey.expiredAt!.year}' : 'Không giới hạn', survey.isExpired ? AppColors.danger : (survey.expiredAt != null ? AppColors.warning : textPrimary), textSecondary),
                         _buildInfoTile('Cấu trúc câu hỏi', survey.hasResponses ? 'Đã khóa (Có phản hồi)' : 'Được phép chỉnh sửa', survey.hasResponses ? AppColors.warning : AppColors.success, textSecondary),
                       ],
                     ),
@@ -538,6 +551,65 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _exportReport(BuildContext context, ApiService apiService, String? token, int surveyId) async {
+    setState(() => _isExporting = true);
+    try {
+      final (bytes, filename) = await apiService.exportSurveyCsv(surveyId, token: token);
+      if (bytes != null && bytes.isNotEmpty) {
+        String? targetPath;
+        try {
+          final savedUri = await FilePicker.saveFile(
+            dialogTitle: 'Chọn nơi lưu file báo cáo kết quả khảo sát (CSV / Excel)',
+            fileName: filename,
+            bytes: bytes,
+            type: FileType.custom,
+            allowedExtensions: ['csv'],
+          );
+          if (savedUri != null) {
+            final file = File.fromUri(savedUri);
+            if (!await file.exists() || await file.length() == 0) {
+              await file.writeAsBytes(bytes);
+            }
+            targetPath = file.path;
+          }
+        } catch (pickerErr) {
+          debugPrint('FilePicker error: $pickerErr');
+        }
+
+        // Tự động lưu vào thư mục Downloads của máy tính nếu chưa có đường dẫn
+        if (targetPath == null) {
+          final userProfile = Platform.environment['USERPROFILE'] ?? 'C:\\Users\\Public';
+          final downloadsDir = Directory('$userProfile\\Downloads');
+          final saveDir = await downloadsDir.exists() ? downloadsDir.path : userProfile;
+          final fallbackFile = File('$saveDir\\$filename');
+          await fallbackFile.writeAsBytes(bytes);
+          targetPath = fallbackFile.path;
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi xuất file báo cáo: $e'), backgroundColor: AppColors.danger),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 }

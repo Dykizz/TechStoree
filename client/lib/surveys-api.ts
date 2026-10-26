@@ -5,11 +5,14 @@ export type CustomerSurvey = {
   rewardVoucherTitle: string | null;
   isCompleted: boolean;
   completedAt: string | null;
+  expiredAt?: string | null;
+  isExpired?: boolean;
+  isNotified?: boolean;
 };
 export type SurveyQuestion = {
   questionId: number;
   questionText: string;
-  questionType: "SINGLE_CHOICE" | "TEXT";
+  questionType: "SINGLE_CHOICE" | "MULTI_CHOICE" | "TEXT";
   isRequired: boolean;
   orderNum: number;
   options: { optionId: number; optionText: string; orderNum: number }[];

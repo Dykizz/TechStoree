@@ -33,6 +33,18 @@ public class SurveyAdminListDto
     /// <example>2026-10-01T08:00:00Z</example>
     public DateTime CreatedAt { get; set; }
 
+    /// <example>2026-10-01T08:00:00Z</example>
+    public DateTime? StartAt { get; set; }
+
+    /// <example>2026-11-30T23:59:59Z</example>
+    public DateTime? ExpiredAt { get; set; }
+
+    /// <summary>
+    /// Đã quá hạn nhận bài khảo sát hay chưa
+    /// </summary>
+    /// <example>false</example>
+    public bool IsExpired => ExpiredAt.HasValue && ExpiredAt.Value < DateTime.UtcNow;
+
     /// <summary>
     /// Tổng số lượng khách hàng đã được phát bài khảo sát
     /// </summary>
@@ -57,6 +69,11 @@ public class SurveyAdminListDto
     /// </summary>
     /// <example>true</example>
     public bool HasResponses => TotalCompleted > 0;
+
+    /// <summary>
+    /// Danh sách User ID các khách hàng đã được phân công bài khảo sát này
+    /// </summary>
+    public List<int> AssignedUserIds { get; set; } = new();
 }
 
 /// <summary>
@@ -149,6 +166,16 @@ public class CreateSurveyRequestDto
     /// <example>true</example>
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Thời điểm bắt đầu mở nhận bài (NULL = Mở ngay)
+    /// </summary>
+    public DateTime? StartAt { get; set; }
+
+    /// <summary>
+    /// Thời điểm hết hạn tự động kết thúc nhận bài (NULL = Không giới hạn)
+    /// </summary>
+    public DateTime? ExpiredAt { get; set; }
+
     [Required(ErrorMessage = "Bài khảo sát phải có ít nhất 1 câu hỏi.")]
     [MinLength(1, ErrorMessage = "Bài khảo sát phải có ít nhất 1 câu hỏi.")]
     public List<CreateSurveyQuestionDto> Questions { get; set; } = new();
@@ -204,6 +231,16 @@ public class UpdateSurveyRequestDto
 
     /// <example>true</example>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// Thời điểm bắt đầu mở nhận bài (NULL = Mở ngay)
+    /// </summary>
+    public DateTime? StartAt { get; set; }
+
+    /// <summary>
+    /// Thời điểm hết hạn tự động kết thúc nhận bài (NULL = Không giới hạn)
+    /// </summary>
+    public DateTime? ExpiredAt { get; set; }
 
     /// <summary>
     /// Danh sách câu hỏi mới (Chỉ áp dụng khi khảo sát CHƯA có ai nộp bài)

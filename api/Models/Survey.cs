@@ -41,6 +41,18 @@ public class Survey
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Thời điểm bắt đầu mở bài khảo sát (NULL = Mở ngay khi tạo)
+    /// </summary>
+    [Column("start_at")]
+    public DateTime? StartAt { get; set; }
+
+    /// <summary>
+    /// Thời điểm hết hạn tự động đóng bài khảo sát (NULL = Không giới hạn thời gian)
+    /// </summary>
+    [Column("expired_at")]
+    public DateTime? ExpiredAt { get; set; }
+
+    /// <summary>
     /// Danh sách câu hỏi trong bài khảo sát
     /// </summary>
     public ICollection<SurveyQuestion> Questions { get; set; } = new List<SurveyQuestion>();

@@ -18,12 +18,24 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
   const [list, setList] = useState<CustomerSurvey[]>([]);
   const [form, setForm] = useState<SurveyForm | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [multiAnswers, setMultiAnswers] = useState<Record<number, number[]>>({});
   const [filter, setFilter] = useState("all");
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<SurveyResult | null>(null);
+
+  function toggleMultiChoice(questionId: number, optionId: number) {
+    setMultiAnswers((prev) => {
+      const current = prev[questionId] || [];
+      const exists = current.includes(optionId);
+      const updated = exists
+        ? current.filter((id) => id !== optionId)
+        : [...current, optionId];
+      return { ...prev, [questionId]: updated };
+    });
+  }
 
   useEffect(() => {
     if (session.status !== "ready") return;
@@ -55,7 +67,29 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
           } else {
             if (!Array.isArray(body.data))
               throw new Error("Danh sách khảo sát không hợp lệ.");
-            setList(body.data);
+            const surveys = body.data as CustomerSurvey[];
+            setList(surveys);
+
+            // Gửi thông báo đẩy cho các khảo sát mới được giao (Giải pháp 1)
+            if (session.status === "ready") {
+              surveys.forEach((item) => {
+                if (!item.isCompleted && !item.isNotified && !item.isExpired) {
+                  publishNotification(session.user.userId, {
+                    id: `survey-assign:${item.surveyId}`,
+                    kind: "survey",
+                    title: `Khảo sát mới: ${item.title}`,
+                    message: item.rewardVoucherTitle
+                      ? `Làm khảo sát ngay để nhận phần thưởng: ${item.rewardVoucherTitle}!`
+                      : "Bạn có một bài khảo sát mới cần thực hiện.",
+                    href: `/surveys/${item.surveyId}`,
+                  });
+                  // Đánh dấu đã nhận thông báo trong cơ sở dữ liệu
+                  fetch(`/api/surveys/${item.surveyId}/mark-notified`, {
+                    method: "POST",
+                  }).catch(() => {});
+                }
+              });
+            }
           }
           setLoaded(true);
         }
@@ -73,11 +107,22 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!form || submitting || result) return;
-    const missing = form.questions.find(
-      (q) => q.isRequired && !answers[q.questionId]?.trim(),
-    );
+    const missing = form.questions.find((q) => {
+      if (!q.isRequired) return false;
+      if (q.questionType === "SINGLE_CHOICE") {
+        return !answers[q.questionId]?.trim();
+      }
+      if (q.questionType === "MULTI_CHOICE") {
+        return !multiAnswers[q.questionId] || multiAnswers[q.questionId].length === 0;
+      }
+      return !answers[q.questionId]?.trim();
+    });
     if (missing) {
-      setError(`Vui lòng trả lời: ${missing.questionText}`);
+      setError(
+        missing.questionType === "MULTI_CHOICE"
+          ? `Vui lòng chọn ít nhất 1 đáp án cho: ${missing.questionText}`
+          : `Vui lòng trả lời: ${missing.questionText}`,
+      );
       return;
     }
     setSubmitting(true);
@@ -88,13 +133,25 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           answers: form.questions
-            .filter((q) => answers[q.questionId]?.trim())
-            .map((q) => ({
-              questionId: q.questionId,
-              ...(q.questionType === "SINGLE_CHOICE"
-                ? { selectedOptionId: Number(answers[q.questionId]) }
-                : { textAnswer: answers[q.questionId].trim() }),
-            })),
+            .map((q) => {
+              if (q.questionType === "SINGLE_CHOICE") {
+                const optId = answers[q.questionId]?.trim();
+                return optId
+                  ? { questionId: q.questionId, selectedOptionId: Number(optId) }
+                  : null;
+              }
+              if (q.questionType === "MULTI_CHOICE") {
+                const optIds = multiAnswers[q.questionId];
+                return optIds && optIds.length > 0
+                  ? { questionId: q.questionId, selectedOptionIds: optIds }
+                  : null;
+              }
+              const text = answers[q.questionId]?.trim();
+              return text
+                ? { questionId: q.questionId, textAnswer: text }
+                : null;
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null),
         }),
       });
       const body = await response.json();
@@ -236,6 +293,34 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
                                 {option.optionText}
                               </label>
                             ))
+                        ) : q.questionType === "MULTI_CHOICE" ? (
+                          [...q.options]
+                            .sort((a, b) => a.orderNum - b.orderNum)
+                            .map((option) => {
+                              const checked = (
+                                multiAnswers[q.questionId] || []
+                              ).includes(option.optionId);
+                              return (
+                                <label
+                                  className={styles.choice}
+                                  key={option.optionId}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    name={`question-${q.questionId}`}
+                                    value={option.optionId}
+                                    checked={checked}
+                                    onChange={() =>
+                                      toggleMultiChoice(
+                                        q.questionId,
+                                        option.optionId,
+                                      )
+                                    }
+                                  />
+                                  {option.optionText}
+                                </label>
+                              );
+                            })
                         ) : (
                           <textarea
                             aria-label={q.questionText}
@@ -315,13 +400,24 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
                               "vi-VN",
                             )}
                         </p>
+                      ) : item.isExpired ? (
+                        <p style={{ color: "#ef4444", fontWeight: 600 }}>
+                          Đã hết hạn làm bài
+                        </p>
                       ) : (
-                        <Link
-                          className={styles.primary}
-                          href={`/surveys/${item.surveyId}`}
-                        >
-                          Bắt đầu khảo sát ↗
-                        </Link>
+                        <>
+                          {item.expiredAt && (
+                            <p style={{ fontSize: "0.85rem", color: "#f59e0b", marginBottom: "0.5rem" }}>
+                              Hạn chót: {new Date(item.expiredAt).toLocaleDateString("vi-VN")} {new Date(item.expiredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
+                          <Link
+                            className={styles.primary}
+                            href={`/surveys/${item.surveyId}`}
+                          >
+                            Bắt đầu khảo sát ↗
+                          </Link>
+                        </>
                       )}
                     </article>
                   ))}
