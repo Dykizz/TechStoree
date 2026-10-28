@@ -56,8 +56,7 @@ class _DashboardKpiCardState extends State<DashboardKpiCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOutCubic,
-          height: 104,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: widget.cardBg,
             borderRadius: BorderRadius.circular(12),
@@ -106,26 +105,26 @@ class _DashboardKpiCardState extends State<DashboardKpiCard> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        width: 28,
-                        height: 28,
+                        width: 26,
+                        height: 26,
                         decoration: BoxDecoration(
                           color: widget.iconColor.withValues(alpha: widget.isDark ? 0.18 : 0.10),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(7),
                           border: Border.all(
                             color: widget.iconColor.withValues(alpha: 0.25),
                             width: 1,
                           ),
                         ),
-                        child: Icon(widget.icon, size: 15, color: widget.iconColor),
+                        child: Icon(widget.icon, size: 14, color: widget.iconColor),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 7),
                       Expanded(
                         child: Text(
                           widget.title.toUpperCase(),
                           style: TextStyle(
-                            fontSize: 10.5,
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.4,
                             color: widget.textSecondary,
                           ),
                           maxLines: 1,
@@ -151,7 +150,7 @@ class _DashboardKpiCardState extends State<DashboardKpiCard> {
                     child: Text(
                       widget.formattedValue,
                       style: TextStyle(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: widget.textPrimary,
                         letterSpacing: -0.5,
