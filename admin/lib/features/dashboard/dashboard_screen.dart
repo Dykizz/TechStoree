@@ -296,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 final isDesktop = maxW >= 1100;
                 final isMedium = maxW >= 650;
                 final crossCount = isDesktop ? 4 : (isMedium ? 2 : 1);
-                final ratio = isDesktop ? 2.85 : (isMedium ? 2.6 : 3.2);
+                final ratio = isDesktop ? 2.5 : (isMedium ? 2.2 : 2.8);
                 return GridView.count(
                   crossAxisCount: crossCount,
                   shrinkWrap: true,
@@ -312,7 +312,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final isDesktop = maxW >= 1150;
               final isMedium = maxW >= 700;
               final crossCount = isDesktop ? total.clamp(1, 6) : (isMedium ? 3 : 2);
-              final ratio = isDesktop ? 2.15 : (isMedium ? 3.35 : 2.5);
+              final ratio = isDesktop ? 1.72 : (isMedium ? 2.3 : 2.1);
 
               return GridView.count(
                 crossAxisCount: crossCount,
@@ -532,7 +532,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final isDesktop = constraints.maxWidth >= 1150;
             final isMedium = constraints.maxWidth >= 700;
             final crossCount = isDesktop ? 6 : (isMedium ? 3 : 2);
-            final ratio = isDesktop ? 2.15 : (isMedium ? 3.35 : 3.0);
+            final ratio = isDesktop ? 1.72 : (isMedium ? 2.3 : 2.1);
 
             return GridView.count(
               crossAxisCount: crossCount,

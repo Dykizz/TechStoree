@@ -61,118 +61,214 @@ class AppSidebar extends StatelessWidget {
       }
     }).toList();
 
-    return Container(
-      width: 240,
+    final isCollapsed = navProvider.isSidebarCollapsed;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOutCubic,
+      width: isCollapsed ? 68 : 240,
       decoration: BoxDecoration(
         color: backgroundColor,
         border: Border(right: BorderSide(color: borderColor, width: 1)),
       ),
       child: Column(
         children: [
-          // Header Branding (Compact 48px)
+          // Header Branding & Collapse Toggle Button
           Container(
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            alignment: Alignment.centerLeft,
+            padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 8 : 12),
+            alignment: Alignment.center,
             child: Row(
+              mainAxisAlignment: isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 15),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'TechStoree',
-                  style: TextStyle(
-                    color: textPrimary,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  child: Text(
-                    authProvider.userRole,
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 9,
-                      letterSpacing: 0.5,
+                if (!isCollapsed) ...[
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 15),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            'TechStoree',
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              letterSpacing: -0.3,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            authProvider.userRole,
+                            style: TextStyle(
+                              color: textSecondary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 9,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
+                  Tooltip(
+                    message: 'Thu gọn thanh bên',
+                    waitDuration: const Duration(milliseconds: 200),
+                    preferBelow: false,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(4),
+                      onTap: () => navProvider.toggleSidebar(),
+                      child: Padding(
+                        padding: const EdgeInsets.all(5),
+                        child: Icon(Icons.menu_open_rounded, size: 18, color: textSecondary),
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  Tooltip(
+                    message: 'Mở rộng thanh bên',
+                    waitDuration: const Duration(milliseconds: 200),
+                    preferBelow: false,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () => navProvider.toggleSidebar(),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: borderColor, width: 0.8),
+                        ),
+                        child: const Icon(Icons.menu_rounded, size: 18, color: AppColors.primary),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
           Divider(height: 1, color: borderColor),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
 
           // Navigation Links
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCollapsed ? 8 : 8,
+                vertical: 4,
+              ),
               itemCount: navItems.length,
               itemBuilder: (context, index) {
                 final item = navItems[index];
                 final isSelected = navProvider.currentIndex == item.index;
 
+                final itemTile = Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      navProvider.setIndex(item.index);
+                      if (Scaffold.of(context).hasDrawer && Scaffold.of(context).isDrawerOpen) {
+                        Navigator.of(context).pop();
+                      }
+                    },
+                    hoverColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9),
+                    child: Container(
+                      height: 38,
+                      padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 10),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9))
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: isSelected
+                            ? Border.all(
+                                color: isDark ? AppColors.darkCardBorder : const Color(0xFFE2E8F0),
+                                width: 1,
+                              )
+                            : null,
+                      ),
+                      alignment: isCollapsed ? Alignment.center : Alignment.centerLeft,
+                      child: isCollapsed
+                          ? Icon(
+                              isSelected ? item.activeIcon : item.icon,
+                              size: 19,
+                              color: isSelected ? (isDark ? Colors.white : AppColors.primary) : textSecondary,
+                            )
+                          : Row(
+                              children: [
+                                Icon(
+                                  isSelected ? item.activeIcon : item.icon,
+                                  size: 18,
+                                  color: isSelected ? (isDark ? Colors.white : AppColors.primary) : textSecondary,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    item.label,
+                                    style: TextStyle(
+                                      color: isSelected ? textPrimary : textSecondary,
+                                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                      fontSize: 13,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                );
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 2),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(4),
-                      onTap: () {
-                        navProvider.setIndex(item.index);
-                        if (Scaffold.of(context).hasDrawer && Scaffold.of(context).isDrawerOpen) {
-                          Navigator.of(context).pop();
-                        }
-                      },
-                      hoverColor: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9))
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isSelected ? item.activeIcon : item.icon,
-                              size: 18,
-                              color: isSelected ? (isDark ? Colors.white : AppColors.primary) : textSecondary,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                item.label,
-                                style: TextStyle(
-                                  color: isSelected ? textPrimary : textSecondary,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
+                  child: Tooltip(
+                    message: item.label,
+                    waitDuration: const Duration(milliseconds: 100),
+                    preferBelow: false,
+                    verticalOffset: 0,
+                    margin: const EdgeInsets.only(left: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark ? AppColors.darkCardBorder : const Color(0xFF334155),
+                        width: 1,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(2, 2),
+                        ),
+                      ],
                     ),
+                    textStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: itemTile,
                   ),
                 );
               },
@@ -183,52 +279,82 @@ class AppSidebar extends StatelessWidget {
 
           // User Profile Row at Bottom
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 12,
-                  backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
-                  child: Text(
-                    authProvider.userName.isNotEmpty ? authProvider.userName[0].toUpperCase() : 'A',
-                    style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 10),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 6 : 10, vertical: 8),
+            child: isCollapsed
+                ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        authProvider.userName,
-                        style: TextStyle(
-                          color: textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                      Tooltip(
+                        message: '${authProvider.userName} (${authProvider.userRole})',
+                        preferBelow: false,
+                        waitDuration: const Duration(milliseconds: 100),
+                        child: CircleAvatar(
+                          radius: 13,
+                          backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                          child: Text(
+                            authProvider.userName.isNotEmpty ? authProvider.userName[0].toUpperCase() : 'A',
+                            style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 10),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      Text(
-                        authProvider.userEmail,
-                        style: TextStyle(
-                          color: textSecondary,
-                          fontSize: 10,
+                      const SizedBox(height: 6),
+                      Tooltip(
+                        message: 'Đăng xuất',
+                        preferBelow: false,
+                        child: IconButton(
+                          icon: Icon(Icons.logout_rounded, size: 16, color: textSecondary),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                          onPressed: () => _showLogoutDialog(context, authProvider),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 12,
+                        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                        child: Text(
+                          authProvider.userName.isNotEmpty ? authProvider.userName[0].toUpperCase() : 'A',
+                          style: TextStyle(color: textPrimary, fontWeight: FontWeight.bold, fontSize: 10),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              authProvider.userName,
+                              style: TextStyle(
+                                color: textPrimary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              authProvider.userEmail,
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontSize: 10,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.logout_rounded, size: 15, color: textSecondary),
+                        tooltip: 'Đăng xuất',
+                        onPressed: () => _showLogoutDialog(context, authProvider),
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.logout_rounded, size: 15, color: textSecondary),
-                  tooltip: 'Đăng xuất',
-                  onPressed: () => _showLogoutDialog(context, authProvider),
-                ),
-              ],
-            ),
           ),
         ],
       ),

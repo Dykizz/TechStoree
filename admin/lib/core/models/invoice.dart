@@ -14,6 +14,12 @@ class Invoice {
   final DateTime? paidAt;
   final DateTime createdAt;
   final String? note;
+  final String receiverPhone;
+  final String shippingAddress;
+  final double subtotalAmount;
+  final double voucherDiscountAmount;
+  final String? voucherCode;
+  final List<InvoiceItem> items;
 
   const Invoice({
     required this.invoiceId,
@@ -28,6 +34,12 @@ class Invoice {
     this.paidAt,
     required this.createdAt,
     this.note,
+    this.receiverPhone = '',
+    this.shippingAddress = '',
+    this.subtotalAmount = 0.0,
+    this.voucherDiscountAmount = 0.0,
+    this.voucherCode,
+    this.items = const [],
   });
 
   bool get isPaid => status.toUpperCase() == 'PAID';
@@ -95,6 +107,15 @@ class Invoice {
           ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
       note: json['note']?.toString(),
+      receiverPhone: json['receiverPhone']?.toString() ?? '',
+      shippingAddress: json['shippingAddress']?.toString() ?? '',
+      subtotalAmount: (json['subtotalAmount'] as num?)?.toDouble() ?? (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      voucherDiscountAmount: (json['voucherDiscountAmount'] as num?)?.toDouble() ?? 0.0,
+      voucherCode: json['voucherCode']?.toString(),
+      items: (json['items'] as List<dynamic>?)
+              ?.map((item) => InvoiceItem.fromJson(item as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -112,83 +133,100 @@ class Invoice {
       'paidAt': paidAt?.toIso8601String(),
       'createdAt': createdAt.toIso8601String(),
       'note': note,
+      'receiverPhone': receiverPhone,
+      'shippingAddress': shippingAddress,
+      'subtotalAmount': subtotalAmount,
+      'voucherDiscountAmount': voucherDiscountAmount,
+      'voucherCode': voucherCode,
+      'items': items.map((i) => i.toJson()).toList(),
     };
   }
+}
 
-  /// Danh sách hóa đơn mẫu phục vụ chế độ Offline Resilience
-  static List<Invoice> getSampleInvoices() {
-    final now = DateTime.now();
-    return [
-      Invoice(
-        invoiceId: 1,
-        invoiceCode: 'INV-ORD-20261002-C3D4',
-        orderId: 2,
-        orderCode: 'ORD-20261002-C3D4',
-        userId: 3,
-        customerName: 'Trần Thị Bình',
-        totalAmount: 57880000.0,
-        status: 'PAID',
-        paymentMethod: 'VNPAY',
-        paidAt: now.subtract(const Duration(days: 2, hours: 4)),
-        createdAt: now.subtract(const Duration(days: 2, hours: 5)),
-        note: 'Đã thanh toán thành công qua cổng VNPay QR',
-      ),
-      Invoice(
-        invoiceId: 2,
-        invoiceCode: 'INV-ORD-20261003-E5F6',
-        orderId: 3,
-        orderCode: 'ORD-20261003-E5F6',
-        userId: 3,
-        customerName: 'Phạm Minh Cường',
-        totalAmount: 20000000.0,
-        status: 'PAID',
-        paymentMethod: 'BANK_TRANSFER',
-        paidAt: now.subtract(const Duration(days: 1, hours: 8)),
-        createdAt: now.subtract(const Duration(days: 1, hours: 10)),
-        note: 'Chuyển khoản Vietcombank xác nhận bởi kế toán',
-      ),
-      Invoice(
-        invoiceId: 3,
-        invoiceCode: 'INV-ORD-20261003-G7H8',
-        orderId: 4,
-        orderCode: 'ORD-20261003-G7H8',
-        userId: 3,
-        customerName: 'Lê Hoàng Dung',
-        totalAmount: 53980000.0,
-        status: 'PAID',
-        paymentMethod: 'COD',
-        paidAt: now.subtract(const Duration(days: 1, hours: 2)),
-        createdAt: now.subtract(const Duration(days: 2, hours: 12)),
-        note: 'Đã thu tiền mặt COD thành công',
-      ),
-      Invoice(
-        invoiceId: 4,
-        invoiceCode: 'INV-ORD-20261001-A1B2',
-        orderId: 1,
-        orderCode: 'ORD-20261001-A1B2',
-        userId: 3,
-        customerName: 'Nguyễn Văn An',
-        totalAmount: 24990000.0,
-        status: 'UNPAID',
-        paymentMethod: 'COD',
-        paidAt: null,
-        createdAt: now.subtract(const Duration(hours: 15)),
-        note: 'Đơn hàng đang chờ giao và thu tiền COD tận nơi',
-      ),
-      Invoice(
-        invoiceId: 5,
-        invoiceCode: 'INV-ORD-20261003-K9L0',
-        orderId: 5,
-        orderCode: 'ORD-20261003-K9L0',
-        userId: 3,
-        customerName: 'Hoàng Quốc Em',
-        totalAmount: 28990000.0,
-        status: 'CANCELLED',
-        paymentMethod: 'COD',
-        paidAt: null,
-        createdAt: now.subtract(const Duration(hours: 3)),
-        note: 'Hóa đơn tự động hủy do khách hàng hủy đơn hàng',
-      ),
-    ];
+/// Dòng mặt hàng trong Hóa đơn
+class InvoiceItem {
+  final int orderItemId;
+  final String productName;
+  final String variantName;
+  final String? imageUrl;
+  final double unitPrice;
+  final int quantity;
+  final double totalPrice;
+
+  const InvoiceItem({
+    required this.orderItemId,
+    required this.productName,
+    required this.variantName,
+    this.imageUrl,
+    required this.unitPrice,
+    required this.quantity,
+    required this.totalPrice,
+  });
+
+  factory InvoiceItem.fromJson(Map<String, dynamic> json) {
+    return InvoiceItem(
+      orderItemId: (json['orderItemId'] as num?)?.toInt() ?? 0,
+      productName: json['productName']?.toString() ?? '',
+      variantName: json['variantName']?.toString() ?? '',
+      imageUrl: json['imageUrl']?.toString(),
+      unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      totalPrice: (json['totalPrice'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'orderItemId': orderItemId,
+      'productName': productName,
+      'variantName': variantName,
+      'imageUrl': imageUrl,
+      'unitPrice': unitPrice,
+      'quantity': quantity,
+      'totalPrice': totalPrice,
+    };
   }
 }
+
+/// Số liệu thống kê và đối soát tài chính của Hóa đơn
+
+class InvoiceStatistics {
+  final int totalInvoices;
+  final int paidCount;
+  final int unpaidCount;
+  final int cancelledCount;
+  final double paidAmount;
+  final double unpaidAmount;
+  final Map<String, int> statusCounts;
+
+  const InvoiceStatistics({
+    this.totalInvoices = 0,
+    this.paidCount = 0,
+    this.unpaidCount = 0,
+    this.cancelledCount = 0,
+    this.paidAmount = 0.0,
+    this.unpaidAmount = 0.0,
+    this.statusCounts = const {},
+  });
+
+  factory InvoiceStatistics.fromJson(Map<String, dynamic> json) {
+    final statusCountsRaw = json['statusCounts'];
+    final Map<String, int> counts = {};
+    if (statusCountsRaw is Map) {
+      statusCountsRaw.forEach((k, v) {
+        counts[k.toString().toUpperCase()] = (v as num?)?.toInt() ?? 0;
+      });
+    }
+
+    return InvoiceStatistics(
+      totalInvoices: (json['totalInvoices'] as num?)?.toInt() ?? 0,
+      paidCount: (json['paidCount'] as num?)?.toInt() ?? 0,
+      unpaidCount: (json['unpaidCount'] as num?)?.toInt() ?? 0,
+      cancelledCount: (json['cancelledCount'] as num?)?.toInt() ?? 0,
+      paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
+      unpaidAmount: (json['unpaidAmount'] as num?)?.toDouble() ?? 0.0,
+      statusCounts: counts,
+    );
+  }
+}
+

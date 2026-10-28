@@ -28,8 +28,11 @@ class InvoiceDetailDialog extends StatelessWidget {
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 680,
-        constraints: const BoxConstraints(maxHeight: 760),
+        width: 760,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+          maxWidth: 760,
+        ),
         decoration: BoxDecoration(
           color: bgCard,
           borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -79,7 +82,7 @@ class InvoiceDetailDialog extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           invoice.invoiceCode,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primary,
@@ -192,29 +195,37 @@ class InvoiceDetailDialog extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
-                    // Two columns info (Customer info & Order metadata)
+                    // Two columns info (Customer/Shipping info & Order metadata)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Customer
+                        // Customer & Shipping
                         Expanded(
                           child: _buildInfoCard(
                             isDark: isDark,
                             borderColor: borderColor,
                             textPrimary: textPrimary,
                             textSecondary: textSecondary,
-                            title: 'THÔNG TIN KHÁCH HÀNG',
+                            title: 'THÔNG TIN KHÁCH HÀNG & GIAO NHẬN',
                             icon: Icons.person_outline_rounded,
                             rows: [
-                              _InfoRow(label: 'Tên khách hàng', value: invoice.customerName),
-                              _InfoRow(label: 'Mã khách hàng (User ID)', value: '#${invoice.userId}'),
+                              _InfoRow(label: 'Tên người nhận', value: invoice.customerName.isNotEmpty ? invoice.customerName : 'Khách vãng lai'),
+                              _InfoRow(label: 'Mã khách hàng', value: '#${invoice.userId}'),
+                              _InfoRow(
+                                label: 'Số điện thoại',
+                                value: invoice.receiverPhone.isNotEmpty ? invoice.receiverPhone : 'Chưa cập nhật',
+                              ),
+                              _InfoRow(
+                                label: 'Địa chỉ giao hàng',
+                                value: invoice.shippingAddress.isNotEmpty ? invoice.shippingAddress : 'Nhận tại cửa hàng',
+                              ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 16),
-                        // Order details
+                        // Payment & Order details
                         Expanded(
                           child: _buildInfoCard(
                             isDark: isDark,
@@ -237,9 +248,170 @@ class InvoiceDetailDialog extends StatelessWidget {
                       ],
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
 
-                    // Amount Summary Card
+                    // DANH SÁCH MẶT HÀNG TRÊN HÓA ĐƠN
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkBackground.withValues(alpha: 0.5) : Colors.white,
+                        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                        border: Border.all(color: borderColor, width: 1),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.shopping_bag_outlined, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'DANH SÁCH MẶT HÀNG TRÊN HÓA ĐƠN',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primary,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                                const Spacer(),
+                                Text(
+                                  '${invoice.items.length} món',
+                                  style: TextStyle(fontSize: 11, color: textSecondary, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: borderColor),
+                          if (invoice.items.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Center(
+                                child: Text(
+                                  'Dữ liệu mặt hàng liên kết trực tiếp với đơn hàng ${invoice.orderCode}',
+                                  style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
+                                ),
+                              ),
+                            )
+                          else ...[
+                            // Table Header
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 5,
+                                    child: Text(
+                                      'Sản phẩm & Phân loại',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Số lượng',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'Đơn giá',
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(
+                                      'Thành tiền',
+                                      textAlign: TextAlign.right,
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textSecondary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Divider(height: 1, color: borderColor),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: invoice.items.length,
+                              separatorBuilder: (_, _) => Divider(height: 1, color: borderColor.withValues(alpha: 0.4)),
+                              itemBuilder: (context, index) {
+                                final item = invoice.items[index];
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 5,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.productName,
+                                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (item.variantName.isNotEmpty) ...[
+                                              const SizedBox(height: 3),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                decoration: BoxDecoration(
+                                                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  item.variantName,
+                                                  style: TextStyle(fontSize: 10.5, color: textSecondary, fontWeight: FontWeight.w500),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'x${item.quantity}',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          currencyFormat.format(item.unitPrice),
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(fontSize: 12, color: textSecondary),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          currencyFormat.format(item.totalPrice),
+                                          textAlign: TextAlign.right,
+                                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: textPrimary),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // Amount Summary Card (Bóc tách cơ cấu tài chính)
                     Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
@@ -249,6 +421,63 @@ class InvoiceDetailDialog extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Tiền hàng (tạm tính):', style: TextStyle(fontSize: 12, color: textSecondary)),
+                              Text(
+                                currencyFormat.format(invoice.subtotalAmount > 0 ? invoice.subtotalAmount : invoice.totalAmount),
+                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
+                              ),
+                            ],
+                          ),
+                          if (invoice.voucherDiscountAmount > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      const Text('Giảm giá Voucher:', style: TextStyle(fontSize: 12, color: AppColors.success)),
+                                      if (invoice.voucherCode != null && invoice.voucherCode!.isNotEmpty) ...[
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.success.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              invoice.voucherCode!,
+                                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.success),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '- ${currencyFormat.format(invoice.voucherDiscountAmount)}',
+                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.success),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Phí vận chuyển:', style: TextStyle(fontSize: 12, color: textSecondary)),
+                              Text('Miễn phí', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Divider(color: borderColor, height: 1),
+                          const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
