@@ -86,4 +86,124 @@ public static class TechInterestTypeExtensions
             "Các nhu cầu thiết bị công nghệ phổ thông khác"
         )
     };
+
+    /// <summary>
+    /// Danh sách các từ khóa đặc trưng nhận diện cho từng phân khúc sở thích (hỗ trợ phân nhóm khảo sát và CRM)
+    /// </summary>
+    public static List<string> GetKeywords(this TechInterestType type)
+    {
+        var (displayName, _) = type.GetMetadata();
+        var keywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            type.ToString().ToLowerInvariant(),
+            displayName.ToLowerInvariant()
+        };
+
+        switch (type)
+        {
+            case TechInterestType.GAMING:
+                keywords.Add("gaming");
+                keywords.Add("game");
+                keywords.Add("đồ họa");
+                break;
+            case TechInterestType.OFFICE_STUDY:
+                keywords.Add("office_study");
+                keywords.Add("văn phòng");
+                keywords.Add("học tập");
+                keywords.Add("office");
+                break;
+            case TechInterestType.AUDIO_STUDIO:
+                keywords.Add("audio_studio");
+                keywords.Add("âm thanh");
+                keywords.Add("studio");
+                keywords.Add("audio");
+                keywords.Add("tai nghe");
+                keywords.Add("loa");
+                break;
+            case TechInterestType.CODING_AI:
+                keywords.Add("coding_ai");
+                keywords.Add("lập trình");
+                keywords.Add("ai");
+                keywords.Add("coding");
+                keywords.Add("trí tuệ nhân tạo");
+                break;
+            case TechInterestType.SMARTWATCH_HEALTH:
+                keywords.Add("smartwatch_health");
+                keywords.Add("smartwatch");
+                keywords.Add("sức khỏe");
+                keywords.Add("health");
+                keywords.Add("đồng hồ");
+                break;
+            case TechInterestType.PHOTOGRAPHY_VIDEO:
+                keywords.Add("photography_video");
+                keywords.Add("nhiếp ảnh");
+                keywords.Add("quay phim");
+                keywords.Add("photography");
+                keywords.Add("camera");
+                break;
+            case TechInterestType.SMARTHOME:
+                keywords.Add("smarthome");
+                keywords.Add("nhà thông minh");
+                keywords.Add("gia dụng");
+                break;
+            case TechInterestType.OTHER:
+                keywords.Add("other");
+                keywords.Add("khác");
+                break;
+        }
+
+        return keywords.Select(k => k.ToLowerInvariant().Trim()).ToList();
+    }
+
+    /// <summary>
+    /// Nhận diện phân khúc sở thích chuẩn hóa từ chuỗi đầu vào bất kỳ (Enum Key, DisplayName hoặc từ khóa)
+    /// </summary>
+    public static TechInterestType? ParseInterest(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        var clean = input.Trim();
+
+        // 1. Khớp chính xác theo Enum name (ví dụ: "GAMING", "AUDIO_STUDIO")
+        if (Enum.TryParse<TechInterestType>(clean, true, out var exactMatch))
+        {
+            return exactMatch;
+        }
+
+        var lower = clean.ToLowerInvariant();
+
+        // 2. Khớp theo DisplayName hoặc từ khóa trong GetKeywords
+        foreach (var type in Enum.GetValues<TechInterestType>())
+        {
+            var meta = type.GetMetadata();
+            if (string.Equals(meta.DisplayName, clean, StringComparison.OrdinalIgnoreCase) ||
+                lower.Contains(meta.DisplayName.ToLowerInvariant()))
+            {
+                return type;
+            }
+
+            if (type.GetKeywords().Any(k => lower.Contains(k) || k.Contains(lower)))
+            {
+                return type;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Trích xuất danh sách từ khóa tìm kiếm cho chuỗi sở thích bất kỳ dựa theo phân khúc chuẩn của TechInterestType
+    /// </summary>
+    public static List<string> ResolveSearchKeywords(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return [];
+
+        var matchedType = ParseInterest(input);
+        if (matchedType.HasValue)
+        {
+            return matchedType.Value.GetKeywords();
+        }
+
+        return [input.Trim().ToLowerInvariant()];
+    }
 }
