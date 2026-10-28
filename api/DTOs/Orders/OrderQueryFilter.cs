@@ -36,4 +36,16 @@ public class OrderQueryFilter : PaginationParams
     /// </summary>
     /// <example>2026-09-30T23:59:59Z</example>
     public DateTime? ToDate { get; set; }
+
+    /// <summary>
+    /// Lọc theo giá trị đơn hàng tối thiểu (VNĐ)
+    /// </summary>
+    /// <example>500000</example>
+    public decimal? MinAmount { get; set; }
+
+    /// <summary>
+    /// Lọc theo giá trị đơn hàng tối đa (VNĐ)
+    /// </summary>
+    /// <example>20000000</example>
+    public decimal? MaxAmount { get; set; }
 }

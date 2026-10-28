@@ -9,7 +9,6 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/data_table_container.dart';
-import '../../core/models/invoice.dart';
 import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
 import 'widgets/packing_slip_dialog.dart';
@@ -119,7 +118,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Text('Trạng thái tiến trình mới (*)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
-                    value: selectedStatus,
+                    initialValue: selectedStatus,
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -154,7 +153,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Trạng thái thanh toán sẽ được hệ thống tự động suy ra từ trạng thái đơn hàng (Ví dụ: Chuyển sang Đã giao hàng sẽ tự động thành Đã thanh toán).',
+                            'Lưu ý: Đơn thanh toán trực tuyến (VNPAY/Ngân hàng) đã ghi nhận thanh toán thành công. Đối với đơn COD, sau khi giao thành công, bấm "Xác nhận thanh toán COD" khi đối soát tiền thu hộ.',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
@@ -271,8 +270,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           token: token,
                         );
 
-                        if (mounted) {
+                        if (dialogCtx.mounted) {
                           Navigator.pop(dialogCtx);
+                        }
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(res.message),
@@ -393,8 +394,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           token: token,
                         );
 
-                        if (mounted) {
+                        if (dialogCtx.mounted) {
                           Navigator.pop(dialogCtx);
+                        }
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(res.message),
@@ -428,24 +431,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         builder: (ctx) => InvoiceDetailDialog(invoice: invoice),
       );
     } else {
-      // Fallback create virtual invoice from current order
-      final virtualInvoice = Invoice(
-        invoiceId: _currentOrder.orderId,
-        invoiceCode: 'INV-${_currentOrder.orderCode}',
-        orderId: _currentOrder.orderId,
-        orderCode: _currentOrder.orderCode,
-        userId: _currentOrder.userId,
-        customerName: _currentOrder.receiverName,
-        totalAmount: _currentOrder.totalAmount,
-        status: _currentOrder.paymentStatus.toUpperCase() == 'PAID' ? 'PAID' : 'UNPAID',
-        paymentMethod: _currentOrder.paymentMethod,
-        paidAt: _currentOrder.paidAt,
-        createdAt: _currentOrder.createdAt ?? DateTime.now(),
-        note: _currentOrder.notes,
-      );
-      showDialog(
-        context: context,
-        builder: (ctx) => InvoiceDetailDialog(invoice: virtualInvoice),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đơn hàng ${_currentOrder.orderCode} chưa có hóa đơn được tạo trong hệ thống.'),
+          backgroundColor: AppColors.warning,
+        ),
       );
     }
   }
@@ -453,7 +443,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   void _showCodReconciliationDialog() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    final noteCtrl = TextEditingController(text: 'Đã nhận đủ tiền thu hộ COD từ bưu tá/ĐVVC');
+    final noteCtrl = TextEditingController();
     bool isSubmitting = false;
 
     showDialog(
@@ -542,8 +532,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           token: token,
                         );
 
-                        if (mounted) {
+                        if (dialogCtx.mounted) {
                           Navigator.pop(dialogCtx);
+                        }
+                        if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(res.message),
@@ -644,17 +636,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         ),
                         Row(
                           children: [
-                            AppButton(
-                              label: 'In phiếu đóng gói',
-                              icon: Icons.print_rounded,
-                              variant: AppButtonVariant.outline,
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (ctx) => PackingSlipDialog(orders: [_currentOrder]),
-                                );
-                              },
-                            ),
+                            if (_currentOrder.orderStatus != 'CANCELLED' && _currentOrder.orderStatus != 'RETURNED')
+                              AppButton(
+                                label: 'In phiếu đóng gói',
+                                icon: Icons.print_rounded,
+                                variant: AppButtonVariant.outline,
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => PackingSlipDialog(orders: [_currentOrder]),
+                                  );
+                                },
+                              ),
                             if (authProvider.can('Invoices.View')) ...[
                               const SizedBox(width: 8),
                               AppButton(
@@ -797,18 +790,25 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                             DataCell(
                                               ClipRRect(
                                                 borderRadius: BorderRadius.circular(4),
-                                                child: Image.network(
-                                                  item.imageUrl ?? '',
-                                                  width: 38,
-                                                  height: 38,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (c, e, s) => Container(
-                                                    width: 38,
-                                                    height: 38,
-                                                    color: Colors.black12,
-                                                    child: const Icon(Icons.devices, size: 20),
-                                                  ),
-                                                ),
+                                                child: (item.imageUrl != null && item.imageUrl!.trim().isNotEmpty)
+                                                    ? Image.network(
+                                                        item.imageUrl!.trim(),
+                                                        width: 38,
+                                                        height: 38,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder: (c, e, s) => Container(
+                                                          width: 38,
+                                                          height: 38,
+                                                          color: isDark ? const Color(0xFF334155) : Colors.black12,
+                                                          child: const Icon(Icons.devices, size: 20),
+                                                        ),
+                                                      )
+                                                    : Container(
+                                                        width: 38,
+                                                        height: 38,
+                                                        color: isDark ? const Color(0xFF334155) : Colors.black12,
+                                                        child: const Icon(Icons.devices, size: 20),
+                                                      ),
                                               ),
                                             ),
                                             DataCell(
@@ -831,23 +831,52 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                               ),
                                             ),
                                             DataCell(
-                                              Text(currencyFormat.format(item.unitPrice), style: TextStyle(fontSize: 12, color: textPrimary)),
+                                              Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  if (item.hasPromotion && item.originalPrice > item.unitPrice)
+                                                    Text(
+                                                      currencyFormat.format(item.originalPrice),
+                                                      style: TextStyle(
+                                                        fontSize: 10.5,
+                                                        color: textSecondary,
+                                                        decoration: TextDecoration.lineThrough,
+                                                      ),
+                                                    ),
+                                                  Text(
+                                                    currencyFormat.format(item.unitPrice),
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: (item.hasPromotion && item.originalPrice > item.unitPrice)
+                                                          ? FontWeight.w600
+                                                          : FontWeight.normal,
+                                                      color: textPrimary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                             DataCell(
                                               Text('${item.quantity}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: textPrimary)),
                                             ),
                                             DataCell(
-                                              item.hasPromotion
+                                              item.hasPromotion && item.promotionDiscount > 0
                                                   ? Column(
                                                       mainAxisAlignment: MainAxisAlignment.center,
                                                       crossAxisAlignment: CrossAxisAlignment.start,
                                                       children: [
                                                         Text(
-                                                          '-${currencyFormat.format(item.promotionDiscount)}',
+                                                          '-${currencyFormat.format(item.promotionDiscount)}/sp',
                                                           style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w700, fontSize: 11),
                                                         ),
-                                                        if (item.promotionName != null)
-                                                          Text(item.promotionName!, style: TextStyle(fontSize: 9.5, color: textSecondary)),
+                                                        if (item.promotionName != null && item.promotionName!.isNotEmpty)
+                                                          Text(
+                                                            item.promotionName!,
+                                                            style: TextStyle(fontSize: 9.5, color: textSecondary),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
                                                       ],
                                                     )
                                                   : Text('-', style: TextStyle(color: textSecondary, fontSize: 11)),
@@ -899,8 +928,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   _buildSummaryRow('Tạm tính tiền hàng (Subtotal):', currencyFormat.format(_currentOrder.subtotalAmount), textPrimary, textSecondary),
                                   if (_currentOrder.voucherDiscountAmount > 0)
                                     _buildSummaryRow('Giảm giá từ Voucher:', '-${currencyFormat.format(_currentOrder.voucherDiscountAmount)}', AppColors.success, textSecondary),
-                                  if (_currentOrder.totalSavings > 0)
-                                    _buildSummaryRow('Tổng tiết kiệm được:', currencyFormat.format(_currentOrder.totalSavings), AppColors.info, textSecondary),
                                   const Divider(height: 20),
 
                                   Row(
@@ -913,6 +940,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                       ),
                                     ],
                                   ),
+                                  if (_currentOrder.totalSavings > 0) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : const Color(0xFFECFDF5),
+                                        borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                                        border: Border.all(color: isDark ? const Color(0xFF059669) : const Color(0xFFA7F3D0)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.savings_outlined, size: 16, color: AppColors.success),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Đã tiết kiệm ${currencyFormat.format(_currentOrder.totalSavings)} từ khuyến mãi & voucher',
+                                              style: const TextStyle(fontSize: 11.5, color: AppColors.success, fontWeight: FontWeight.w600),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -933,7 +983,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     children: [
                                       const Icon(Icons.payment_outlined, color: AppColors.primary, size: 18),
                                       const SizedBox(width: 6),
-                                      Text('Thông tin Thanh toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
+                                      Text('Thông tin thanh toán', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
                                     ],
                                   ),
                                   const Divider(height: 20),
@@ -951,7 +1001,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   ),
                                   _buildInfoRow(
                                     'Thời điểm thanh toán:',
-                                    _currentOrder.paidAt != null ? dateFormat.format(_currentOrder.paidAt!) : 'Chưa thanh toán',
+                                    _currentOrder.paidAt != null
+                                        ? dateFormat.format(_currentOrder.paidAt!)
+                                        : (_currentOrder.paymentStatus.toUpperCase() == 'PAID'
+                                            ? 'Đã thanh toán'
+                                            : 'Chưa thanh toán'),
                                     textPrimary,
                                     textSecondary,
                                   ),
@@ -975,13 +1029,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     children: [
                                       const Icon(Icons.confirmation_number_outlined, color: AppColors.primary, size: 18),
                                       const SizedBox(width: 6),
-                                      Text('Mã giảm giá Voucher', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
+                                      Text('Mã giảm giá voucher', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: textPrimary)),
                                     ],
                                   ),
                                   const Divider(height: 20),
 
                                   if (_currentOrder.voucherId != null || _currentOrder.voucherCode != null) ...[
-                                    _buildInfoRow('Mã Voucher:', _currentOrder.voucherCode ?? 'N/A', AppColors.primary, textSecondary, isBoldValue: true),
+                                    _buildInfoRow('Mã voucher:', _currentOrder.voucherCode ?? 'N/A', AppColors.primary, textSecondary, isBoldValue: true),
                                     if (_currentOrder.voucherTitle != null)
                                       _buildInfoRow('Tên chương trình:', _currentOrder.voucherTitle!, textPrimary, textSecondary),
                                     _buildInfoRow('Số tiền giảm:', '-${currencyFormat.format(_currentOrder.voucherDiscountAmount)}', AppColors.success, textSecondary, isBoldValue: true),
@@ -1021,7 +1075,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                     ),
                                     _buildInfoRow(
                                       'Lý do hủy đơn:',
-                                      _currentOrder.cancellationReason ?? 'Không ghi rõ lý do',
+                                      _currentOrder.cancellationReason ?? 'N/A',
                                       textPrimary,
                                       textSecondary,
                                     ),
@@ -1051,8 +1105,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                   ),
                                   const Divider(height: 20),
 
-                                  _buildInfoRow('Người tạo:', _currentOrder.createdByName ?? 'Khách hàng tự đặt', textPrimary, textSecondary),
-                                  _buildInfoRow('Cập nhật lần cuối:', _currentOrder.updatedByName ?? 'Hệ thống', textPrimary, textSecondary),
+                                  _buildInfoRow('Người tạo:', _currentOrder.createdByName ?? 'N/A', textPrimary, textSecondary),
+                                  _buildInfoRow('Cập nhật lần cuối:', _currentOrder.updatedByName ?? 'Chưa cập nhật', textPrimary, textSecondary),
                                 ],
                               ),
                             ),
@@ -1107,8 +1161,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final isReturned = status == 'RETURNED';
 
     bool step1Done = true;
-    bool step2Done = ['CONFIRMED', 'SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
-    bool step3Done = ['SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
+    bool step2Done = !isCancelled && ['CONFIRMED', 'SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
+    bool step3Done = !isCancelled && ['SHIPPING', 'DELIVERED', 'RETURNED'].contains(status);
     bool step4Done = ['DELIVERED', 'RETURNED', 'CANCELLED'].contains(status);
 
     int currentStepIndex = 0;
@@ -1133,18 +1187,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       },
       {
         'title': 'Xác nhận đơn',
-        'subtitle': step2Done ? 'Đã duyệt đơn' : 'Chờ duyệt',
+        'subtitle': isCancelled ? 'Không thực hiện' : (step2Done ? 'Đã duyệt đơn' : 'Chờ duyệt'),
         'icon': Icons.assignment_turned_in_outlined,
         'done': step2Done,
-        'active': currentStepIndex == 1,
+        'active': !isCancelled && currentStepIndex == 1,
         'isFail': false,
       },
       {
         'title': 'Đang vận chuyển',
-        'subtitle': step3Done ? 'Đã giao cho ĐVVC' : 'Chờ đóng gói & giao',
+        'subtitle': isCancelled ? 'Không thực hiện' : (step3Done ? 'Đã giao cho ĐVVC' : 'Chờ đóng gói & giao'),
         'icon': Icons.local_shipping_outlined,
         'done': step3Done,
-        'active': currentStepIndex == 2,
+        'active': !isCancelled && currentStepIndex == 2,
         'isFail': false,
       },
       {
@@ -1183,7 +1237,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   const Icon(Icons.timeline_rounded, color: AppColors.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Tiến trình xử lý đơn hàng (Timeline Stepper)',
+                    'Tiến trình xử lý đơn hàng',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: textPrimary),
                   ),
                 ],
@@ -1213,8 +1267,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
                 if (i < steps.length - 1)
                   _buildTimelineConnector(
-                    isPassed: (steps[i + 1]['done'] as bool) || (steps[i + 1]['active'] as bool),
-                    isFail: (steps[i + 1]['isFail'] as bool) && (steps[i + 1]['done'] as bool),
+                    isPassed: !isCancelled && ((steps[i + 1]['done'] as bool) || (steps[i + 1]['active'] as bool)),
+                    isFail: !isCancelled && (steps[i + 1]['isFail'] as bool) && (steps[i + 1]['done'] as bool),
+                    isCancelled: isCancelled,
+                    isDark: isDark,
                   ),
               ],
             ],
@@ -1302,14 +1358,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     );
   }
 
-  Widget _buildTimelineConnector({required bool isPassed, required bool isFail}) {
+  Widget _buildTimelineConnector({
+    required bool isPassed,
+    required bool isFail,
+    required bool isCancelled,
+    required bool isDark,
+  }) {
+    Color lineColor;
+    if (isCancelled) {
+      lineColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+    } else if (isFail) {
+      lineColor = AppColors.danger;
+    } else if (isPassed) {
+      lineColor = AppColors.success;
+    } else {
+      lineColor = isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1);
+    }
+
     return Expanded(
       child: Container(
         height: 2.5,
         margin: const EdgeInsets.only(bottom: 34, left: 4, right: 4),
-        color: isFail
-            ? AppColors.danger
-            : (isPassed ? AppColors.success : const Color(0xFFCBD5E1)),
+        color: lineColor,
       ),
     );
   }

@@ -734,6 +734,16 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             query = query.Where(o => o.CreatedAt <= toUtc);
         }
 
+        if (filter.MinAmount.HasValue)
+        {
+            query = query.Where(o => o.TotalAmount >= filter.MinAmount.Value);
+        }
+
+        if (filter.MaxAmount.HasValue)
+        {
+            query = query.Where(o => o.TotalAmount <= filter.MaxAmount.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.Trim().ToLower();
