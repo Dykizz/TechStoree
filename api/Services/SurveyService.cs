@@ -294,15 +294,9 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                 {
                     throw new BadRequestException("Vui lòng chọn sở thích công nghệ mục tiêu.");
                 }
-                var interestLower = dto.TechInterest.Trim().ToLower();
-                var matchedKeywords = new List<string> { interestLower };
-                if (interestLower.Contains("gaming")) matchedKeywords.Add("gaming");
-                if (interestLower.Contains("văn phòng") || interestLower.Contains("học tập") || interestLower.Contains("office")) { matchedKeywords.Add("office_study"); matchedKeywords.Add("văn phòng"); }
-                if (interestLower.Contains("âm thanh") || interestLower.Contains("studio") || interestLower.Contains("audio")) { matchedKeywords.Add("audio_studio"); matchedKeywords.Add("âm thanh"); }
-                if (interestLower.Contains("lập trình") || interestLower.Contains("ai") || interestLower.Contains("coding")) { matchedKeywords.Add("coding_ai"); matchedKeywords.Add("lập trình"); }
-                if (interestLower.Contains("smartwatch") || interestLower.Contains("sức khỏe") || interestLower.Contains("health")) { matchedKeywords.Add("smartwatch_health"); matchedKeywords.Add("đồng hồ"); }
-                if (interestLower.Contains("nhiếp ảnh") || interestLower.Contains("quay phim") || interestLower.Contains("photography")) { matchedKeywords.Add("photography_video"); matchedKeywords.Add("nhiếp ảnh"); }
-                if (interestLower.Contains("smarthome") || interestLower.Contains("nhà thông minh") || interestLower.Contains("gia dụng")) { matchedKeywords.Add("smarthome"); matchedKeywords.Add("nhà thông minh"); }
+
+                // Nhận diện từ khóa tìm kiếm chuẩn hóa từ TechInterestType (không code cứng)
+                var matchedKeywords = TechInterestTypeExtensions.ResolveSearchKeywords(dto.TechInterest);
 
                 targetUserIds = await allActiveCustomersQuery
                     .Where(u => u.Customer != null && u.Customer.TechInterest != null &&
