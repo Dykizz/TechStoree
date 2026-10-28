@@ -22,6 +22,8 @@ mixin OrderApiService on BaseApiService {
     String? search,
     DateTime? fromDate,
     DateTime? toDate,
+    double? minAmount,
+    double? maxAmount,
     String? sortBy,
     bool isAscending = false,
     String? token,
@@ -48,6 +50,12 @@ mixin OrderApiService on BaseApiService {
       }
       if (toDate != null) {
         queryParams['toDate'] = toDate.toIso8601String();
+      }
+      if (minAmount != null) {
+        queryParams['minAmount'] = minAmount.toString();
+      }
+      if (maxAmount != null) {
+        queryParams['maxAmount'] = maxAmount.toString();
       }
       if (sortBy != null && sortBy.isNotEmpty) {
         queryParams['sortBy'] = sortBy;
@@ -127,65 +135,14 @@ mixin OrderApiService on BaseApiService {
       debugPrint('[OrderApiService] Lỗi khi lấy danh sách đơn hàng: $e');
     }
 
-    // Fallback to sample data in Order.getSampleOrders()
-    var samples = Order.getSampleOrders();
-    if (search != null && search.trim().isNotEmpty) {
-      final q = search.trim().toLowerCase();
-      samples = samples.where((o) =>
-          o.orderCode.toLowerCase().contains(q) ||
-          o.receiverName.toLowerCase().contains(q) ||
-          o.receiverPhone.contains(q)).toList();
-    }
-    if (status != null && status.isNotEmpty && status != 'ALL' && status != 'Tất cả') {
-      samples = samples.where((o) => o.orderStatus.toUpperCase() == status.toUpperCase()).toList();
-    }
-    if (paymentStatus != null && paymentStatus.isNotEmpty && paymentStatus != 'ALL' && paymentStatus != 'Tất cả') {
-      samples = samples.where((o) => o.paymentStatus.toUpperCase() == paymentStatus.toUpperCase()).toList();
-    }
-    if (paymentMethod != null && paymentMethod.isNotEmpty && paymentMethod != 'ALL' && paymentMethod != 'Tất cả') {
-      samples = samples.where((o) => o.paymentMethod.toUpperCase() == paymentMethod.toUpperCase()).toList();
-    }
-    if (fromDate != null) {
-      samples = samples.where((o) => o.createdAt != null && o.createdAt!.isAfter(fromDate.subtract(const Duration(seconds: 1)))).toList();
-    }
-    if (toDate != null) {
-      final endOfDay = DateTime(toDate.year, toDate.month, toDate.day, 23, 59, 59);
-      samples = samples.where((o) => o.createdAt != null && o.createdAt!.isBefore(endOfDay.add(const Duration(seconds: 1)))).toList();
-    }
-    if (sortBy != null && sortBy.isNotEmpty) {
-      switch (sortBy.toLowerCase()) {
-        case 'ordercode':
-          samples.sort((a, b) => isAscending ? a.orderCode.compareTo(b.orderCode) : b.orderCode.compareTo(a.orderCode));
-          break;
-        case 'totalamount':
-          samples.sort((a, b) => isAscending ? a.totalAmount.compareTo(b.totalAmount) : b.totalAmount.compareTo(a.totalAmount));
-          break;
-        case 'orderstatus':
-          samples.sort((a, b) => isAscending ? a.orderStatus.compareTo(b.orderStatus) : b.orderStatus.compareTo(a.orderStatus));
-          break;
-        default:
-          samples.sort((a, b) {
-            final aTime = a.createdAt ?? DateTime(2000);
-            final bTime = b.createdAt ?? DateTime(2000);
-            return isAscending ? aTime.compareTo(bTime) : bTime.compareTo(aTime);
-          });
-      }
-    }
-
-    final totItems = samples.length;
-    final totPages = (totItems / pageSize).ceil();
-    final safePage = page > totPages ? (totPages > 0 ? totPages : 1) : page;
-    final startIndex = (safePage - 1) * pageSize;
-    final paginated = totItems == 0 ? <Order>[] : samples.skip(startIndex).take(pageSize).toList();
-
     return (
-      items: paginated,
-      page: safePage,
+      items: <Order>[],
+      page: page,
       pageSize: pageSize,
-      totalItems: totItems,
-      totalPages: totPages > 0 ? totPages : 1,
-      hasPreviousPage: safePage > 1,
-      hasNextPage: safePage < totPages,
+      totalItems: 0,
+      totalPages: 1,
+      hasPreviousPage: false,
+      hasNextPage: false,
     );
   }
 
@@ -208,8 +165,6 @@ mixin OrderApiService on BaseApiService {
       debugPrint('[OrderApiService] Lỗi getOrderById($orderId): $e');
     }
 
-    final sampleMatches = Order.getSampleOrders().where((o) => o.orderId == orderId).toList();
-    if (sampleMatches.isNotEmpty) return sampleMatches.first;
     return null;
   }
 
