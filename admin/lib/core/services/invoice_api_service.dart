@@ -19,8 +19,11 @@ mixin InvoiceApiService on BaseApiService {
     String? status,
     String? paymentMethod,
     String? search,
+    String? advancedQuery,
     DateTime? fromDate,
     DateTime? toDate,
+    double? minAmount,
+    double? maxAmount,
     String? sortBy,
     bool isAscending = false,
     String? token,
@@ -43,11 +46,20 @@ mixin InvoiceApiService on BaseApiService {
       if (search != null && search.trim().isNotEmpty) {
         queryParams['search'] = search.trim();
       }
+      if (advancedQuery != null && advancedQuery.trim().isNotEmpty) {
+        queryParams['advancedQuery'] = advancedQuery.trim();
+      }
       if (fromDate != null) {
         queryParams['fromDate'] = fromDate.toIso8601String();
       }
       if (toDate != null) {
         queryParams['toDate'] = toDate.toIso8601String();
+      }
+      if (minAmount != null) {
+        queryParams['minAmount'] = minAmount.toString();
+      }
+      if (maxAmount != null) {
+        queryParams['maxAmount'] = maxAmount.toString();
       }
       if (sortBy != null && sortBy.isNotEmpty) {
         queryParams['sortBy'] = sortBy;
@@ -96,7 +108,6 @@ mixin InvoiceApiService on BaseApiService {
             hasNext = p < totPages;
           }
 
-          isConnected = true;
           return (
             items: items,
             page: p,
@@ -114,51 +125,18 @@ mixin InvoiceApiService on BaseApiService {
       debugPrint('[InvoiceApiService] Lỗi getAllInvoices: $e');
     }
 
-    // Fallback sang dữ liệu mẫu khi ngoại tuyến hoặc khi hệ thống chưa có dữ liệu ban đầu
-    var samples = Invoice.getSampleInvoices();
-    if (search != null && search.trim().isNotEmpty) {
-      final q = search.trim().toLowerCase();
-      samples = samples.where((inv) =>
-          inv.invoiceCode.toLowerCase().contains(q) ||
-          inv.orderCode.toLowerCase().contains(q) ||
-          inv.customerName.toLowerCase().contains(q) ||
-          (inv.note != null && inv.note!.toLowerCase().contains(q))).toList();
-    }
-    if (status != null && status.isNotEmpty && status != 'ALL' && status != 'Tất cả') {
-      samples = samples.where((inv) => inv.status.toUpperCase() == status.toUpperCase()).toList();
-    }
-    if (paymentMethod != null &&
-        paymentMethod.isNotEmpty &&
-        paymentMethod != 'ALL' &&
-        paymentMethod != 'Tất cả') {
-      samples = samples.where((inv) => inv.paymentMethod.toUpperCase() == paymentMethod.toUpperCase()).toList();
-    }
-    if (fromDate != null) {
-      samples = samples.where((inv) => inv.createdAt.isAfter(fromDate)).toList();
-    }
-    if (toDate != null) {
-      final nextDay = toDate.add(const Duration(days: 1));
-      samples = samples.where((inv) => inv.createdAt.isBefore(nextDay)).toList();
-    }
-
-    final totItems = samples.length;
-    final totPages = (totItems / pageSize).ceil();
-    final safePage = page > totPages ? (totPages > 0 ? totPages : 1) : page;
-    final startIndex = (safePage - 1) * pageSize;
-    final paginated = totItems == 0 ? <Invoice>[] : samples.skip(startIndex).take(pageSize).toList();
-
     return (
-      items: paginated,
-      page: safePage,
+      items: <Invoice>[],
+      page: page,
       pageSize: pageSize,
-      totalItems: totItems,
-      totalPages: totPages > 0 ? totPages : 1,
-      hasPreviousPage: safePage > 1,
-      hasNextPage: safePage < totPages,
+      totalItems: 0,
+      totalPages: 1,
+      hasPreviousPage: false,
+      hasNextPage: false,
     );
   }
 
-  /// Lấy chi tiết hóa đơn theo ID: GET /api/invoices/{id}
+  /// Lấy chi tiết một hóa đơn theo ID: GET /api/invoices/{id}
   Future<Invoice?> getInvoiceById(int id, {String? token}) async {
     try {
       final response = await httpGet(
@@ -177,12 +155,7 @@ mixin InvoiceApiService on BaseApiService {
       debugPrint('[InvoiceApiService] Lỗi getInvoiceById($id): $e');
     }
 
-    // Fallback
-    try {
-      return Invoice.getSampleInvoices().firstWhere((i) => i.invoiceId == id);
-    } catch (_) {
-      return null;
-    }
+    return null;
   }
 
   /// Tra cứu hóa đơn theo OrderId: GET /api/invoices/by-order/{orderId}
@@ -204,11 +177,28 @@ mixin InvoiceApiService on BaseApiService {
       debugPrint('[InvoiceApiService] Lỗi getInvoiceByOrderId($orderId): $e');
     }
 
-    // Fallback
+    return null;
+  }
+
+  /// Lấy thống kê số lượng và doanh thu hóa đơn: GET /api/invoices/admin/statistics
+  Future<InvoiceStatistics?> getInvoiceStatistics({String? token}) async {
     try {
-      return Invoice.getSampleInvoices().firstWhere((i) => i.orderId == orderId);
-    } catch (_) {
-      return null;
+      final response = await httpGet(
+        Uri.parse('$baseUrl/invoices/admin/statistics'),
+        token: token,
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        final data = jsonRes is Map<String, dynamic> ? jsonRes['data'] : null;
+        if (data is Map<String, dynamic>) {
+          return InvoiceStatistics.fromJson(data);
+        }
+      }
+    } catch (e) {
+      debugPrint('[InvoiceApiService] Lỗi getInvoiceStatistics: $e');
     }
+
+    return null;
   }
 }

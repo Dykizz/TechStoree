@@ -3,7 +3,6 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Invoices;
 using WebBanHang.Api.Enums;
-using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
 using WebBanHang.Api.Services.Interfaces;
@@ -50,6 +49,59 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
         return invoice?.ToInvoiceDto();
     }
 
+    public async Task<InvoiceStatisticsDto> GetInvoiceStatisticsAsync()
+    {
+        var statusStats = await dbContext.Invoices
+            .AsNoTracking()
+            .GroupBy(i => i.Status)
+            .Select(g => new
+            {
+                Status = g.Key,
+                Count = g.Count(),
+                TotalAmount = g.Sum(i => i.TotalAmount)
+            })
+            .ToListAsync();
+
+        var result = new InvoiceStatisticsDto
+        {
+            StatusCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ALL"] = 0,
+                ["PAID"] = 0,
+                ["UNPAID"] = 0,
+                ["CANCELLED"] = 0
+            }
+        };
+
+        int totalCount = 0;
+        foreach (var item in statusStats)
+        {
+            var statusKey = item.Status.ToString().ToUpper();
+            result.StatusCounts[statusKey] = item.Count;
+            totalCount += item.Count;
+
+            if (item.Status == InvoiceStatus.PAID)
+            {
+                result.PaidCount = item.Count;
+                result.PaidAmount = item.TotalAmount;
+            }
+            else if (item.Status == InvoiceStatus.UNPAID)
+            {
+                result.UnpaidCount = item.Count;
+                result.UnpaidAmount = item.TotalAmount;
+            }
+            else if (item.Status == InvoiceStatus.CANCELLED)
+            {
+                result.CancelledCount = item.Count;
+            }
+        }
+
+        result.TotalInvoices = totalCount;
+        result.StatusCounts["ALL"] = totalCount;
+
+        return result;
+    }
+
     public async Task<Invoice> CreateInvoiceForOrderAsync(Order order, DateTime now)
     {
         var existing = await dbContext.Invoices.FirstOrDefaultAsync(i => i.OrderId == order.OrderId);
@@ -81,7 +133,7 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
         var invoice = await dbContext.Invoices.FirstOrDefaultAsync(i => i.OrderId == order.OrderId);
         if (invoice != null)
         {
-            if (order.OrderStatus == OrderStatus.CANCELLED || order.PaymentStatus == PaymentStatus.REFUNDED)
+            if (order.OrderStatus == OrderStatus.CANCELLED || order.OrderStatus == OrderStatus.RETURNED || order.PaymentStatus == PaymentStatus.REFUNDED)
             {
                 invoice.Status = InvoiceStatus.CANCELLED;
             }
@@ -90,6 +142,10 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
                 invoice.Status = InvoiceStatus.PAID;
                 invoice.PaidAt ??= now;
             }
+            else if (order.PaymentStatus == PaymentStatus.PENDING)
+            {
+                invoice.Status = InvoiceStatus.UNPAID;
+            }
         }
     }
 
@@ -97,6 +153,7 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
         dbContext.Invoices
             .AsNoTracking()
             .Include(i => i.Order)
+                .ThenInclude(o => o.Items)
             .Include(i => i.User);
 
     private static IQueryable<Invoice> ApplyInvoiceFilter(IQueryable<Invoice> query, InvoiceQueryFilter filter)
@@ -106,7 +163,15 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
             var search = filter.Search.Trim().ToLower();
             query = query.Where(i =>
                 i.InvoiceCode.ToLower().Contains(search) ||
-                (i.Order != null && (i.Order.OrderCode.ToLower().Contains(search) || i.Order.ReceiverName.ToLower().Contains(search))) ||
+                (i.Order != null && (
+                    i.Order.OrderCode.ToLower().Contains(search) ||
+                    i.Order.ReceiverName.ToLower().Contains(search) ||
+                    (i.Order.ReceiverPhone != null && i.Order.ReceiverPhone.Contains(search))
+                )) ||
+                (i.User != null && (
+                    (i.User.FullName != null && i.User.FullName.ToLower().Contains(search)) ||
+                    (i.User.Phone != null && i.User.Phone.Contains(search))
+                )) ||
                 (i.Note != null && i.Note.ToLower().Contains(search)));
         }
 
@@ -130,6 +195,16 @@ public class InvoiceService(AppDbContext dbContext) : IInvoiceService
         {
             var nextDayUtc = DateTime.SpecifyKind(filter.ToDate.Value.Date.AddDays(1), DateTimeKind.Utc);
             query = query.Where(i => i.CreatedAt < nextDayUtc);
+        }
+
+        if (filter.MinAmount.HasValue)
+        {
+            query = query.Where(i => i.TotalAmount >= filter.MinAmount.Value);
+        }
+
+        if (filter.MaxAmount.HasValue)
+        {
+            query = query.Where(i => i.TotalAmount <= filter.MaxAmount.Value);
         }
 
         return filter.SortBy?.ToLower() switch

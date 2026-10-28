@@ -622,12 +622,27 @@ public static class MappingExtensions
             OrderCode = invoice.Order?.OrderCode ?? string.Empty,
             UserId = invoice.UserId,
             CustomerName = invoice.Order?.ReceiverName ?? invoice.User?.FullName ?? invoice.User?.Username ?? string.Empty,
+            ReceiverPhone = invoice.Order?.ReceiverPhone ?? invoice.User?.Phone ?? string.Empty,
+            ShippingAddress = invoice.Order?.ShippingAddress ?? string.Empty,
+            SubtotalAmount = invoice.Order?.SubtotalAmount ?? invoice.TotalAmount,
+            VoucherDiscountAmount = invoice.Order?.VoucherDiscountAmount ?? 0,
+            VoucherCode = invoice.Order?.VoucherCode,
             TotalAmount = invoice.TotalAmount,
             Status = invoice.Status,
             PaymentMethod = invoice.PaymentMethod,
             PaidAt = invoice.PaidAt,
             CreatedAt = invoice.CreatedAt,
-            Note = invoice.Note
+            Note = invoice.Note,
+            Items = invoice.Order?.Items?.Select(item => new InvoiceItemDto
+            {
+                OrderItemId = item.OrderItemId,
+                ProductName = item.ProductName,
+                VariantName = item.VariantName,
+                ImageUrl = item.ImageUrl,
+                UnitPrice = item.UnitPrice,
+                Quantity = item.Quantity,
+                TotalPrice = item.TotalPrice
+            }).ToList() ?? []
         };
     }
 

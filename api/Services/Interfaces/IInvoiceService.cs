@@ -11,6 +11,7 @@ public interface IInvoiceService
     Task<PagedResult<InvoiceDto>> GetMyInvoicesAsync(int userId, InvoiceQueryFilter filter);
     Task<InvoiceDto?> GetInvoiceByIdAsync(int invoiceId, int? userId = null);
     Task<InvoiceDto?> GetInvoiceByOrderIdAsync(int orderId, int? userId = null);
+    Task<InvoiceStatisticsDto> GetInvoiceStatisticsAsync();
 
     /// <summary>
     /// Tự động khởi tạo Hóa đơn từ Đơn hàng khi khách đặt mua

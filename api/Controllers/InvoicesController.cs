@@ -41,6 +41,19 @@ public class InvoicesController(IInvoiceService invoiceService) : BaseApiControl
     }
 
     /// <summary>
+    /// [ADMIN / BÁN HÀNG] Thống kê tổng số lượng hóa đơn, số lượng theo trạng thái và doanh thu thực tế
+    /// </summary>
+    [HttpGet("admin/statistics")]
+    [HasPermission(AppPermissions.Invoices.View)]
+    [ProducesResponseType(typeof(ApiResponse<InvoiceStatisticsDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetInvoiceStatistics()
+    {
+        var result = await invoiceService.GetInvoiceStatisticsAsync();
+        return Success(result, "Lấy số liệu thống kê hóa đơn thành công.");
+    }
+
+    /// <summary>
     /// Xem chi tiết một hóa đơn theo ID
     /// </summary>
     [HttpGet("{id:int}")]
