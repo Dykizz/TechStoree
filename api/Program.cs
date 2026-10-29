@@ -9,6 +9,7 @@ using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.Middlewares;
 using WebBanHang.Api.Services;
+using WebBanHang.Api.Services.Caching;
 using WebBanHang.Api.Services.Interfaces;
 using Microsoft.OpenApi;
 
@@ -52,21 +53,48 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
 });
 
-// 2. Đăng ký các Services tầng nghiệp vụ (Dependency Injection)
+// 2. Đăng ký Caching và các Services tầng nghiệp vụ (Dependency Injection)
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ICacheService, MemoryCacheService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ISupplierService, SupplierService>();
-builder.Services.AddScoped<ICategoryService, CategoryService>();
-builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<SupplierService>();
+builder.Services.AddScoped<ISupplierService>(sp =>
+    new CachedSupplierService(
+        sp.GetRequiredService<SupplierService>(),
+        sp.GetRequiredService<ICacheService>()));
+builder.Services.AddScoped<CategoryService>();
+builder.Services.AddScoped<ICategoryService>(sp =>
+    new CachedCategoryService(
+        sp.GetRequiredService<CategoryService>(),
+        sp.GetRequiredService<ICacheService>()));
+builder.Services.AddScoped<ProductService>();
+builder.Services.AddScoped<IProductService>(sp =>
+    new CachedProductService(
+        sp.GetRequiredService<ProductService>(),
+        sp.GetRequiredService<ICacheService>()));
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<ICartService, CartService>();
-builder.Services.AddScoped<IPromotionService, PromotionService>();
-builder.Services.AddScoped<IVoucherService, VoucherService>();
+builder.Services.AddScoped<PromotionService>();
+builder.Services.AddScoped<IPromotionService>(sp =>
+    new CachedPromotionService(
+        sp.GetRequiredService<PromotionService>(),
+        sp.GetRequiredService<ICacheService>()));
+builder.Services.AddScoped<VoucherService>();
+builder.Services.AddScoped<IVoucherService>(sp =>
+    new CachedVoucherService(
+        sp.GetRequiredService<VoucherService>(),
+        sp.GetRequiredService<ICacheService>()));
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ISurveyService, SurveyService>();
-builder.Services.AddScoped<IRoleService, RoleService>();
+builder.Services.AddScoped<RoleService>();
+builder.Services.AddScoped<IRoleService>(sp =>
+    new CachedRoleService(
+        sp.GetRequiredService<RoleService>(),
+        sp.GetRequiredService<ICacheService>()));
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
 
