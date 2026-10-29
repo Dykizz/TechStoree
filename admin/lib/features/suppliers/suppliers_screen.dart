@@ -176,6 +176,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                           children: [
                             ScrollableTableWrapper(
                               child: DataTable(
+                                showCheckboxColumn: false,
                                 headingRowHeight: 38,
                                 dataRowMinHeight: 46,
                                 dataRowMaxHeight: 46,
@@ -189,7 +190,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                   DataColumn(label: Text('Tên nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                   DataColumn(label: Text('Số điện thoại', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                   DataColumn(label: Text('Email', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                  DataColumn(label: Text('Địa chỉ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                   DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                   DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 ],
@@ -198,6 +198,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                   final canDelete = authProvider.can('Suppliers.Delete');
                                   final isActive = sup.isActive;
                                   return DataRow(
+                                    onSelectChanged: (_) => _showDetailDialog(context, sup, textPrimary, textSecondary, isDark),
                                     color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                       if (!isActive) {
                                         return isDark
@@ -237,18 +238,6 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                           style: TextStyle(color: textSecondary, fontSize: 12),
                                         ),
                                       ),
-                                      // Địa chỉ (Tooltip để xem đầy đủ khi hover)
-                                      DataCell(
-                                        Tooltip(
-                                          message: sup.address.isNotEmpty ? sup.address : '',
-                                          child: Text(
-                                            sup.address.isNotEmpty ? sup.address : '—',
-                                            style: TextStyle(color: textSecondary, fontSize: 11),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ),
                                       // Badge trạng thái
                                       DataCell(
                                         Container(
@@ -268,19 +257,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                           ),
                                         ),
                                       ),
-                                      // Thao tác
+                                      // Thao tác (đã bỏ icon xem chi tiết, click dòng để xem chi tiết)
                                       DataCell(
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            // Nút xem chi tiết (luôn hiển thị)
-                                            IconButton(
-                                              icon: Icon(Icons.visibility_outlined, size: 15, color: AppColors.primary),
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                              tooltip: 'Xem chi tiết',
-                                              onPressed: () => _showDetailDialog(context, sup, textPrimary, textSecondary, isDark),
-                                            ),
                                             if (canUpdate)
                                               IconButton(
                                                 icon: Icon(
@@ -469,13 +450,27 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: sup.isDeleted ? AppColors.dangerBg : AppColors.successBg,
-                border: Border.all(color: sup.isDeleted ? AppColors.dangerBorder : AppColors.successBorder),
+                color: sup.isDeleted
+                    ? AppColors.dangerBg
+                    : (sup.isActive ? AppColors.successBg : AppColors.warningBg),
+                border: Border.all(
+                  color: sup.isDeleted
+                      ? AppColors.dangerBorder
+                      : (sup.isActive ? AppColors.successBorder : AppColors.warningBorder),
+                ),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                sup.isDeleted ? 'Đã xóa' : 'Hoạt động',
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: sup.isDeleted ? AppColors.danger : AppColors.success),
+                sup.isDeleted
+                    ? 'Đã xóa'
+                    : (sup.isActive ? 'Đang hợp tác' : 'Ngừng hợp tác'),
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: sup.isDeleted
+                      ? AppColors.danger
+                      : (sup.isActive ? AppColors.success : AppColors.warning),
+                ),
               ),
             ),
           ],
@@ -488,7 +483,9 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               const SizedBox(height: 8),
               _buildDetailRow(Icons.phone_outlined, 'Số điện thoại', sup.phone.isNotEmpty ? sup.phone : '—', textPrimary, textSecondary, borderColor),
               _buildDetailRow(Icons.email_outlined, 'Email liên hệ', sup.email.isNotEmpty ? sup.email : '—', textPrimary, textSecondary, borderColor),
-              _buildDetailRow(Icons.location_on_outlined, 'Địa chỉ trụ sở', sup.address.isNotEmpty ? sup.address : '—', textPrimary, textSecondary, borderColor, isLast: true),
+              _buildDetailRow(Icons.location_on_outlined, 'Địa chỉ trụ sở', sup.address.isNotEmpty ? sup.address : '—', textPrimary, textSecondary, borderColor, isLast: sup.description.isEmpty),
+              if (sup.description.isNotEmpty)
+                _buildDetailRow(Icons.notes_rounded, 'Mô tả / Ghi chú', sup.description, textPrimary, textSecondary, borderColor, isLast: true),
             ],
           ),
         ),

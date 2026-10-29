@@ -1,11 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import '../models/product.dart';
 import '../models/purchase_order.dart';
 import 'base_api_service.dart';
-import 'product_api_service.dart';
 
-mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
+mixin PurchaseOrderApiService on BaseApiService {
   Future<List<PurchaseOrder>> getPurchaseOrders({String? token, String? status, int? supplierId, String? search}) async {
     try {
       final queryParams = <String, String>{};
@@ -54,56 +52,6 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
     return null;
   }
 
-  void applyPoStockToMock(PurchaseOrder po) {
-    if (po.isCompleted) {
-      for (var item in po.items) {
-        for (int i = 0; i < mockProducts.length; i++) {
-          var p = mockProducts[i];
-          bool updated = false;
-          List<ProductVariant> newVariants = [];
-          int newTotalStock = 0;
-          for (var v in p.variants) {
-            if (v.variantId == item.variantId) {
-              updated = true;
-              final int newStock = (v.stockQuantity + item.quantity).toInt();
-              newTotalStock += newStock;
-              newVariants.add(ProductVariant(
-                variantId: v.variantId,
-                productId: v.productId,
-                variantNameAttr: v.variantNameAttr,
-                price: v.price,
-                stockQuantity: newStock,
-                imageUrl: v.imageUrl,
-                attributes: v.attributes,
-                isActive: v.isActive,
-              ));
-            } else {
-              newTotalStock += v.stockQuantity.toInt();
-              newVariants.add(v);
-            }
-          }
-          if (updated) {
-            mockProducts[i] = Product(
-              id: p.id,
-              name: p.name,
-              sku: p.sku,
-              category: p.category,
-              categoryId: p.categoryId,
-              price: p.price,
-              stock: newTotalStock,
-              status: p.status,
-              isActive: p.isActive,
-              imageUrl: p.imageUrl,
-              description: p.description,
-              variantAttributes: p.variantAttributes,
-              variants: newVariants,
-            );
-          }
-        }
-      }
-    }
-  }
-
   Future<ApiResult> createPurchaseOrder(PurchaseOrder po, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders');
@@ -115,7 +63,6 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 201 || response.statusCode == 200) {
-        applyPoStockToMock(po);
         notifyListeners();
         return ApiResult(
           success: true,
@@ -125,9 +72,7 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Tạo phiếu nhập hàng thất bại.');
     } catch (e) {
-      applyPoStockToMock(po);
-      notifyListeners();
-      return ApiResult(success: true, message: 'Tạo phiếu nhập hàng thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi tạo phiếu nhập hàng: $e');
     }
   }
 
@@ -142,7 +87,6 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
 
       final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
-        applyPoStockToMock(po);
         notifyListeners();
         return ApiResult(
           success: true,
@@ -152,9 +96,7 @@ mixin PurchaseOrderApiService on BaseApiService, ProductApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Cập nhật phiếu nhập hàng thất bại.');
     } catch (e) {
-      applyPoStockToMock(po);
-      notifyListeners();
-      return ApiResult(success: true, message: 'Cập nhật phiếu nhập hàng thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi cập nhật phiếu nhập hàng: $e');
     }
   }
 

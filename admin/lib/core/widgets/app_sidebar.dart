@@ -29,13 +29,13 @@ class AppSidebar extends StatelessWidget {
       _NavItem(icon: Icons.category_outlined, activeIcon: Icons.category_rounded, label: 'Loại sản phẩm', index: 4),
       _NavItem(icon: Icons.domain_outlined, activeIcon: Icons.domain_rounded, label: 'Nhà cung cấp', index: 5),
       _NavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Phiếu nhập hàng', index: 6),
-      _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & Giảm giá', index: 7),
+      _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & giảm giá', index: 7),
       _NavItem(icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Mã giảm giá voucher', index: 8),
       _NavItem(icon: Icons.poll_outlined, activeIcon: Icons.poll_rounded, label: 'Khảo sát thị trường', index: 9),
       _NavItem(icon: Icons.rate_review_outlined, activeIcon: Icons.rate_review_rounded, label: 'Đánh giá sản phẩm', index: 14),
       _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng', index: 10),
       _NavItem(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded, label: 'Nhân viên', index: 11),
-      _NavItem(icon: Icons.admin_panel_settings_outlined, activeIcon: Icons.admin_panel_settings_rounded, label: 'Vai trò & Phân quyền', index: 12),
+      _NavItem(icon: Icons.admin_panel_settings_outlined, activeIcon: Icons.admin_panel_settings_rounded, label: 'Vai trò & phân quyền', index: 12),
       _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 13),
     ];
 

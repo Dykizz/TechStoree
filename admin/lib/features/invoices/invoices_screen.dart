@@ -8,6 +8,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
@@ -28,6 +29,7 @@ class InvoicesScreen extends StatefulWidget {
 
 class _InvoicesScreenState extends State<InvoicesScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+  final _currencyFormatter = NumberFormat('#,###', 'en_US');
   final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
   final dateFormatDate = DateFormat('dd/MM/yyyy');
 
@@ -155,8 +157,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     setState(() {
       _minAmount = min;
       _maxAmount = max;
-      _minAmountCtrl.text = min != null ? min.toStringAsFixed(0) : '';
-      _maxAmountCtrl.text = max != null ? max.toStringAsFixed(0) : '';
+      _minAmountCtrl.text = min != null ? _currencyFormatter.format(min.toInt()) : '';
+      _maxAmountCtrl.text = max != null ? _currencyFormatter.format(max.toInt()) : '';
       _currentPage = 1;
     });
     _loadInvoices();
@@ -811,6 +813,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                             child: TextField(
                               controller: _minAmountCtrl,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
                               style: TextStyle(fontSize: 12.5, color: textPrimary),
                               decoration: InputDecoration(
                                 hintText: 'Từ giá ₫',
@@ -832,6 +835,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                             child: TextField(
                               controller: _maxAmountCtrl,
                               keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
                               style: TextStyle(fontSize: 12.5, color: textPrimary),
                               decoration: InputDecoration(
                                 hintText: 'Đến giá ₫',
@@ -943,8 +947,10 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               const SizedBox(width: 10),
               ElevatedButton.icon(
                 onPressed: () {
-                  final min = double.tryParse(_minAmountCtrl.text.trim());
-                  final max = double.tryParse(_maxAmountCtrl.text.trim());
+                  final cleanMin = _minAmountCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
+                  final cleanMax = _maxAmountCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
+                  final min = cleanMin.isNotEmpty ? double.tryParse(cleanMin) : null;
+                  final max = cleanMax.isNotEmpty ? double.tryParse(cleanMax) : null;
                   setState(() {
                     _minAmount = min;
                     _maxAmount = max;
