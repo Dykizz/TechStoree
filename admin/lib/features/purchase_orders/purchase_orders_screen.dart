@@ -114,7 +114,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   PageHeader(
-                    title: 'Quản lý Phiếu nhập hàng (Purchase Orders)',
+                    title: 'Quản lý phiếu nhập hàng',
                     subtitle: 'Theo dõi đợt nhập hàng từ nhà cung cấp theo từng biến thể sản phẩm',
                     action: authProvider.can('PurchaseOrders.Create')
                         ? AppButton(
@@ -181,6 +181,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                   )
                                 : ScrollableTableWrapper(
                                     child: DataTable(
+                                              showCheckboxColumn: false,
                                               headingRowHeight: 40,
                                               dataRowMinHeight: 50,
                                               dataRowMaxHeight: 54,
@@ -201,6 +202,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                               ],
                                               rows: paginatedOrders.map((po) {
                                                 return DataRow(
+                                                  onSelectChanged: (_) => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
                                                   color: WidgetStateProperty.resolveWith<Color?>((states) {
                                                     if (states.contains(WidgetState.hovered)) {
                                                       return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
@@ -234,52 +236,42 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                                       Text(dateFormat.format(po.createdAt), style: TextStyle(color: textSecondary, fontSize: 11)),
                                                     ),
                                                     DataCell(
-                                                      Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Tooltip(
-                                                            message: 'Xem chi tiết phiếu nhập',
-                                                            child: IconButton(
-                                                              icon: const Icon(Icons.visibility_outlined, size: 16, color: AppColors.primary),
-                                                              padding: EdgeInsets.zero,
-                                                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                              onPressed: () => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
-                                                            ),
-                                                          ),
-                                                          if (po.isDraft && authProvider.can('PurchaseOrders.Update')) ...[
-                                                            const SizedBox(width: 4),
-                                                            Tooltip(
-                                                              message: 'Chỉnh sửa phiếu nháp',
-                                                              child: IconButton(
-                                                                icon: Icon(Icons.edit_outlined, size: 16, color: textSecondary),
-                                                                padding: EdgeInsets.zero,
-                                                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                                onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers, existingPoId: po.purchaseOrderId),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 4),
-                                                            Tooltip(
-                                                              message: 'Hoàn thành phiếu (COMPLETE)',
-                                                              child: IconButton(
-                                                                icon: const Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
-                                                                padding: EdgeInsets.zero,
-                                                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                                onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'COMPLETE'),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 4),
-                                                            Tooltip(
-                                                              message: 'Hủy phiếu nhập (CANCLE)',
-                                                              child: IconButton(
-                                                                icon: const Icon(Icons.cancel_outlined, size: 16, color: AppColors.danger),
-                                                                padding: EdgeInsets.zero,
-                                                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                                                onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'CANCLE'),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ],
-                                                      ),
+                                                      po.isDraft && authProvider.can('PurchaseOrders.Update')
+                                                          ? Row(
+                                                              mainAxisSize: MainAxisSize.min,
+                                                              children: [
+                                                                Tooltip(
+                                                                  message: 'Chỉnh sửa phiếu nháp',
+                                                                  child: IconButton(
+                                                                    icon: Icon(Icons.edit_outlined, size: 16, color: textSecondary),
+                                                                    padding: EdgeInsets.zero,
+                                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                                    onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers, existingPoId: po.purchaseOrderId),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 4),
+                                                                Tooltip(
+                                                                  message: 'Hoàn thành phiếu (COMPLETE)',
+                                                                  child: IconButton(
+                                                                    icon: const Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
+                                                                    padding: EdgeInsets.zero,
+                                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                                    onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'COMPLETE'),
+                                                                  ),
+                                                                ),
+                                                                const SizedBox(width: 4),
+                                                                Tooltip(
+                                                                  message: 'Hủy phiếu nhập (CANCLE)',
+                                                                  child: IconButton(
+                                                                    icon: const Icon(Icons.cancel_outlined, size: 16, color: AppColors.danger),
+                                                                    padding: EdgeInsets.zero,
+                                                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                                    onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'CANCLE'),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            )
+                                                          : Text('—', style: TextStyle(color: textSecondary, fontSize: 13)),
                                                     ),
                                                   ],
                                                 );
