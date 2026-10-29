@@ -766,7 +766,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     if (authProvider.can('Promotions.View')) {
       permittedShortcuts.add((
-        title: 'Khuyến mãi & Giảm giá',
+        title: 'Khuyến mãi & giảm giá',
         desc: 'Chương trình chiết khấu & ưu đãi giá',
         icon: Icons.local_offer_outlined,
         color: const Color(0xFFEC4899),
