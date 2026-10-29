@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -10,6 +9,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
@@ -33,26 +33,41 @@ class ProductsScreen extends StatefulWidget {
 
 class _ProductsScreenState extends State<ProductsScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
+  final _currencyFormatter = NumberFormat('#,###', 'en_US');
   final dateFormat = DateFormat('dd/MM/yyyy');
 
   final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _minPriceCtrl = TextEditingController();
+  final TextEditingController _maxPriceCtrl = TextEditingController();
 
   String _searchQuery = '';
   String _selectedCategory = 'Tất cả';
   String _selectedStatus = 'Tất cả';
   String _sortBy = 'default';
-  String _selectedPricePreset = 'Tất cả giá';
+  String _selectedPromotionFilter = 'ALL'; // 'ALL', 'PROMOTION', 'NO_PROMOTION'
   double? _minPrice;
   double? _maxPrice;
+  bool _isAdvancedFilterOpen = false;
+
+  bool get _hasActiveFilters =>
+      _searchQuery.isNotEmpty ||
+      _selectedCategory != 'Tất cả' ||
+      _selectedStatus != 'Tất cả' ||
+      _minPrice != null ||
+      _maxPrice != null ||
+      _selectedPromotionFilter != 'ALL' ||
+      _sortBy != 'default';
+
+  int get _advancedFilterCount {
+    int count = 0;
+    if (_minPrice != null || _maxPrice != null) count++;
+    if (_selectedPromotionFilter != 'ALL') count++;
+    return count;
+  }
 
   bool _isGridView = false; // Default compact table view for desktop admin
   int _currentPage = 1;
   int _itemsPerPage = 10;
-
-  final ScrollController _categoryScrollCtrl = ScrollController();
-  bool _canScrollLeft = false;
-  bool _canScrollRight = true;
-  bool _isCategoryExpanded = false;
 
   Product? _selectedProductForDetail;
   int _detailInitialTabIndex = 0;
@@ -63,11 +78,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
   @override
   void initState() {
     super.initState();
-    _categoryScrollCtrl.addListener(_updateCategoryScrollButtons);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         Provider.of<ApiService>(context, listen: false).addListener(_onApiServiceChanged);
-        _updateCategoryScrollButtons();
       }
     });
     _loadProducts(notify: false);
@@ -114,33 +127,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
     }
   }
 
-  void _applyPricePreset(String preset) {
+  void _applyPricePreset(double? min, double? max) {
     setState(() {
-      _selectedPricePreset = preset;
+      _minPrice = min;
+      _maxPrice = max;
+      _minPriceCtrl.text = min != null ? _currencyFormatter.format(min.toInt()) : '';
+      _maxPriceCtrl.text = max != null ? _currencyFormatter.format(max.toInt()) : '';
       _currentPage = 1;
-      switch (preset) {
-        case '< 2 triệu':
-          _minPrice = null;
-          _maxPrice = 2000000;
-          break;
-        case '2 - 5 triệu':
-          _minPrice = 2000000;
-          _maxPrice = 5000000;
-          break;
-        case '5 - 10 triệu':
-          _minPrice = 5000000;
-          _maxPrice = 10000000;
-          break;
-        case '> 10 triệu':
-          _minPrice = 10000000;
-          _maxPrice = null;
-          break;
-        case 'Tất cả giá':
-        default:
-          _minPrice = null;
-          _maxPrice = null;
-          break;
-      }
     });
   }
 
@@ -150,38 +143,309 @@ class _ProductsScreenState extends State<ProductsScreen> {
       _searchCtrl.clear();
       _selectedCategory = 'Tất cả';
       _selectedStatus = 'Tất cả';
-      _selectedPricePreset = 'Tất cả giá';
+      _selectedPromotionFilter = 'ALL';
       _minPrice = null;
       _maxPrice = null;
+      _minPriceCtrl.clear();
+      _maxPriceCtrl.clear();
       _sortBy = 'default';
       _currentPage = 1;
     });
   }
 
-  void _updateCategoryScrollButtons() {
-    if (!_categoryScrollCtrl.hasClients) return;
-    final maxScroll = _categoryScrollCtrl.position.maxScrollExtent;
-    final currentScroll = _categoryScrollCtrl.offset;
-    final canLeft = currentScroll > 5;
-    final canRight = currentScroll < maxScroll - 5;
-    if (canLeft != _canScrollLeft || canRight != _canScrollRight) {
-      setState(() {
-        _canScrollLeft = canLeft;
-        _canScrollRight = canRight;
-      });
-    }
+  Widget _buildAdvancedFilterPanel(
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(AppTokens.space16),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Panel
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Icon(Icons.tune_rounded, size: 15, color: AppColors.primary),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Bộ lọc nâng cao sản phẩm',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: textPrimary,
+                    ),
+                  ),
+                  if (_advancedFilterCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$_advancedFilterCount điều kiện đang áp dụng',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              InkWell(
+                onTap: () => setState(() => _isAdvancedFilterOpen = false),
+                borderRadius: BorderRadius.circular(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(Icons.close_rounded, size: 18, color: textSecondary),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          Divider(color: borderColor, height: 1),
+          const SizedBox(height: 14),
+
+          // 2 Cột: Khoảng tiền (Min-Max) & Khuyến mãi
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Cột 1: Khoảng tiền
+              Expanded(
+                flex: 6,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Khoảng giá sản phẩm (VNĐ)',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 38,
+                            child: TextField(
+                              controller: _minPriceCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
+                              style: TextStyle(fontSize: 12.5, color: textPrimary),
+                              decoration: InputDecoration(
+                                hintText: 'Từ giá ₫',
+                                hintStyle: TextStyle(fontSize: 12, color: textSecondary),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('—', style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold)),
+                        ),
+                        Expanded(
+                          child: SizedBox(
+                            height: 38,
+                            child: TextField(
+                              controller: _maxPriceCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
+                              style: TextStyle(fontSize: 12.5, color: textPrimary),
+                              decoration: InputDecoration(
+                                hintText: 'Đến giá ₫',
+                                hintStyle: TextStyle(fontSize: 12, color: textSecondary),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
+                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Quick Price Chips
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildPriceChip('Tất cả giá', () => _applyPricePreset(null, null), isSelected: _minPrice == null && _maxPrice == null),
+                        _buildPriceChip('< 2 triệu', () => _applyPricePreset(null, 2000000), isSelected: _minPrice == null && _maxPrice == 2000000),
+                        _buildPriceChip('2tr - 5tr', () => _applyPricePreset(2000000, 5000000), isSelected: _minPrice == 2000000 && _maxPrice == 5000000),
+                        _buildPriceChip('5tr - 10tr', () => _applyPricePreset(5000000, 10000000), isSelected: _minPrice == 5000000 && _maxPrice == 10000000),
+                        _buildPriceChip('> 10 triệu', () => _applyPricePreset(10000000, null), isSelected: _minPrice == 10000000 && _maxPrice == null),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 24),
+
+              // Cột 2: Chương trình khuyến mãi
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Chương trình khuyến mãi',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _buildPromotionChip('Tất cả', 'ALL'),
+                        _buildPromotionChip('Đang có khuyến mãi', 'PROMOTION'),
+                        _buildPromotionChip('Không có khuyến mãi', 'NO_PROMOTION'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+          Divider(color: borderColor, height: 1),
+          const SizedBox(height: 12),
+
+          // Footer Action Buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _minPrice = null;
+                    _maxPrice = null;
+                    _minPriceCtrl.clear();
+                    _maxPriceCtrl.clear();
+                    _selectedPromotionFilter = 'ALL';
+                    _currentPage = 1;
+                  });
+                },
+                child: Text('Xóa điều kiện lọc', style: TextStyle(color: textSecondary, fontSize: 12)),
+              ),
+              const SizedBox(width: 10),
+              ElevatedButton.icon(
+                onPressed: () {
+                  final cleanMin = _minPriceCtrl.text.replaceAll('.', '').replaceAll(',', '').trim();
+                  final cleanMax = _maxPriceCtrl.text.replaceAll('.', '').replaceAll(',', '').trim();
+                  final min = cleanMin.isNotEmpty ? double.tryParse(cleanMin) : null;
+                  final max = cleanMax.isNotEmpty ? double.tryParse(cleanMax) : null;
+                  setState(() {
+                    _minPrice = min;
+                    _maxPrice = max;
+                    _currentPage = 1;
+                  });
+                },
+                icon: const Icon(Icons.check_rounded, size: 16),
+                label: const Text('Áp dụng bộ lọc', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
-  void _scrollCategoryLeft() {
-    if (!_categoryScrollCtrl.hasClients) return;
-    final newOffset = (_categoryScrollCtrl.offset - 250).clamp(0.0, _categoryScrollCtrl.position.maxScrollExtent);
-    _categoryScrollCtrl.animateTo(newOffset, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  Widget _buildPriceChip(String label, VoidCallback onTap, {bool isSelected = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : (isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : borderColor,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : null,
+          ),
+        ),
+      ),
+    );
   }
 
-  void _scrollCategoryRight() {
-    if (!_categoryScrollCtrl.hasClients) return;
-    final newOffset = (_categoryScrollCtrl.offset + 250).clamp(0.0, _categoryScrollCtrl.position.maxScrollExtent);
-    _categoryScrollCtrl.animateTo(newOffset, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
+  Widget _buildPromotionChip(String label, String value) {
+    final isSelected = _selectedPromotionFilter == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _selectedPromotionFilter = value;
+          _currentPage = 1;
+        });
+      },
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : (isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: isSelected ? AppColors.primary : borderColor),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildCategoryChip(
@@ -267,44 +531,14 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
-  Widget _buildScrollButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-    required Color borderColor,
-    required Color bgSubtle,
-    required Color textSecondary,
-    required String tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: bgSubtle,
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onPressed,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: borderColor),
-            ),
-            child: Icon(icon, size: 18, color: textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   void dispose() {
     try {
       Provider.of<ApiService>(context, listen: false).removeListener(_onApiServiceChanged);
     } catch (_) {}
     _searchCtrl.dispose();
-    _categoryScrollCtrl.removeListener(_updateCategoryScrollButtons);
-    _categoryScrollCtrl.dispose();
+    _minPriceCtrl.dispose();
+    _maxPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -381,11 +615,17 @@ class _ProductsScreenState extends State<ProductsScreen> {
         }
 
         if (_minPrice != null) {
-          filteredProducts = filteredProducts.where((p) => p.minPrice >= _minPrice!).toList();
+          filteredProducts = filteredProducts.where((p) => p.effectiveMaxPrice >= _minPrice!).toList();
         }
 
         if (_maxPrice != null) {
-          filteredProducts = filteredProducts.where((p) => p.maxPrice <= _maxPrice!).toList();
+          filteredProducts = filteredProducts.where((p) => p.effectiveMinPrice <= _maxPrice!).toList();
+        }
+
+        if (_selectedPromotionFilter == 'PROMOTION') {
+          filteredProducts = filteredProducts.where((p) => p.hasPromotion && p.promotion != null && p.promotion!.hasPromotion).toList();
+        } else if (_selectedPromotionFilter == 'NO_PROMOTION') {
+          filteredProducts = filteredProducts.where((p) => !p.hasPromotion || p.promotion == null || !p.promotion!.hasPromotion).toList();
         }
 
         // Sorting Logic
@@ -394,9 +634,9 @@ class _ProductsScreenState extends State<ProductsScreen> {
         } else if (_sortBy == 'stock_asc') {
           filteredProducts.sort((a, b) => a.totalStock.compareTo(b.totalStock));
         } else if (_sortBy == 'price_asc') {
-          filteredProducts.sort((a, b) => a.minPrice.compareTo(b.minPrice));
+          filteredProducts.sort((a, b) => a.effectiveMinPrice.compareTo(b.effectiveMinPrice));
         } else if (_sortBy == 'price_desc') {
-          filteredProducts.sort((a, b) => b.minPrice.compareTo(a.minPrice));
+          filteredProducts.sort((a, b) => b.effectiveMinPrice.compareTo(a.effectiveMinPrice));
         } else if (_sortBy == 'name_asc') {
           filteredProducts.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         } else if (_sortBy == 'name_desc') {
@@ -430,13 +670,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         final rawCategories = categoryNames.toList()..sort();
         final categoriesList = ['Tất cả', ...rawCategories];
 
-        final isFilterActive = _searchQuery.isNotEmpty ||
-            _selectedCategory != 'Tất cả' ||
-            _selectedStatus != 'Tất cả' ||
-            _selectedPricePreset != 'Tất cả giá' ||
-            _minPrice != null ||
-            _maxPrice != null ||
-            _sortBy != 'default';
+
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(AppTokens.space16),
@@ -514,6 +748,58 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       _currentPage = 1;
                     }),
                   ),
+                  // Nút Bộ lọc nâng cao
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
+                    },
+                    icon: Icon(
+                      Icons.tune_rounded,
+                      size: 16,
+                      color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
+                    ),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _advancedFilterCount > 0 ? 'Lọc ($_advancedFilterCount)' : 'Bộ lọc',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _isAdvancedFilterOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textSecondary,
+                        ),
+                      ],
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : null,
+                      side: BorderSide(
+                        color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : borderColor,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                  ),
+
+                  // Nút Đặt lại toàn bộ lọc (nếu có active filter)
+                  if (_hasActiveFilters) ...[
+                    IconButton(
+                      tooltip: 'Đặt lại toàn bộ lọc',
+                      onPressed: _clearAllFilters,
+                      icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppColors.danger),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.danger.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ],
+
                   Container(
                     height: 38,
                     decoration: BoxDecoration(
@@ -552,6 +838,13 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                 ],
               ),
+
+              // Panel Lọc Nâng Cao (Khoảng giá Min-Max + Khuyến mãi)
+              if (_isAdvancedFilterOpen) ...[
+                const SizedBox(height: 10),
+                _buildAdvancedFilterPanel(isDark, surfaceColor, borderColor, textPrimary, textSecondary),
+              ],
+
               const SizedBox(height: AppTokens.space12),
 
               // Category Filter Container (Thiết kế chống tràn, hỗ trợ cuộn chuột, nút điều hướng & xem tất cả)
@@ -605,197 +898,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                               ],
                             ),
                           ),
-                        const Spacer(),
-
-                        // Chọn nhanh danh mục qua PopupMenu
-                        PopupMenuButton<String>(
-                          tooltip: 'Chọn nhanh danh mục từ danh sách',
-                          icon: Icon(Icons.playlist_add_check_rounded, size: 18, color: textSecondary),
-                          onSelected: (cat) => setState(() {
-                            _selectedCategory = cat;
-                            _currentPage = 1;
-                          }),
-                          itemBuilder: (ctx) => categoriesList.map((cat) {
-                            final isSel = _selectedCategory == cat;
-                            return PopupMenuItem<String>(
-                              value: cat,
-                              child: Row(
-                                children: [
-                                  if (isSel)
-                                    const Icon(Icons.check_rounded, size: 16, color: AppColors.primary)
-                                  else
-                                    const SizedBox(width: 16),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      cat,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                                        color: isSel ? AppColors.primary : textPrimary,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                        const SizedBox(width: 4),
-
-                        // Nút mở rộng dạng Lưới hoặc Thu gọn
-                        InkWell(
-                          borderRadius: BorderRadius.circular(4),
-                          onTap: () => setState(() => _isCategoryExpanded = !_isCategoryExpanded),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _isCategoryExpanded
-                                      ? 'Thu gọn'
-                                      : 'Xem tất cả (${categoriesList.length})',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: _isCategoryExpanded ? AppColors.primary : textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  _isCategoryExpanded
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                  size: 16,
-                                  color: _isCategoryExpanded ? AppColors.primary : textSecondary,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
 
-                    // Danh sách Chips (dạng Wrap khi mở rộng hoặc dạng Cuộn mượt khi thu gọn)
-                    if (_isCategoryExpanded)
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: categoriesList.map((cat) => _buildCategoryChip(cat, surfaceColor, borderColor, textPrimary, allProducts)).toList(),
-                      )
-                    else
-                      Row(
-                        children: [
-                          if (_canScrollLeft)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 6),
-                              child: _buildScrollButton(
-                                icon: Icons.chevron_left_rounded,
-                                onPressed: _scrollCategoryLeft,
-                                borderColor: borderColor,
-                                bgSubtle: bgSubtle,
-                                textSecondary: textSecondary,
-                                tooltip: 'Cuộn sang trái',
-                              ),
-                            ),
-                          Expanded(
-                            child: Listener(
-                              onPointerSignal: (pointerSignal) {
-                                if (pointerSignal is PointerScrollEvent && _categoryScrollCtrl.hasClients) {
-                                  final newOffset = (_categoryScrollCtrl.offset + pointerSignal.scrollDelta.dy)
-                                      .clamp(0.0, _categoryScrollCtrl.position.maxScrollExtent);
-                                  _categoryScrollCtrl.jumpTo(newOffset);
-                                }
-                              },
-                              child: SingleChildScrollView(
-                                controller: _categoryScrollCtrl,
-                                scrollDirection: Axis.horizontal,
-                                physics: const BouncingScrollPhysics(),
-                                child: Row(
-                                  children: categoriesList.map((cat) {
-                                    return Padding(
-                                      padding: const EdgeInsets.only(right: 8),
-                                      child: _buildCategoryChip(cat, surfaceColor, borderColor, textPrimary, allProducts),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (_canScrollRight)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: _buildScrollButton(
-                                icon: Icons.chevron_right_rounded,
-                                onPressed: _scrollCategoryRight,
-                                borderColor: borderColor,
-                                bgSubtle: bgSubtle,
-                                textSecondary: textSecondary,
-                                tooltip: 'Cuộn sang phải',
-                              ),
-                            ),
-                        ],
-                      ),
+                    // Danh sách Chips
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: categoriesList
+                          .map((cat) => _buildCategoryChip(
+                              cat, surfaceColor, borderColor, textPrimary, allProducts))
+                          .toList(),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: AppTokens.space12),
-
-              // Price Filter Bar Presets
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: surfaceColor,
-                  borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.tune_rounded, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Khoảng giá:',
-                          style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    ...['Tất cả giá', '< 2 triệu', '2 - 5 triệu', '5 - 10 triệu', '> 10 triệu', 'Tùy chỉnh'].map((preset) {
-                      final isSel = _selectedPricePreset == preset;
-                      return ChoiceChip(
-                        label: Text(preset),
-                        selected: isSel,
-                        selectedColor: AppColors.primary,
-                        backgroundColor: bgSubtle,
-                        labelStyle: TextStyle(
-                          color: isSel ? Colors.white : textPrimary,
-                          fontWeight: isSel ? FontWeight.w600 : FontWeight.w400,
-                          fontSize: 11,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                          side: BorderSide(color: isSel ? AppColors.primary : borderColor),
-                        ),
-                        onSelected: (_) => _applyPricePreset(preset),
-                      );
-                    }),
-                    if (isFilterActive)
-                      TextButton.icon(
-                        icon: const Icon(Icons.restart_alt_rounded, size: 15, color: AppColors.danger),
-                        label: const Text('Xóa bộ lọc', style: TextStyle(color: AppColors.danger, fontSize: 11, fontWeight: FontWeight.w600)),
-                        onPressed: _clearAllFilters,
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppTokens.space20),
 
               // Display Area
               filteredProducts.isEmpty
@@ -869,6 +988,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
         children: [
           ScrollableTableWrapper(
             child: DataTable(
+                    showCheckboxColumn: false,
                     columnSpacing: 14,
                     horizontalMargin: 12,
                     headingRowHeight: 40,
@@ -890,6 +1010,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     ],
                     rows: products.map((product) {
                       return DataRow(
+                        onSelectChanged: (_) => _openProductDetail(product, 0),
+                        mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                         color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                           if (states.contains(WidgetState.hovered)) {
                             return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
@@ -1367,9 +1489,12 @@ class _AdminProductCardState extends State<AdminProductCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 1. Image Header (Aspect Ratio 1.50)
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
+            GestureDetector(
+              onTap: () => widget.onShowDetail(p),
+              behavior: HitTestBehavior.opaque,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(AppTokens.radiusMd - 1)),
                   child: Container(
@@ -1511,6 +1636,7 @@ class _AdminProductCardState extends State<AdminProductCard> {
                   ),
                 ),
               ],
+            ),
             ),
 
             // 2. Main Info Body (Clickable to detail/edit)

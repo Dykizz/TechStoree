@@ -4,108 +4,6 @@ import '../models/product.dart';
 import 'base_api_service.dart';
 
 mixin ProductApiService on BaseApiService {
-  late final List<Product> mockProducts = [
-    Product(
-      id: '1',
-      name: 'iPhone 18 Pro Max 256GB',
-      sku: 'TS-PROD-1',
-      category: 'Điện thoại (Mobile)',
-      price: 41990000,
-      originalPrice: 45990000,
-      stock: 25,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'iPhone 18 Pro Max màn hình Super Retina XDR ProMotion, chip A19 Pro mạnh mẽ.',
-      variantAttributes: ['Dung lượng', 'Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 1, productId: 1, variantNameAttr: '256GB - Titan Tự Nhiên', price: 41990000, stockQuantity: 15, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Dung lượng': '256GB', 'Màu sắc': 'Titan Tự Nhiên'}),
-        ProductVariant(variantId: 2, productId: 1, variantNameAttr: '512GB - Titan Đen', price: 47990000, stockQuantity: 10, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Dung lượng': '512GB', 'Màu sắc': 'Titan Đen'}),
-      ],
-    ),
-    Product(
-      id: '2',
-      name: 'iPhone Duo 256GB',
-      sku: 'TS-PROD-2',
-      category: 'Điện thoại (Mobile)',
-      price: 64990000,
-      stock: 20,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'Siêu phẩm điện thoại gập kép đột phá từ Apple.',
-      variantAttributes: ['Cấu hình', 'Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 3, productId: 2, variantNameAttr: '256GB - Trắng Tuyết', price: 64990000, stockQuantity: 20, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Cấu hình': '256GB', 'Màu sắc': 'Trắng Tuyết'}),
-      ],
-    ),
-    Product(
-      id: '3',
-      name: 'iPhone 18 Pro 256GB',
-      sku: 'TS-PROD-3',
-      category: 'Điện thoại (Mobile)',
-      price: 38790000,
-      originalPrice: 38990000,
-      stock: 40,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'iPhone 18 Pro mỏng nhẹ viền titan cao cấp.',
-      variantAttributes: ['Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 4, productId: 3, variantNameAttr: 'Titan Đỏ Đô', price: 38790000, stockQuantity: 25, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Titan Đỏ Đô'}),
-        ProductVariant(variantId: 5, productId: 3, variantNameAttr: 'Titan Sa Mạc', price: 38790000, stockQuantity: 15, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Titan Sa Mạc'}),
-      ],
-    ),
-    Product(
-      id: '4',
-      name: 'Laptop ASUS Zenbook 14 OLED UX3405',
-      sku: 'TS-PROD-4',
-      category: 'Laptop',
-      price: 24990000,
-      stock: 18,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'Laptop mỏng nhẹ cao cấp màn hình OLED 120Hz sắc nét, vi xử lý Intel Core Ultra.',
-      variantAttributes: ['Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 6, productId: 4, variantNameAttr: 'Xanh Xám', price: 24990000, stockQuantity: 18, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Xanh Xám'}),
-      ],
-    ),
-    Product(
-      id: '5',
-      name: 'Tai nghe Bluetooth Sony WH-1000XM5',
-      sku: 'TS-PROD-5',
-      category: 'Tai nghe & Âm thanh',
-      price: 7490000,
-      stock: 14,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'Tai nghe chống ồn chủ động hàng đầu thế giới với vi xử lý V1.',
-      variantAttributes: ['Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 7, productId: 5, variantNameAttr: 'Màu Đen', price: 7490000, stockQuantity: 14, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Màu Đen'}),
-      ],
-    ),
-    Product(
-      id: '6',
-      name: 'Bàn phím cơ không dây FL-Esports GP75',
-      sku: 'TS-PROD-6',
-      category: 'Phụ kiện máy tính',
-      price: 2190000,
-      stock: 32,
-      status: 'In Stock',
-      imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg',
-      description: 'Bàn phím cơ 3 chế độ kết nối, switch Gateron mượt mà.',
-      variantAttributes: ['Màu sắc'],
-      variants: [
-        ProductVariant(variantId: 8, productId: 6, variantNameAttr: 'Màu Đen', price: 2190000, stockQuantity: 20, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Màu Đen'}),
-        ProductVariant(variantId: 9, productId: 6, variantNameAttr: 'Màu Xanh', price: 2190000, stockQuantity: 12, imageUrl: 'https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/i/p/iphone-18-pro-01.jpg', attributes: {'Màu sắc': 'Màu Xanh'}),
-      ],
-    ),
-  ];
-
-  List<Product> getMockProducts() {
-    return mockProducts;
-  }
-
   Future<List<Product>> getProducts({String? token}) async {
     try {
       final List<Product> allProducts = [];
@@ -150,20 +48,18 @@ mixin ProductApiService on BaseApiService {
         if (page > 50) break;
       }
 
-      if (allProducts.isNotEmpty) {
-        isConnected = true;
-        return allProducts;
-      }
+      isConnected = true;
+      return allProducts;
     } catch (e) {
       debugPrint('API Error getProducts: $e');
+      isConnected = false;
+      return <Product>[];
     }
-    isConnected = false;
-    return getMockProducts();
   }
 
   Future<List<Product>> getProductsWithVariants({String? token}) async {
     final products = await getProducts(token: token);
-    if (!isConnected) {
+    if (products.isEmpty) {
       return products;
     }
     final fullProducts = await Future.wait(products.map((p) async {

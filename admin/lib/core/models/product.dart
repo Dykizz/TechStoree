@@ -319,6 +319,22 @@ class Product {
     return 'Còn hàng';
   }
 
+  /// Giá bán thực tế nhỏ nhất (đã áp dụng khuyến mãi nếu có)
+  double get effectiveMinPrice {
+    if (hasPromotion && promotion != null && promotion!.hasPromotion && promotion!.promotionalMinPrice > 0) {
+      return promotion!.promotionalMinPrice;
+    }
+    return minPrice;
+  }
+
+  /// Giá bán thực tế lớn nhất (đã áp dụng khuyến mãi nếu có)
+  double get effectiveMaxPrice {
+    if (hasPromotion && promotion != null && promotion!.hasPromotion && promotion!.promotionalMaxPrice > 0) {
+      return promotion!.promotionalMaxPrice;
+    }
+    return maxPrice;
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     final rawStock = _parseInt(json['totalStock'] ?? json['stock'] ?? json['soLuongTon'], 0);
     final active = _parseBool(json['isActive'] ?? json['is_active'], true);
