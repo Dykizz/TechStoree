@@ -39,6 +39,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
   DateTimeRange? _selectedDateRange;
   int _currentPage = 1;
   int _itemsPerPage = 10;
+  final Set<int> _togglingPromoIds = {};
 
   late Future<List<Promotion>> _promotionsFuture;
 
@@ -145,9 +146,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
           );
 
           promotions = promotions.where((p) {
-            final overlaps = !p.startDate.isAfter(rangeEnd) && !p.endDate.isBefore(rangeStart);
-            final createdInRange = !p.createdAt.isBefore(rangeStart) && !p.createdAt.isAfter(rangeEnd);
-            return overlaps || createdInRange;
+            return !p.startDate.isAfter(rangeEnd) && !p.endDate.isBefore(rangeStart);
           }).toList();
         }
 
@@ -165,7 +164,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
             children: [
               // Page Header
               PageHeader(
-                title: 'Khuyến Mãi & Giảm Giá',
+                title: 'Khuyến mãi & giảm giá',
                 subtitle: 'Quản lý các chương trình Flash Sale và giảm giá biến thể sản phẩm',
                 action: authProvider.can('Promotions.Create')
                     ? AppButton(
@@ -289,6 +288,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                 scrollDirection: Axis.vertical,
                                 child: ScrollableTableWrapper(
                                   child: DataTable(
+                                      showCheckboxColumn: false,
                                       headingRowColor: WidgetStateProperty.all(
                                         isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                       ),
@@ -297,16 +297,13 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                       dataRowMaxHeight: 48,
                                       columns: [
                                         DataColumn(label: Text('Tên chương trình', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                        DataColumn(label: Text('Loại giảm giá', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                         DataColumn(label: Text('Mức giảm', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                        DataColumn(label: Text('Thời gian áp dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                        DataColumn(label: Text('Số SP áp dụng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                         DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                        DataColumn(label: Text('Kích hoạt', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                         DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                       ],
                                       rows: paginatedPromotions.map((promo) {
                                         return DataRow(
+                                          onSelectChanged: (_) => _showPromotionDetailsDialog(context, apiService, authProvider.token, promo.promotionId),
                                           color: WidgetStateProperty.resolveWith<Color?>((states) {
                                             if (states.contains(WidgetState.hovered)) {
                                               return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
@@ -314,81 +311,102 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                             return null;
                                           }),
                                           cells: [
+                                            // 1. Tên chương trình & Mô tả (rút gọn ... nếu quá dài)
                                             DataCell(
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(
-                                                    promo.name,
-                                                    style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary, fontSize: 13),
-                                                  ),
-                                                  if (promo.description.isNotEmpty)
+                                              ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 340),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
                                                     Text(
-                                                      promo.description,
-                                                      style: TextStyle(color: textSecondary, fontSize: 11),
+                                                      promo.name,
+                                                      style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary, fontSize: 13),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
-                                                ],
+                                                    if (promo.description.isNotEmpty)
+                                                      Text(
+                                                        promo.description,
+                                                        style: TextStyle(color: textSecondary, fontSize: 11),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                            DataCell(_buildDiscountTypeChip(promo.discountType)),
+                                            // 2. Mức giảm (chỉ hiển thị số tiền/phần trăm, bỏ nhãn badge % và VNĐ)
                                             DataCell(
                                               Text(
-                                                promo.formattedDiscountValue(currencyFormat),
+                                                '-${promo.formattedDiscountValue(currencyFormat)}',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 13),
                                               ),
                                             ),
-                                            DataCell(
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text('Từ: ${dateFormat.format(promo.startDate)}', style: TextStyle(color: textSecondary, fontSize: 11)),
-                                                  Text('Đến: ${dateFormat.format(promo.endDate)}', style: TextStyle(color: textSecondary, fontSize: 11)),
-                                                ],
-                                              ),
-                                            ),
-                                            DataCell(
-                                              Text('${promo.variantCount} biến thể', style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500)),
-                                            ),
-                                            DataCell(_buildStatusChip(promo.status)),
-                                            DataCell(
-                                              Switch(
-                                                value: promo.isActive,
-                                                activeThumbColor: AppColors.primary,
-                                                onChanged: !authProvider.can('Promotions.Update') ? null : (val) async {
-                                                  final res = await apiService.togglePromotionActive(promo.promotionId, token: authProvider.token);
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(res.message),
-                                                        backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                                                      ),
-                                                    );
-                                                  }
-                                                },
-                                              ),
-                                            ),
+                                            // 3. Trạng thái (chỉ hiển thị Badge sạch sẽ, đồng nhất)
+                                            DataCell(_buildStatusChip(promo)),
+                                            // 4. Thao tác (Đồng nhất với bảng Sản phẩm: [Sửa] [Switch Toggle] [Xóa])
                                             DataCell(
                                               Row(
+                                                mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  IconButton(
-                                                    icon: Icon(Icons.visibility_outlined, size: 18, color: textSecondary),
-                                                    tooltip: 'Xem chi tiết biến thể',
-                                                    onPressed: () => _showPromotionDetailsDialog(context, apiService, authProvider.token, promo.promotionId),
-                                                  ),
-                                                  if (authProvider.can('Promotions.Update')) IconButton(
-                                                    icon: Icon(Icons.edit_outlined, size: 18, color: textSecondary),
-                                                    tooltip: 'Sửa chương trình',
-                                                    onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, existingPromoId: promo.promotionId),
-                                                  ),
-                                                  if (authProvider.can('Promotions.Delete')) IconButton(
-                                                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.danger),
-                                                    tooltip: 'Xóa khuyến mãi',
-                                                    onPressed: () => _confirmDeletePromotion(context, apiService, authProvider.token, promo),
-                                                  ),
+                                                  if (authProvider.can('Promotions.Update')) ...[
+                                                    Tooltip(
+                                                      message: 'Chỉnh sửa chương trình',
+                                                      child: IconButton(
+                                                        icon: Icon(Icons.edit_outlined, size: 16, color: textSecondary),
+                                                        padding: EdgeInsets.zero,
+                                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                        onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, existingPromoId: promo.promotionId),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Tooltip(
+                                                      message: promo.isActive ? 'Tạm dừng khuyến mãi (Gạt để tắt)' : 'Kích hoạt khuyến mãi (Gạt để bật)',
+                                                      child: Transform.scale(
+                                                        scale: 0.7,
+                                                        child: Switch(
+                                                          value: promo.isActive,
+                                                          activeThumbColor: AppColors.primary,
+                                                          onChanged: _togglingPromoIds.contains(promo.promotionId)
+                                                              ? null
+                                                              : (val) async {
+                                                                  setState(() {
+                                                                    _togglingPromoIds.add(promo.promotionId);
+                                                                  });
+                                                                  try {
+                                                                    final res = await apiService.togglePromotionActive(promo.promotionId, token: authProvider.token);
+                                                                    if (context.mounted) {
+                                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                                        SnackBar(
+                                                                          content: Text(res.message),
+                                                                          backgroundColor: res.success ? AppColors.success : AppColors.danger,
+                                                                        ),
+                                                                      );
+                                                                    }
+                                                                  } finally {
+                                                                    if (mounted) {
+                                                                      setState(() {
+                                                                        _togglingPromoIds.remove(promo.promotionId);
+                                                                      });
+                                                                    }
+                                                                  }
+                                                                },
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                  ],
+                                                  if (authProvider.can('Promotions.Delete'))
+                                                    Tooltip(
+                                                      message: 'Xóa khuyến mãi',
+                                                      child: IconButton(
+                                                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: AppColors.danger),
+                                                        padding: EdgeInsets.zero,
+                                                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                        onPressed: () => _confirmDeletePromotion(context, apiService, authProvider.token, promo),
+                                                      ),
+                                                    ),
                                                 ],
                                               ),
                                             ),
@@ -429,8 +447,11 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
     return const StatusBadge(label: 'Tiền cố định (VNĐ)', isWarning: true);
   }
 
-  Widget _buildStatusChip(String status) {
-    switch (status.toUpperCase()) {
+  Widget _buildStatusChip(Promotion promo) {
+    if (!promo.isActive) {
+      return const StatusBadge(label: 'Tạm dừng', isWarning: true);
+    }
+    switch (promo.status.toUpperCase()) {
       case 'ACTIVE':
         return const StatusBadge(label: 'Đang diễn ra', isSuccess: true);
       case 'UPCOMING':
@@ -438,7 +459,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
       case 'EXPIRED':
         return const StatusBadge(label: 'Đã hết hạn', isDanger: true);
       default:
-        return StatusBadge(label: status);
+        return StatusBadge(label: promo.status);
     }
   }
 
@@ -511,40 +532,113 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
 
   void _showPromotionDetailsDialog(BuildContext context, ApiService apiService, String? token, int promoId) async {
     final promo = await apiService.getPromotionById(promoId, token: token);
-    if (!context.mounted || promo == null) return;
+    if (!context.mounted) return;
+    if (promo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể tải chi tiết khuyến mãi.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
 
     final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: isDark ? AppColors.darkCard : AppColors.lightCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(promo.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                promo.name,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildStatusChip(promo),
+          ],
+        ),
         content: SizedBox(
-          width: 600,
+          width: 620,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(promo.description.isNotEmpty ? promo.description : 'Không có mô tả thể lệ.', style: const TextStyle(fontSize: 13)),
-              const SizedBox(height: 16),
-              Text('Biến thể áp dụng (${promo.variants.length}):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 200,
-                child: ListView.builder(
-                  itemCount: promo.variants.length,
-                  itemBuilder: (c, i) {
-                    final item = promo.variants[i];
-                    return ListTile(
-                      dense: true,
-                      title: Text(item.fullName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      subtitle: Text('Gốc: ${currencyFormat.format(item.originalPrice)} ➔ Giảm: ${currencyFormat.format(item.promotionalPrice)}', style: const TextStyle(fontSize: 12)),
-                    );
-                  },
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('Mức giảm giá: ', style: TextStyle(fontSize: 12, color: textSecondary)),
+                        Text(
+                          promo.formattedDiscountValue(currencyFormat),
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.success, fontSize: 13),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildDiscountTypeChip(promo.discountType),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Thời gian áp dụng: ${dateFormat.format(promo.startDate)}  ➔  ${dateFormat.format(promo.endDate)}',
+                      style: TextStyle(fontSize: 12, color: textSecondary),
+                    ),
+                    if (promo.description.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text('Mô tả thể lệ: ${promo.description}', style: TextStyle(fontSize: 12.5, color: textPrimary)),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Biến thể áp dụng (${promo.variants.length}):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: textPrimary)),
+              const SizedBox(height: 8),
+              Container(
+                height: 240,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
+                ),
+                child: promo.variants.isEmpty
+                    ? Center(child: Text('Không có biến thể nào được áp dụng', style: TextStyle(color: textSecondary, fontSize: 12)))
+                    : ListView.separated(
+                        itemCount: promo.variants.length,
+                        separatorBuilder: (c, i) => Divider(height: 1, color: borderColor.withValues(alpha: 0.5)),
+                        itemBuilder: (c, i) {
+                          final item = promo.variants[i];
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                            title: Text(item.fullName, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary)),
+                            subtitle: Row(
+                              children: [
+                                Text('Giá gốc: ${currencyFormat.format(item.originalPrice)}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '➔ ${currencyFormat.format(item.promotionalPrice)}',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.success),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
               ),
             ],
           ),
@@ -566,6 +660,17 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
     Promotion? existingPromo;
     if (existingPromoId != null && existingPromoId > 0) {
       existingPromo = await apiService.getPromotionById(existingPromoId, token: token);
+      if (existingPromo == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Không thể tải thông tin khuyến mãi cần sửa.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+        return;
+      }
     }
 
     if (!context.mounted) return;
@@ -682,14 +787,17 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
     final promo = widget.existingPromo;
     final isEditing = promo != null;
 
+    String formatDiscountInit(double val) {
+      if (val == val.roundToDouble()) {
+        return val.toInt().toString();
+      }
+      return val.toString();
+    }
+
     _nameCtrl = TextEditingController(text: isEditing ? promo.name : '');
     _descCtrl = TextEditingController(text: isEditing ? promo.description : '');
     _discountValCtrl = TextEditingController(
-      text: isEditing
-          ? (_discountIsPercentage(promo.discountType)
-              ? promo.discountValue.toInt().toString()
-              : promo.discountValue.toInt().toString())
-          : '10',
+      text: isEditing ? formatDiscountInit(promo.discountValue) : '10',
     );
     _productSearchCtrl = TextEditingController();
     _searchFocusNode = FocusNode();
@@ -721,7 +829,6 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
     });
   }
 
-  bool _discountIsPercentage(String type) => type == 'PERCENTAGE';
 
   void _buildAvailableVariants() {
     _availableVariants = [];
@@ -798,8 +905,19 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
     });
   }
 
+  double _parseDiscountValue() {
+    final text = _discountValCtrl.text.trim();
+    if (text.isEmpty) return 0;
+    if (_discountType == 'PERCENTAGE') {
+      return double.tryParse(text.replaceAll(',', '.')) ?? 0;
+    } else {
+      final cleaned = text.replaceAll(',', '').replaceAll('.', '');
+      return double.tryParse(cleaned) ?? 0;
+    }
+  }
+
   double _calculatePromoPrice(double originalPrice) {
-    final dVal = double.tryParse(_discountValCtrl.text.trim()) ?? 0;
+    final dVal = _parseDiscountValue();
     if (_discountType == 'PERCENTAGE') {
       return originalPrice * (1 - (dVal / 100).clamp(0.0, 1.0));
     } else {
@@ -823,7 +941,7 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
       return;
     }
 
-    final dVal = double.tryParse(_discountValCtrl.text.trim()) ?? 0;
+    final dVal = _parseDiscountValue();
     if (dVal <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mức giảm giá phải lớn hơn 0'), backgroundColor: AppColors.danger),
@@ -867,8 +985,10 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
 
     if (mounted) {
       setState(() => _isSaving = false);
-      Navigator.pop(context);
-      widget.onSaved();
+      if (res.success) {
+        Navigator.pop(context);
+        widget.onSaved();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(res.message),
@@ -917,535 +1037,605 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
           ),
         ],
       ),
-      content: Container(
-        width: 720,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.82,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Tên & Mô tả
-              AppTextField(
-                controller: _nameCtrl,
-                labelText: 'Tên chương trình khuyến mãi (*)',
-                hintText: 'Ví dụ: Flash Sale Cuối Tuần Giảm 20%',
-              ),
-              const SizedBox(height: 12),
-              AppTextField(
-                controller: _descCtrl,
-                maxLines: 2,
-                labelText: 'Mô tả thể lệ khuyến mãi',
-                hintText: 'Chi tiết về điều kiện và thể lệ áp dụng khuyến mãi...',
-              ),
-              const SizedBox(height: 12),
-
-              // 2. Loại giảm giá & Mức giảm
-              Row(
-                children: [
-                  Expanded(
-                    child: AppDropdown<String>(
-                      value: _discountType,
-                      labelText: 'Loại giảm giá (*)',
-                      items: const [
-                        DropdownMenuItem(value: 'PERCENTAGE', child: Text('Phần trăm (%)')),
-                        DropdownMenuItem(value: 'FIXED_AMOUNT', child: Text('Số tiền cố định (VNĐ)')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) setState(() => _discountType = v);
-                      },
+      content: SizedBox(
+        width: (MediaQuery.of(context).size.width * 0.92).clamp(760.0, 980.0),
+        height: (MediaQuery.of(context).size.height * 0.82).clamp(480.0, 620.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // === CỘT TRÁI: THỂ LỆ & THỜI GIAN (flex: 5) ===
+            Expanded(
+              flex: 5,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(right: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'THÔNG TIN CHƯƠNG TRÌNH',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppColors.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: AppTextField(
-                      controller: _discountValCtrl,
-                      keyboardType: TextInputType.number,
-                      labelText: _discountType == 'PERCENTAGE' ? 'Mức giảm giá (%)(*)' : 'Mức giảm giá (VNĐ)(*)',
-                      hintText: _discountType == 'PERCENTAGE' ? 'Ví dụ: 15' : 'Ví dụ: 500000',
-                      onChanged: (_) => setState(() {}),
+                    const SizedBox(height: 10),
+                    // 1. Tên & Mô tả
+                    AppTextField(
+                      controller: _nameCtrl,
+                      labelText: 'Tên chương trình khuyến mãi (*)',
+                      hintText: 'Ví dụ: Flash Sale Cuối Tuần Giảm 20%',
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
+                    const SizedBox(height: 12),
+                    AppTextField(
+                      controller: _descCtrl,
+                      maxLines: 2,
+                      labelText: 'Mô tả thể lệ khuyến mãi',
+                      hintText: 'Chi tiết về điều kiện và thể lệ áp dụng...',
+                    ),
+                    const SizedBox(height: 16),
 
-              // 3. Khung điền Thời gian bắt đầu và kết thúc
-              Row(
-                children: [
-                  // Start Date Picker
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Text(
+                      'HÌNH THỨC & THỜI GIAN ÁP DỤNG',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 2. Loại giảm giá & Mức giảm
+                    Row(
                       children: [
-                        Text(
-                          'Thời gian bắt đầu (*)',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
+                        Expanded(
+                          child: AppDropdown<String>(
+                            value: _discountType,
+                            labelText: 'Loại giảm giá (*)',
+                            items: const [
+                              DropdownMenuItem(value: 'PERCENTAGE', child: Text('Phần trăm (%)')),
+                              DropdownMenuItem(value: 'FIXED_AMOUNT', child: Text('Cố định (VNĐ)')),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setState(() => _discountType = v);
+                            },
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () => _pickDateTime(true),
-                          child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: borderColor),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    dateFormat.format(_startDate),
-                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: textPrimary),
-                                  ),
-                                ),
-                                Icon(Icons.access_time_rounded, size: 15, color: textSecondary),
-                              ],
-                            ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: AppTextField(
+                            controller: _discountValCtrl,
+                            keyboardType: TextInputType.number,
+                            labelText: _discountType == 'PERCENTAGE' ? 'Mức giảm (%)(*)' : 'Mức giảm (VNĐ)(*)',
+                            hintText: _discountType == 'PERCENTAGE' ? 'Ví dụ: 15' : 'Ví dụ: 500000',
+                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
+                    const SizedBox(height: 14),
 
-                  // End Date Picker
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // 3. Khung điền Thời gian bắt đầu và kết thúc
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              'Thời gian kết thúc (*)',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w600,
-                                color: isDateRangeInvalid ? AppColors.danger : textPrimary,
+                        // Start Date Picker
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Thời gian bắt đầu (*)',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
                               ),
-                            ),
-                            if (isDateRangeInvalid) ...[
-                              const SizedBox(width: 4),
-                              const Text('(Không hợp lệ)', style: TextStyle(fontSize: 11, color: AppColors.danger)),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          borderRadius: BorderRadius.circular(6),
-                          onTap: () => _pickDateTime(false),
-                          child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: isDateRangeInvalid ? AppColors.danger : borderColor,
-                                width: isDateRangeInvalid ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.event_available_rounded,
-                                  size: 16,
-                                  color: isDateRangeInvalid ? AppColors.danger : AppColors.primary,
+                              const SizedBox(height: 6),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: () => _pickDateTime(true),
+                                child: Container(
+                                  height: 42,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: borderColor),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.calendar_today_rounded, size: 15, color: AppColors.primary),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          dateFormat.format(_startDate),
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textPrimary),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Icon(Icons.access_time_rounded, size: 14, color: textSecondary),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    dateFormat.format(_endDate),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // End Date Picker
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Thời gian kết thúc (*)',
                                     style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                       color: isDateRangeInvalid ? AppColors.danger : textPrimary,
                                     ),
                                   ),
-                                ),
-                                Icon(Icons.access_time_rounded, size: 15, color: textSecondary),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (isDateRangeInvalid)
-                const Padding(
-                  padding: EdgeInsets.only(top: 6, left: 4),
-                  child: Text(
-                    '⚠️ Thời gian kết thúc phải diễn ra sau thời gian bắt đầu!',
-                    style: TextStyle(color: AppColors.danger, fontSize: 11.5, fontWeight: FontWeight.w500),
-                  ),
-                ),
-              const SizedBox(height: 16),
-
-              // 4. Tìm kiếm sản phẩm áp dụng khuyến mãi kèm Dropdown gợi ý
-              Text(
-                'Tìm kiếm & chọn sản phẩm áp dụng khuyến mãi (*)',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textPrimary),
-              ),
-              const SizedBox(height: 6),
-              AppTextField(
-                controller: _productSearchCtrl,
-                focusNode: _searchFocusNode,
-                labelText: 'Tìm kiếm sản phẩm hoặc biến thể...',
-                hintText: 'Nhập tên sản phẩm (vd: ASUS, iPhone, Sony...), mã biến thể...',
-                prefixIcon: Icons.search_rounded,
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            _productSearchCtrl.clear();
-                            _searchQuery = '';
-                            _showDropdown = false;
-                          });
-                        },
-                      )
-                    : null,
-              ),
-
-              // Dropdown gợi ý sản phẩm
-              if (_showDropdown && _searchQuery.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 4, bottom: 8),
-                  constraints: const BoxConstraints(maxHeight: 230),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: matchingVariants.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 16, color: textSecondary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Không tìm thấy sản phẩm nào khớp với "$_searchQuery"',
-                                  style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
+                                  if (isDateRangeInvalid) ...[
+                                    const SizedBox(width: 4),
+                                    const Text('(Lỗi)', style: TextStyle(fontSize: 10.5, color: AppColors.danger)),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(6),
+                                onTap: () => _pickDateTime(false),
+                                child: Container(
+                                  height: 42,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: isDateRangeInvalid ? AppColors.danger : borderColor,
+                                      width: isDateRangeInvalid ? 1.5 : 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.event_available_rounded,
+                                        size: 15,
+                                        color: isDateRangeInvalid ? AppColors.danger : AppColors.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          dateFormat.format(_endDate),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: isDateRangeInvalid ? AppColors.danger : textPrimary,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Icon(Icons.access_time_rounded, size: 14, color: textSecondary),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
-                              ),
+                        ),
+                      ],
+                    ),
+                    if (isDateRangeInvalid)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6, left: 2),
+                        child: Text(
+                          '⚠️ Thời gian kết thúc phải sau thời gian bắt đầu!',
+                          style: TextStyle(color: AppColors.danger, fontSize: 11, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+
+                    // 4. Kích hoạt ngay Switch
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: borderColor),
+                      ),
+                      child: SwitchListTile(
+                        title: const Text('Kích hoạt chương trình ngay', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                        subtitle: Text('Áp dụng trực tiếp giá khuyến mãi cho khách', style: TextStyle(fontSize: 11, color: textSecondary)),
+                        value: _isActive,
+                        activeThumbColor: AppColors.primary,
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        onChanged: (val) => setState(() => _isActive = val),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            VerticalDivider(width: 24, thickness: 1, color: borderColor),
+
+            // === CỘT PHẢI: CHỌN SẢN PHẨM & PREVIEW GIÁ (flex: 6) ===
+            Expanded(
+              flex: 6,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'SẢN PHẨM ÁP DỤNG (*)',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      if (_selectedVariantIds.isNotEmpty)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          icon: const Icon(Icons.delete_sweep_outlined, size: 14, color: AppColors.danger),
+                          label: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 11.5, color: AppColors.danger)),
+                          onPressed: () {
+                            setState(() {
+                              _selectedVariantIds.clear();
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Ô tìm kiếm sản phẩm
+                  AppTextField(
+                    controller: _productSearchCtrl,
+                    focusNode: _searchFocusNode,
+                    labelText: 'Tìm kiếm sản phẩm hoặc biến thể...',
+                    hintText: 'Nhập tên sản phẩm (vd: ASUS, iPhone...), mã...',
+                    prefixIcon: Icons.search_rounded,
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () {
+                              setState(() {
+                                _productSearchCtrl.clear();
+                                _searchQuery = '';
+                                _showDropdown = false;
+                              });
+                            },
+                          )
+                        : null,
+                  ),
+
+                  // Dropdown gợi ý nếu đang tìm kiếm
+                  if (_showDropdown && _searchQuery.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4, bottom: 8),
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: matchingVariants.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'Gợi ý sản phẩm (${matchingVariants.length}):',
-                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5, color: textPrimary),
+                                  Icon(Icons.info_outline, size: 16, color: textSecondary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Không tìm thấy sản phẩm nào khớp với "$_searchQuery"',
+                                      style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
+                                    ),
                                   ),
-                                  Row(
+                                ],
+                              ),
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      TextButton(
-                                        style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          minimumSize: Size.zero,
-                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                        ),
-                                        onPressed: () {
-                                          setState(() {
-                                            for (var v in matchingVariants) {
-                                              _selectedVariantIds.add(v.variantId);
-                                            }
-                                          });
-                                        },
-                                        child: const Text('Thêm tất cả gợi ý', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        'Gợi ý sản phẩm (${matchingVariants.length}):',
+                                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5, color: textPrimary),
                                       ),
-                                      const SizedBox(width: 8),
-                                      InkWell(
-                                        onTap: () => setState(() => _showDropdown = false),
-                                        child: Icon(Icons.close, size: 14, color: textSecondary),
+                                      Row(
+                                        children: [
+                                          TextButton(
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              minimumSize: Size.zero,
+                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                for (var v in matchingVariants) {
+                                                  _selectedVariantIds.add(v.variantId);
+                                                }
+                                              });
+                                            },
+                                            child: const Text('Thêm tất cả gợi ý', style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          InkWell(
+                                            onTap: () => setState(() => _showDropdown = false),
+                                            child: Icon(Icons.close, size: 14, color: textSecondary),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ),
-                            Flexible(
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                padding: EdgeInsets.zero,
-                                itemCount: matchingVariants.length,
-                                separatorBuilder: (ctx, index) => Divider(height: 1, color: borderColor.withValues(alpha: 0.5)),
-                                itemBuilder: (ctx, idx) {
-                                  final item = matchingVariants[idx];
-                                  final isAdded = _selectedVariantIds.contains(item.variantId);
-                                  final promoPrice = _calculatePromoPrice(item.price);
-                                  final dVal = double.tryParse(_discountValCtrl.text.trim()) ?? 0;
+                                ),
+                                Flexible(
+                                  child: ListView.separated(
+                                    shrinkWrap: true,
+                                    padding: EdgeInsets.zero,
+                                    itemCount: matchingVariants.length,
+                                    separatorBuilder: (ctx, index) => Divider(height: 1, color: borderColor.withValues(alpha: 0.5)),
+                                    itemBuilder: (ctx, idx) {
+                                      final item = matchingVariants[idx];
+                                      final isAdded = _selectedVariantIds.contains(item.variantId);
+                                      final promoPrice = _calculatePromoPrice(item.price);
+                                      final dVal = _parseDiscountValue();
 
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                                    leading: ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                                          ? Image.network(
-                                              item.imageUrl!,
-                                              width: 36,
-                                              height: 36,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => Container(
-                                                width: 36,
-                                                height: 36,
-                                                color: Colors.black12,
-                                                child: const Icon(Icons.devices, size: 16),
-                                              ),
-                                            )
-                                          : Container(
-                                              width: 36,
-                                              height: 36,
-                                              color: Colors.black12,
-                                              child: const Icon(Icons.devices, size: 16),
-                                            ),
-                                    ),
-                                    title: Text(
-                                      item.label,
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
-                                    ),
-                                    subtitle: Row(
-                                      children: [
-                                        Text(
-                                          currencyFormat.format(item.price),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: textSecondary,
-                                            decoration: isAdded && dVal > 0 ? TextDecoration.lineThrough : null,
-                                          ),
+                                      return ListTile(
+                                        dense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                        leading: ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                                              ? Image.network(
+                                                  item.imageUrl!,
+                                                  width: 32,
+                                                  height: 32,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error, stackTrace) => Container(
+                                                    width: 32,
+                                                    height: 32,
+                                                    color: Colors.black12,
+                                                    child: const Icon(Icons.devices, size: 14),
+                                                  ),
+                                                )
+                                              : Container(
+                                                  width: 32,
+                                                  height: 32,
+                                                  color: Colors.black12,
+                                                  child: const Icon(Icons.devices, size: 14),
+                                                ),
                                         ),
-                                        if (dVal > 0) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.arrow_forward_rounded, size: 10, color: AppColors.success),
-                                          const SizedBox(width: 2),
-                                          Text(
-                                            currencyFormat.format(promoPrice),
-                                            style: const TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.success,
+                                        title: Text(
+                                          item.label,
+                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        subtitle: Row(
+                                          children: [
+                                            Text(
+                                              currencyFormat.format(item.price),
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: textSecondary,
+                                                decoration: isAdded && dVal > 0 ? TextDecoration.lineThrough : null,
+                                              ),
                                             ),
-                                          ),
-                                        ],
-                                        const SizedBox(width: 8),
-                                        Text('| Tồn: ${item.stockQuantity}', style: TextStyle(fontSize: 10.5, color: textSecondary)),
-                                      ],
-                                    ),
-                                    trailing: isAdded
-                                        ? Chip(
-                                            label: const Text('Đã chọn', style: TextStyle(fontSize: 10.5, color: AppColors.success, fontWeight: FontWeight.bold)),
-                                            backgroundColor: AppColors.success.withValues(alpha: 0.12),
-                                            side: BorderSide.none,
-                                            padding: EdgeInsets.zero,
-                                            visualDensity: VisualDensity.compact,
-                                            avatar: const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
-                                          )
-                                        : ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: AppColors.primary,
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              visualDensity: VisualDensity.compact,
-                                              elevation: 0,
-                                            ),
-                                            icon: const Icon(Icons.add_rounded, size: 13),
-                                            label: const Text('Thêm', style: TextStyle(fontSize: 11)),
-                                            onPressed: () {
-                                              setState(() {
-                                                _selectedVariantIds.add(item.variantId);
-                                              });
-                                            },
-                                          ),
-                                    onTap: () {
-                                      setState(() {
-                                        if (isAdded) {
-                                          _selectedVariantIds.remove(item.variantId);
-                                        } else {
-                                          _selectedVariantIds.add(item.variantId);
-                                        }
-                                      });
+                                            if (dVal > 0) ...[
+                                              const SizedBox(width: 3),
+                                              const Icon(Icons.arrow_forward_rounded, size: 9, color: AppColors.success),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                currencyFormat.format(promoPrice),
+                                                style: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.success,
+                                                ),
+                                              ),
+                                            ],
+                                            const SizedBox(width: 6),
+                                            Text('| Tồn: ${item.stockQuantity}', style: TextStyle(fontSize: 10, color: textSecondary)),
+                                          ],
+                                        ),
+                                        trailing: isAdded
+                                            ? Chip(
+                                                label: const Text('Đã chọn', style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold)),
+                                                backgroundColor: AppColors.success.withValues(alpha: 0.12),
+                                                side: BorderSide.none,
+                                                padding: EdgeInsets.zero,
+                                                visualDensity: VisualDensity.compact,
+                                                avatar: const Icon(Icons.check_circle_rounded, size: 12, color: AppColors.success),
+                                              )
+                                            : ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  visualDensity: VisualDensity.compact,
+                                                  elevation: 0,
+                                                ),
+                                                icon: const Icon(Icons.add_rounded, size: 12),
+                                                label: const Text('Thêm', style: TextStyle(fontSize: 10.5)),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _selectedVariantIds.add(item.variantId);
+                                                  });
+                                                },
+                                              ),
+                                        onTap: () {
+                                          setState(() {
+                                            if (isAdded) {
+                                              _selectedVariantIds.remove(item.variantId);
+                                            } else {
+                                              _selectedVariantIds.add(item.variantId);
+                                            }
+                                          });
+                                        },
+                                      );
                                     },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              const SizedBox(height: 10),
-
-              // 5. Danh sách sản phẩm & biến thể đã chọn
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Sản phẩm & biến thể đã chọn (${_selectedVariantIds.length}):',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textPrimary),
-                  ),
-                  if (_selectedVariantIds.isNotEmpty)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _selectedVariantIds.clear();
-                        });
-                      },
-                      child: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 11.5, color: AppColors.danger)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Container(
-                height: 170,
-                decoration: BoxDecoration(
-                  border: Border.all(color: borderColor),
-                  borderRadius: BorderRadius.circular(8),
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                ),
-                child: _selectedVariantIds.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inventory_2_outlined, size: 28, color: textSecondary.withValues(alpha: 0.6)),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Chưa có sản phẩm nào được chọn áp dụng khuyến mãi',
-                              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: textSecondary),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Gõ tên sản phẩm vào ô tìm kiếm ở trên để xem dropdown gợi ý và thêm sản phẩm',
-                              style: TextStyle(fontSize: 11, color: textSecondary.withValues(alpha: 0.8)),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _selectedVariantIds.length,
-                        separatorBuilder: (ctx, index) => Divider(height: 1, color: borderColor.withValues(alpha: 0.4)),
-                        itemBuilder: (c, i) {
-                          final vId = _selectedVariantIds.elementAt(i);
-                          final item = _availableVariants.firstWhere(
-                            (v) => v.variantId == vId,
-                            orElse: () => _VariantChoiceOption(
-                              variantId: vId,
-                              productId: 0,
-                              productName: 'Biến thể #$vId',
-                              variantName: '',
-                              label: 'Biến thể #$vId',
-                              price: 0,
-                            ),
-                          );
-
-                          final promoPrice = _calculatePromoPrice(item.price);
-                          final dVal = double.tryParse(_discountValCtrl.text.trim()) ?? 0;
-
-                          return ListTile(
-                            dense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                            leading: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                                  ? Image.network(
-                                      item.imageUrl!,
-                                      width: 32,
-                                      height: 32,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        width: 32,
-                                        height: 32,
-                                        color: Colors.black12,
-                                        child: const Icon(Icons.devices, size: 14),
-                                      ),
-                                    )
-                                  : Container(
-                                      width: 32,
-                                      height: 32,
-                                      color: Colors.black12,
-                                      child: const Icon(Icons.devices, size: 14),
-                                    ),
-                            ),
-                            title: Text(
-                              item.label,
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Row(
-                              children: [
-                                Text('Giá gốc: ${currencyFormat.format(item.price)}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                                if (dVal > 0) ...[
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    '➔ ${currencyFormat.format(promoPrice)}',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
                                   ),
-                                ],
+                                ),
                               ],
                             ),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.danger),
-                              tooltip: 'Gỡ khỏi khuyến mãi',
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                              onPressed: () {
-                                setState(() {
-                                  _selectedVariantIds.remove(vId);
-                                });
+                    ),
+
+                  const SizedBox(height: 8),
+
+                  Row(
+                    children: [
+                      Text(
+                        'Danh sách đã chọn (${_selectedVariantIds.length})',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '(áp dụng trực tiếp giảm giá)',
+                        style: TextStyle(fontSize: 11, color: textSecondary),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: borderColor),
+                        borderRadius: BorderRadius.circular(8),
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      ),
+                      child: _selectedVariantIds.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.inventory_2_outlined, size: 32, color: textSecondary.withValues(alpha: 0.5)),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Chưa có sản phẩm nào được chọn',
+                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: textSecondary),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Tìm kiếm ở ô trên để thêm sản phẩm vào khuyến mãi',
+                                    style: TextStyle(fontSize: 11, color: textSecondary.withValues(alpha: 0.8)),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: _selectedVariantIds.length,
+                              separatorBuilder: (ctx, index) => Divider(height: 1, color: borderColor.withValues(alpha: 0.4)),
+                              itemBuilder: (c, i) {
+                                final vId = _selectedVariantIds.elementAt(i);
+                                final item = _availableVariants.firstWhere(
+                                  (v) => v.variantId == vId,
+                                  orElse: () => _VariantChoiceOption(
+                                    variantId: vId,
+                                    productId: 0,
+                                    productName: 'Biến thể #$vId',
+                                    variantName: '',
+                                    label: 'Biến thể #$vId',
+                                    price: 0,
+                                  ),
+                                );
+
+                                final promoPrice = _calculatePromoPrice(item.price);
+                                final dVal = _parseDiscountValue();
+
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                  leading: ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: item.imageUrl != null && item.imageUrl!.isNotEmpty
+                                        ? Image.network(
+                                            item.imageUrl!,
+                                            width: 32,
+                                            height: 32,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (context, error, stackTrace) => Container(
+                                              width: 32,
+                                              height: 32,
+                                              color: Colors.black12,
+                                              child: const Icon(Icons.devices, size: 14),
+                                            ),
+                                          )
+                                        : Container(
+                                            width: 32,
+                                            height: 32,
+                                            color: Colors.black12,
+                                            child: const Icon(Icons.devices, size: 14),
+                                          ),
+                                  ),
+                                  title: Text(
+                                    item.label,
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Row(
+                                    children: [
+                                      Text('Giá gốc: ${currencyFormat.format(item.price)}', style: TextStyle(fontSize: 11, color: textSecondary)),
+                                      if (dVal > 0) ...[
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          '➔ ${currencyFormat.format(promoPrice)}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.success),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.danger),
+                                    tooltip: 'Gỡ khỏi khuyến mãi',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedVariantIds.remove(vId);
+                                      });
+                                    },
+                                  ),
+                                );
                               },
                             ),
-                          );
-                        },
-                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-
-              // 6. Kích hoạt ngay Switch
-              SwitchListTile(
-                title: const Text('Kích hoạt chương trình ngay', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                subtitle: Text('Cho phép áp dụng giảm giá trực tiếp cho khách hàng', style: TextStyle(fontSize: 11.5, color: textSecondary)),
-                value: _isActive,
-                activeThumbColor: AppColors.primary,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (val) => setState(() => _isActive = val),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [

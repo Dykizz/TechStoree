@@ -108,7 +108,10 @@ class Promotion {
 
   String formattedDiscountValue(NumberFormat currencyFormat) {
     if (isPercentage) {
-      return '${discountValue.toInt()}%';
+      final valStr = discountValue == discountValue.roundToDouble()
+          ? discountValue.toInt().toString()
+          : discountValue.toString();
+      return '$valStr%';
     }
     return currencyFormat.format(discountValue);
   }

@@ -4,71 +4,6 @@ import '../models/promotion.dart';
 import 'base_api_service.dart';
 
 mixin PromotionApiService on BaseApiService {
-  late final List<Promotion> mockPromotions = [
-    Promotion(
-      promotionId: 1,
-      name: 'Flash Sale Laptop Cuối Tuần',
-      description: 'Giảm 10% cho tất cả các phiên bản laptop ASUS Zenbook',
-      discountType: 'PERCENTAGE',
-      discountValue: 10,
-      startDate: DateTime.now().subtract(const Duration(days: 1)),
-      endDate: DateTime.now().add(const Duration(days: 5)),
-      isActive: true,
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      status: 'ACTIVE',
-      variantCount: 2,
-      variantIds: [1, 2],
-      variants: [
-        PromotionVariantItem(
-          variantId: 1,
-          productId: 1,
-          productName: 'Laptop ASUS Zenbook 14 OLED UX3405',
-          variantName: '16GB RAM / 512GB SSD - Xanh',
-          originalPrice: 24990000,
-          promotionalPrice: 22491000,
-          discountAmount: 2499000,
-          stockQuantity: 15,
-        ),
-        PromotionVariantItem(
-          variantId: 2,
-          productId: 1,
-          productName: 'Laptop ASUS Zenbook 14 OLED UX3405',
-          variantName: '32GB RAM / 1TB SSD - Xanh',
-          originalPrice: 29990000,
-          promotionalPrice: 26991000,
-          discountAmount: 2999000,
-          stockQuantity: 10,
-        ),
-      ],
-    ),
-    Promotion(
-      promotionId: 2,
-      name: 'Tri Ân Khách Hàng Tai Nghe Sony',
-      description: 'Giảm trực tiếp 500.000 VNĐ cho tai nghe chống ồn Sony WH-1000XM5',
-      discountType: 'FIXED_AMOUNT',
-      discountValue: 500000,
-      startDate: DateTime.now().add(const Duration(days: 2)),
-      endDate: DateTime.now().add(const Duration(days: 10)),
-      isActive: true,
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      status: 'UPCOMING',
-      variantCount: 2,
-      variantIds: [4, 5],
-      variants: [
-        PromotionVariantItem(
-          variantId: 4,
-          productId: 3,
-          productName: 'Tai nghe chụp tai Sony WH-1000XM5',
-          variantName: 'Màu Đen (Midnight Black)',
-          originalPrice: 7490000,
-          promotionalPrice: 6990000,
-          discountAmount: 500000,
-          stockQuantity: 25,
-        ),
-      ],
-    ),
-  ];
-
   Future<List<Promotion>> getPromotions({String? token, String? status, bool? isActive, String? search}) async {
     try {
       final queryParams = <String, String>{};
@@ -97,7 +32,7 @@ mixin PromotionApiService on BaseApiService {
     } catch (e) {
       if (kDebugMode) print('API Error getPromotions: $e');
     }
-    return mockPromotions;
+    return <Promotion>[];
   }
 
   Future<Promotion?> getPromotionById(int id, {String? token}) async {
@@ -112,8 +47,6 @@ mixin PromotionApiService on BaseApiService {
     } catch (e) {
       if (kDebugMode) print('API Error getPromotionById: $e');
     }
-    final idx = mockPromotions.indexWhere((p) => p.promotionId == id);
-    if (idx != -1) return mockPromotions[idx];
     return null;
   }
 
@@ -137,9 +70,7 @@ mixin PromotionApiService on BaseApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Tạo khuyến mãi thất bại.');
     } catch (e) {
-      mockPromotions.add(promo);
-      notifyListeners();
-      return ApiResult(success: true, message: 'Tạo khuyến mãi thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi tạo khuyến mãi: $e');
     }
   }
 
@@ -163,10 +94,7 @@ mixin PromotionApiService on BaseApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Cập nhật khuyến mãi thất bại.');
     } catch (e) {
-      final idx = mockPromotions.indexWhere((p) => p.promotionId == id);
-      if (idx != -1) mockPromotions[idx] = promo;
-      notifyListeners();
-      return ApiResult(success: true, message: 'Cập nhật khuyến mãi thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi cập nhật khuyến mãi: $e');
     }
   }
 
@@ -182,9 +110,7 @@ mixin PromotionApiService on BaseApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Xóa khuyến mãi thất bại.');
     } catch (e) {
-      mockPromotions.removeWhere((p) => p.promotionId == id);
-      notifyListeners();
-      return ApiResult(success: true, message: 'Xóa khuyến mãi thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi xóa khuyến mãi: $e');
     }
   }
 
@@ -200,27 +126,7 @@ mixin PromotionApiService on BaseApiService {
       }
       return ApiResult(success: false, message: body['message'] ?? 'Cập nhật trạng thái thất bại.');
     } catch (e) {
-      final idx = mockPromotions.indexWhere((p) => p.promotionId == id);
-      if (idx != -1) {
-        final old = mockPromotions[idx];
-        mockPromotions[idx] = Promotion(
-          promotionId: old.promotionId,
-          name: old.name,
-          description: old.description,
-          discountType: old.discountType,
-          discountValue: old.discountValue,
-          startDate: old.startDate,
-          endDate: old.endDate,
-          isActive: !old.isActive,
-          createdAt: old.createdAt,
-          status: old.status,
-          variantCount: old.variantCount,
-          variants: old.variants,
-          variantIds: old.variantIds,
-        );
-      }
-      notifyListeners();
-      return ApiResult(success: true, message: 'Cập nhật trạng thái khuyến mãi thành công (Offline Mode).');
+      return ApiResult(success: false, message: 'Lỗi kết nối khi cập nhật trạng thái: $e');
     }
   }
 }
