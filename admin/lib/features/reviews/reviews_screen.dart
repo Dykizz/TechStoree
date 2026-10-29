@@ -35,6 +35,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   int? _filteredProductId;
   String? _filteredProductName;
   bool _onlyWithImages = false;
+  bool _showRankings = false; // Mặc định ẩn để bảng dữ liệu thoáng đãng
 
   // Data Futures
   late Future<ReviewPagedResult> _reviewsFuture;
@@ -43,7 +44,10 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    _statsFuture = apiService.getDetailedReviewStatistics(token: token);
+    _loadData(reloadStats: false);
   }
 
   @override
@@ -52,7 +56,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     super.dispose();
   }
 
-  void _loadData() {
+  void _loadData({bool reloadStats = false}) {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
 
@@ -91,13 +95,15 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       token: token,
     );
 
-    _statsFuture = apiService.getDetailedReviewStatistics(token: token);
+    if (reloadStats) {
+      _statsFuture = apiService.getDetailedReviewStatistics(token: token);
+    }
   }
 
-  void _refreshList({bool resetPage = false}) {
+  void _refreshList({bool resetPage = false, bool reloadStats = true}) {
     setState(() {
       if (resetPage) _currentPage = 1;
-      _loadData();
+      _loadData(reloadStats: reloadStats);
     });
   }
 
@@ -106,7 +112,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       _filteredProductId = productId;
       _filteredProductName = productName;
       _currentPage = 1;
-      _loadData();
+      _loadData(reloadStats: false);
     });
   }
 
@@ -115,7 +121,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       _filteredProductId = null;
       _filteredProductName = null;
       _currentPage = 1;
-      _loadData();
+      _loadData(reloadStats: false);
     });
   }
 
@@ -126,7 +132,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       builder: (ctx) => _ReviewReplyDialog(
         review: review,
         dateFormat: _dateFormat,
-        onReplySubmitted: () => _refreshList(),
+        onReplySubmitted: () => _refreshList(reloadStats: true),
       ),
     );
   }
@@ -163,51 +169,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     if (!mounted) return;
 
     if (res.success) {
-      _refreshList();
+      _refreshList(reloadStats: true);
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Thao tác thành công!' : 'Thất bại!')),
         backgroundColor: res.success ? AppColors.success : AppColors.danger,
-      ),
-    );
-  }
-
-  void _showImageLightbox(String imageUrl) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(24),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  width: 320,
-                  height: 240,
-                  color: Colors.black87,
-                  alignment: Alignment.center,
-                  child: const Text('Không thể tải hình ảnh', style: TextStyle(color: Colors.white70)),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white, size: 24),
-                style: IconButton.styleFrom(backgroundColor: Colors.black54),
-                onPressed: () => Navigator.pop(ctx),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -232,24 +200,37 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
           PageHeader(
             title: 'Quản lý đánh giá sản phẩm',
             subtitle: 'Theo dõi phản hồi khách hàng, kiểm soát chất lượng sản phẩm và chăm sóc khách hàng',
-            action: AppButton(
-              label: 'Làm mới',
-              icon: Icons.refresh_rounded,
-              variant: AppButtonVariant.outline,
-              onPressed: () => _refreshList(),
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppButton(
+                  label: _showRankings ? 'Ẩn Top xếp hạng' : 'Xem Top xếp hạng',
+                  icon: _showRankings ? Icons.expand_less_rounded : Icons.leaderboard_rounded,
+                  variant: _showRankings ? AppButtonVariant.primary : AppButtonVariant.secondary,
+                  onPressed: () => setState(() => _showRankings = !_showRankings),
+                ),
+                const SizedBox(width: 8),
+                AppButton(
+                  label: 'Làm mới',
+                  icon: Icons.refresh_rounded,
+                  variant: AppButtonVariant.outline,
+                  onPressed: () => _refreshList(reloadStats: true),
+                ),
+              ],
             ),
           ),
 
-          // 2. WIDGET TOP 5 TỐT NHẤT & TOP 5 CẦN LƯU Ý
-          FutureBuilder<ReviewStatistics?>(
-            future: _statsFuture,
-            builder: (context, snapshot) {
-              final stats = snapshot.data;
-              return _buildRankingsSection(stats, isDark, textPrimary, textSecondary, cardBg, cardBorder);
-            },
-          ),
-
-          const SizedBox(height: AppTokens.space16),
+          // 2. WIDGET TOP 5 TỐT NHẤT & TOP 5 CẦN LƯU Ý (CÓ THỂ ẨN / HIỆN ĐỂ TIẾT KIỆM KHÔNG GIAN)
+          if (_showRankings) ...[
+            FutureBuilder<ReviewStatistics?>(
+              future: _statsFuture,
+              builder: (context, snapshot) {
+                final stats = snapshot.data;
+                return _buildRankingsSection(stats, isDark, textPrimary, textSecondary, cardBg, cardBorder);
+              },
+            ),
+            const SizedBox(height: AppTokens.space16),
+          ],
 
           // 3. THANH TABS LỌC TRẠNG THÁI
           FutureBuilder<ReviewStatistics?>(
@@ -268,7 +249,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                 controller: _searchCtrl,
                 hintText: 'Tìm theo tên khách, sản phẩm, nhận xét...',
                 prefixIcon: Icons.search_rounded,
-                onFieldSubmitted: (_) => _refreshList(resetPage: true),
+                onFieldSubmitted: (_) => _refreshList(resetPage: true, reloadStats: false),
               ),
             ),
             filters: [
@@ -299,7 +280,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       setState(() {
                         _selectedRating = val;
                         _currentPage = 1;
-                        _loadData();
+                        _loadData(reloadStats: false);
                       });
                     },
                   ),
@@ -315,7 +296,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   setState(() {
                     _onlyWithImages = val;
                     _currentPage = 1;
-                    _loadData();
+                    _loadData(reloadStats: false);
                   });
                 },
                 selectedColor: AppColors.primary.withValues(alpha: 0.15),
@@ -354,7 +335,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             ),
           ],
 
-          // 5. BẢNG DỮ LIỆU ĐÁNH GIÁ (DATA TABLE + INLINE COLLAPSIBLE REPLY CHAT BOX)
+          // 5. BẢNG DỮ LIỆU ĐÁNH GIÁ (5 CỘT TỐI ƯU GỌN GÀNG + CLICK RECORD)
           FutureBuilder<ReviewPagedResult>(
             future: _reviewsFuture,
             builder: (context, snapshot) {
@@ -385,21 +366,19 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                         children: [
                           ScrollableTableWrapper(
                             child: DataTable(
-                              headingRowHeight: 42,
-                              dataRowMinHeight: 68,
-                              dataRowMaxHeight: 88,
-                              columnSpacing: 18,
+                              showCheckboxColumn: false,
+                              headingRowHeight: 38,
+                              dataRowMinHeight: 48,
+                              dataRowMaxHeight: 56,
+                              columnSpacing: 20,
                               horizontalMargin: 16,
                               headingRowColor: WidgetStateProperty.all(
                                 isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                               ),
                               columns: [
-                                DataColumn(label: Text('Mã / Ngày', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 DataColumn(label: Text('Sản phẩm & Biến thể', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Số sao', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Nhận xét của khách', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Phản hồi từ Shop', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                DataColumn(label: Text('Khách hàng & Ngày', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                                DataColumn(label: Text('Đánh giá', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                                 DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                               ],
@@ -417,14 +396,14 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                               onPageChanged: (page) {
                                 setState(() {
                                   _currentPage = page;
-                                  _loadData();
+                                  _loadData(reloadStats: false);
                                 });
                               },
                               onItemsPerPageChanged: (size) {
                                 setState(() {
                                   _itemsPerPage = size;
                                   _currentPage = 1;
-                                  _loadData();
+                                  _loadData(reloadStats: false);
                                 });
                               },
                             ),
@@ -460,7 +439,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
           Expanded(
             flex: isMobile ? 0 : 1,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -480,16 +459,16 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                           color: Colors.amber.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Icon(Icons.emoji_events_rounded, color: Colors.amber, size: 18),
+                        child: const Icon(Icons.emoji_events_rounded, color: Colors.amber, size: 16),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Top 5 sản phẩm đánh giá tốt nhất',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: textPrimary),
                             ),
                             Text(
                               'Được khách hàng yêu thích và đánh giá sao cao nhất',
@@ -500,12 +479,12 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   const Divider(height: 1, thickness: 0.5),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   if (topProducts.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Text('Chưa có dữ liệu xếp hạng đánh giá', style: TextStyle(fontSize: 11.5, color: textSecondary)),
                       ),
@@ -521,13 +500,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             ),
           ),
 
-          if (!isMobile) const SizedBox(width: 16) else const SizedBox(height: 16),
+          if (!isMobile) const SizedBox(width: 14) else const SizedBox(height: 14),
 
           // Card 2: ⚠️ Top 5 Cần Lưu Ý (Đánh giá thấp / Tiêu cực)
           Expanded(
             flex: isMobile ? 0 : 1,
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: cardBg,
                 borderRadius: BorderRadius.circular(AppTokens.radiusMd),
@@ -547,19 +526,19 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                           color: AppColors.danger.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 18),
+                        child: const Icon(Icons.warning_amber_rounded, color: AppColors.danger, size: 16),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               'Top 5 sản phẩm cần lưu ý (đánh giá thấp)',
-                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: textPrimary),
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: textPrimary),
                             ),
                             Text(
-                              'Sản phẩm có nhiều phản ánh tiêu cực (1-2★) cần kiểm tra chất lượng',
+                              'Sản phẩm có nhiều phản ánh tiêu cực (1-2★) cần kiểm tra',
                               style: TextStyle(fontSize: 11, color: textSecondary),
                             ),
                           ],
@@ -567,12 +546,12 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   const Divider(height: 1, thickness: 0.5),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                   if (lowestProducts.isEmpty)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                       child: Center(
                         child: Text('Chưa có sản phẩm nào bị đánh giá tiêu cực', style: TextStyle(fontSize: 11.5, color: textSecondary)),
                       ),
@@ -616,7 +595,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       onTap: () => _filterByProduct(item.productId, item.productName),
       borderRadius: BorderRadius.circular(6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
         child: Row(
           children: [
             // Huy hiệu Rank #1, #2, #3
@@ -639,8 +618,8 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: Container(
-                width: 32,
-                height: 32,
+                width: 30,
+                height: 30,
                 color: Colors.grey.withValues(alpha: 0.1),
                 child: item.productImageUrl != null && item.productImageUrl!.isNotEmpty
                     ? Image.network(
@@ -651,7 +630,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                     : const Icon(Icons.inventory_2_outlined, size: 16),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
 
             // Tên SP
             Expanded(
@@ -666,7 +645,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   ),
                   Text(
                     isPositive
-                        ? '${item.totalReviews} lượt đánh giá (${item.positiveReviewCount} khen)'
+                        ? '${item.totalReviews} đánh giá (${item.positiveReviewCount} khen)'
                         : '${item.totalReviews} đánh giá • ${item.negativeReviewCount} khách chê (1-2★)',
                     style: TextStyle(fontSize: 10.5, color: isPositive ? textSecondary : AppColors.danger),
                   ),
@@ -676,7 +655,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
             // Badge Rating
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
               decoration: BoxDecoration(
                 color: isPositive ? Colors.amber.withValues(alpha: 0.15) : AppColors.danger.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(4),
@@ -689,7 +668,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   Text(
                     item.averageRating.toStringAsFixed(1),
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: isPositive ? Colors.amber.shade800 : AppColors.danger,
                     ),
@@ -753,7 +732,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                     setState(() {
                       _selectedStatusTab = key;
                       _currentPage = 1;
-                      _loadData();
+                      _loadData(reloadStats: false);
                     });
                   }
                 },
@@ -807,7 +786,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   }
 
   // ==========================================
-  // BẢNG DỮ LIỆU ĐÁNH GIÁ (DATA ROWS)
+  // BẢNG DỮ LIỆU ĐÁNH GIÁ (5 CỘT TỐI ƯU GỌN GÀNG + CLICK RECORD)
   // ==========================================
   List<DataRow> _buildTableRows(
     List<ReviewItem> reviews,
@@ -825,6 +804,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
       rows.add(
         DataRow(
+          onSelectChanged: (_) => _openReplyDialog(review),
           color: WidgetStateProperty.resolveWith<Color?>((states) {
             if (review.isHidden) {
               return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFFEF2F2);
@@ -835,29 +815,17 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             return null;
           }),
           cells: [
-            // 1. Mã / Ngày
-            DataCell(
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('#${review.reviewId}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textSecondary)),
-                  Text(_dateFormat.format(review.createdAt), style: TextStyle(fontSize: 10.5, color: textSecondary)),
-                ],
-              ),
-            ),
-
-            // 2. Sản phẩm & Biến thể
+            // 1. Sản phẩm & Biến thể
             DataCell(
               ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
+                constraints: const BoxConstraints(maxWidth: 320),
                 child: Row(
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(4),
                       child: Container(
-                        width: 34,
-                        height: 34,
+                        width: 32,
+                        height: 32,
                         color: Colors.grey.withValues(alpha: 0.1),
                         child: review.productImageUrl != null && review.productImageUrl!.isNotEmpty
                             ? Image.network(
@@ -876,7 +844,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                         children: [
                           Text(
                             review.productName,
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary),
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: textPrimary),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -894,22 +862,29 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               ),
             ),
 
-            // 3. Khách hàng
+            // 2. Khách hàng & Ngày
             DataCell(
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    review.fullName.isNotEmpty ? review.fullName : review.username,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('#${review.reviewId}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: textSecondary)),
+                      const SizedBox(width: 4),
+                      Text(
+                        review.fullName.isNotEmpty ? review.fullName : review.username,
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: textPrimary),
+                      ),
+                    ],
                   ),
-                  Text('@${review.username}', style: TextStyle(fontSize: 10.5, color: textSecondary)),
+                  Text(_dateFormat.format(review.createdAt), style: TextStyle(fontSize: 10.5, color: textSecondary)),
                 ],
               ),
             ),
 
-            // 4. Số sao
+            // 3. Đánh giá (Số sao)
             DataCell(
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -917,140 +892,35 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                   ...List.generate(5, (index) {
                     final starVal = index + 1;
                     if (review.rating >= starVal) {
-                      return const Icon(Icons.star_rounded, size: 15, color: Colors.amber);
+                      return const Icon(Icons.star_rounded, size: 14, color: Colors.amber);
                     } else if (review.rating >= starVal - 0.5) {
-                      return const Icon(Icons.star_half_rounded, size: 15, color: Colors.amber);
+                      return const Icon(Icons.star_half_rounded, size: 14, color: Colors.amber);
                     } else {
-                      return Icon(Icons.star_outline_rounded, size: 15, color: Colors.grey.shade400);
+                      return Icon(Icons.star_outline_rounded, size: 14, color: Colors.grey.shade400);
                     }
                   }),
                   const SizedBox(width: 4),
                   Text(
-                    review.rating.toStringAsFixed(1),
+                    '${review.rating.toStringAsFixed(1)} ★',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5, color: textPrimary),
                   ),
                 ],
               ),
             ),
 
-            // 5. Nhận xét của khách
-            DataCell(
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 240),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Tooltip(
-                      message: review.comment ?? '',
-                      child: Text(
-                        review.comment != null && review.comment!.trim().isNotEmpty
-                            ? review.comment!
-                            : '— (Không có nhận xét chữ)',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: review.comment != null && review.comment!.trim().isNotEmpty ? textPrimary : textSecondary,
-                          fontWeight: review.comment != null && review.comment!.trim().isNotEmpty ? FontWeight.w500 : FontWeight.normal,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (review.imageUrls.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Row(
-                        children: review.imageUrls.take(3).map((url) {
-                          return GestureDetector(
-                            onTap: () => _showImageLightbox(url),
-                            child: Container(
-                              margin: const EdgeInsets.only(right: 4),
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(3),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(3),
-                                child: Image.network(url, fit: BoxFit.cover),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            // 6. Phản hồi từ Shop
-            DataCell(
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (review.hasReply) ...[
-                      Tooltip(
-                        message: review.replyContent ?? '',
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.success.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppColors.success.withValues(alpha: 0.25)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.reply_rounded, size: 12, color: AppColors.success),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  review.replyContent!,
-                                  style: const TextStyle(fontSize: 11, color: AppColors.success, fontWeight: FontWeight.w500),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AppColors.warning.withValues(alpha: 0.25)),
-                        ),
-                        child: const Text(
-                          'Chờ phản hồi',
-                          style: TextStyle(fontSize: 10.5, color: AppColors.warning, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            // 7. Trạng thái
+            // 4. Trạng thái (Chỉ Badge sạch sẽ)
             DataCell(
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: review.isHidden ? AppColors.dangerBg : AppColors.successBg,
                   border: Border.all(color: review.isHidden ? AppColors.dangerBorder : AppColors.successBorder),
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   review.isHidden ? 'Đã ẩn' : 'Công khai',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.bold,
                     color: review.isHidden ? AppColors.danger : AppColors.success,
                   ),
@@ -1058,29 +928,41 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
               ),
             ),
 
-            // 8. Thao tác
+            // 5. Thao tác (Đồng bộ IconButton 28x28 nhỏ gọn có Tooltip)
             DataCell(
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (canReply)
-                    AppButton(
-                      label: review.hasReply ? 'Sửa' : 'Phản hồi',
-                      icon: review.hasReply ? Icons.edit_note_rounded : Icons.reply_rounded,
-                      variant: review.hasReply ? AppButtonVariant.outline : AppButtonVariant.primary,
-                      onPressed: () => _openReplyDialog(review),
-                    ),
-                  const SizedBox(width: 6),
-                  if (canHide)
-                    IconButton(
-                      icon: Icon(
-                        review.isHidden ? Icons.visibility_off_rounded : Icons.visibility_outlined,
-                        size: 17,
-                        color: review.isHidden ? AppColors.danger : textSecondary,
+                    Tooltip(
+                      message: review.hasReply ? 'Sửa phản hồi' : 'Gửi phản hồi',
+                      child: IconButton(
+                        icon: Icon(
+                          review.hasReply ? Icons.edit_note_rounded : Icons.reply_rounded,
+                          size: 16,
+                          color: review.hasReply ? textSecondary : AppColors.primary,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        onPressed: () => _openReplyDialog(review),
                       ),
-                      tooltip: review.isHidden ? 'Hiện lại đánh giá' : 'Ẩn đánh giá này',
-                      onPressed: () => _toggleHideReview(review, apiService, authProvider.token),
                     ),
+                  if (canHide) ...[
+                    const SizedBox(width: 2),
+                    Tooltip(
+                      message: review.isHidden ? 'Hiện lại đánh giá' : 'Ẩn đánh giá này',
+                      child: IconButton(
+                        icon: Icon(
+                          review.isHidden ? Icons.visibility_off_rounded : Icons.visibility_outlined,
+                          size: 16,
+                          color: review.isHidden ? AppColors.danger : textSecondary,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        onPressed: () => _toggleHideReview(review, apiService, authProvider.token),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1509,6 +1391,7 @@ class _ReviewReplyDialogState extends State<_ReviewReplyDialog> {
                     label: _isSubmitting ? 'Đang lưu...' : (review.hasReply ? 'Cập nhật phản hồi' : 'Gửi phản hồi'),
                     icon: Icons.send_rounded,
                     variant: AppButtonVariant.primary,
+                    isLoading: _isSubmitting,
                     onPressed: (_isSubmitting || _isDeleting) ? null : () => _submitReply(apiService, authProvider.token),
                   ),
                 ],
@@ -1520,4 +1403,3 @@ class _ReviewReplyDialogState extends State<_ReviewReplyDialog> {
     );
   }
 }
-
