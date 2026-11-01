@@ -192,6 +192,7 @@ class _SurveyListViewState extends State<SurveyListView> {
                           children: [
                             ScrollableTableWrapper(
                                 child: DataTable(
+                                      showCheckboxColumn: false,
                                       headingRowHeight: 40,
                                       dataRowMinHeight: 48,
                                       dataRowMaxHeight: 48,
@@ -212,6 +213,8 @@ class _SurveyListViewState extends State<SurveyListView> {
                                       ],
                                       rows: surveys.map((s) {
                                         return DataRow(
+                                          onSelectChanged: (_) => widget.onViewDetail(s),
+                                          mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
                                               return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
