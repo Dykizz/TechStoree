@@ -71,7 +71,7 @@ class _UsersScreenState extends State<UsersScreen> with SingleTickerProviderStat
                       children: [
                         Icon(Icons.people_rounded, size: 16),
                         SizedBox(width: 8),
-                        Text('Quản Lý Khách Hàng'),
+                        Text('Quản lý khách hàng'),
                       ],
                     ),
                   ),

@@ -164,7 +164,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
 
               // Page Title & Action Bar
               PageHeader(
-                title: 'Báo Cáo Phân Tích Nhân Khẩu Học & Thị Hiếu',
+                title: 'Báo cáo phân tích nhân khẩu học & thị hiếu',
                 subtitle: 'Thống kê phân bố độ tuổi và phân khúc sở thích thiết bị công nghệ của khách hàng CRM',
                 action: Row(
                   children: [

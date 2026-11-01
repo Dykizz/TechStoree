@@ -127,6 +127,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           children: [
                             ScrollableTableWrapper(
                               child: DataTable(
+                                      showCheckboxColumn: false,
                                       headingRowHeight: 38,
                                       dataRowMinHeight: 42,
                                       dataRowMaxHeight: 42,
@@ -144,6 +145,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         final canUpdate = authProvider.can('Categories.Update');
                                         final canDelete = authProvider.can('Categories.Delete');
                                         return DataRow(
+                                          onSelectChanged: (_) => _showFormDialog(context, apiService, authProvider.token, cat),
+                                          mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.hovered)) {
                                               return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);

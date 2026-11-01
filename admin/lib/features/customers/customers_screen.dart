@@ -141,7 +141,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageHeader(
-                title: 'Quản Lý Khách Hàng',
+                title: 'Quản lý khách hàng',
                 subtitle: 'Theo dõi hồ sơ khách hàng, phân khúc sở thích công nghệ và nhân khẩu học CRM',
                 action: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -237,6 +237,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                           children: [
                             ScrollableTableWrapper(
                               child: DataTable(
+                                showCheckboxColumn: false,
                                 headingRowHeight: 40,
                                 dataRowMinHeight: 46,
                                 dataRowMaxHeight: 46,
@@ -258,6 +259,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                 ],
                                 rows: paginatedCustomers.map((u) {
                                   return DataRow(
+                                    onSelectChanged: (_) => _showDetailDialog(context, u),
+                                    mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                     color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                       if (states.contains(WidgetState.hovered)) {
                                         return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
@@ -662,7 +665,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
             actions: [
               AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
               AppButton(
-                label: isEditing ? 'Lưu Thay Đổi' : 'Tạo Khách Hàng',
+                label: isEditing ? 'Lưu thay đổi' : 'Tạo khách hàng',
                 onPressed: () async {
                   if (fullNameCtrl.text.trim().isEmpty || userNameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -720,12 +723,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(user.isLocked ? 'Mở Khóa Khách Hàng' : 'Khóa Tài Khoản Khách Hàng'),
+        title: Text(user.isLocked ? 'Mở khóa khách hàng' : 'Khóa tài khoản khách hàng'),
         content: Text('Bạn có chắc chắn muốn ${user.isLocked ? 'mở khóa' : 'khóa'} tài khoản khách hàng "${user.fullName}" không?'),
         actions: [
           AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
           AppButton(
-            label: user.isLocked ? 'Mở Khóa' : 'Khóa Ngay',
+            label: user.isLocked ? 'Mở khóa' : 'Khóa ngay',
             variant: user.isLocked ? AppButtonVariant.primary : AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);

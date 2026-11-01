@@ -7,51 +7,9 @@ import 'base_api_service.dart';
 mixin UserApiService on BaseApiService {
   final Map<String, AppUser> _userCache = {};
 
-  final List<AppUser> mockUsers = [
-    AppUser(
-      id: '1',
-      userName: 'nguyenvanan',
-      fullName: 'Nguyễn Văn An',
-      email: 'an.nguyen@gmail.com',
-      role: 'ADMIN',
-      status: 'Hoạt động',
-      isLocked: false,
-      phone: '0903112233',
-      techInterest: 'Coding / AI',
-      dateOfBirth: DateTime(1995, 5, 20),
-      address: '72 Lê Thánh Tôn, Q.1, TP.HCM',
-      createdAt: DateTime.now().subtract(const Duration(days: 120)),
-    ),
-    AppUser(
-      id: '2',
-      userName: 'tranbinh',
-      fullName: 'Trần Thị Bình',
-      email: 'binh.tran@yahoo.com',
-      role: 'USER',
-      status: 'Hoạt động',
-      isLocked: false,
-      phone: '0912334455',
-      techInterest: 'Gaming',
-      dateOfBirth: DateTime(2001, 8, 15),
-      address: '123 Nguyễn Thị Minh Khai, Q.3, TP.HCM',
-      createdAt: DateTime.now().subtract(const Duration(days: 45)),
-    ),
-    AppUser(
-      id: '3',
-      userName: 'phamduc',
-      fullName: 'Phạm Minh Đức',
-      email: 'duc.pham@hotmail.com',
-      role: 'USER',
-      status: 'Tạm khóa',
-      isLocked: true,
-      phone: '0977112244',
-      techInterest: 'Audio / Studio',
-      dateOfBirth: DateTime(1998, 11, 10),
-      address: '45 Trần Hưng Đạo, Q.5, TP.HCM',
-      createdAt: DateTime.now().subtract(const Duration(days: 8)),
-    ),
-  ];
-
+  /// Lấy danh sách tài khoản người dùng từ Backend API (PostgreSQL)
+  /// isStaffOnly = true: Chỉ lấy danh sách nhân viên nội bộ
+  /// isStaffOnly = false: Chỉ lấy danh sách khách hàng
   Future<List<AppUser>> getUsers({String? token, bool? isStaffOnly}) async {
     try {
       final queryParams = <String, String>{};
@@ -108,17 +66,10 @@ mixin UserApiService on BaseApiService {
         }
       }
     } catch (e) {
-      debugPrint('API Error getUsers: $e');
+      debugPrint('[UserApiService] Lỗi kết nối getUsers: $e');
     }
-    var list = mockUsers.map((u) => _userCache[u.id] ?? u).toList();
-    if (isStaffOnly != null) {
-      if (isStaffOnly) {
-        list = list.where((u) => u.role.toUpperCase() != 'USER' || u.roles.any((r) => r.toUpperCase() != 'USER')).toList();
-      } else {
-        list = list.where((u) => u.role.toUpperCase() == 'USER' && (u.roles.isEmpty || u.roles.every((r) => r.toUpperCase() == 'USER'))).toList();
-      }
-    }
-    return list;
+    // Hoàn toàn không dùng mock fallback - trả về danh sách rỗng nếu lỗi kết nối
+    return <AppUser>[];
   }
 
   Future<DemographicsReport> getDemographicsReport({String? token}) async {
@@ -172,21 +123,14 @@ mixin UserApiService on BaseApiService {
 
       return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
-      debugPrint('API Error createUser: $e');
+      debugPrint('[UserApiService] Lỗi createUser: $e');
+      return ApiResult(success: false, message: 'Không thể kết nối máy chủ để tạo tài khoản: $e');
     }
-    mockUsers.add(user);
-    _userCache[user.id] = user;
-    notifyListeners();
-    return ApiResult(success: true, message: 'Tạo tài khoản thành công (Offline Mode)!');
   }
 
   Future<ApiResult> updateUser(AppUser user, {String? token}) async {
-    final oldUser = _userCache[user.id] ?? mockUsers.where((u) => u.id == user.id).firstOrNull;
+    final oldUser = _userCache[user.id];
     _userCache[user.id] = user;
-    final idx = mockUsers.indexWhere((u) => u.id == user.id);
-    if (idx != -1) {
-      mockUsers[idx] = user;
-    }
 
     try {
       // 1. Cập nhật các roles qua backend API: PATCH /users/{id}/role
@@ -215,12 +159,12 @@ mixin UserApiService on BaseApiService {
           }),
         );
       }
+      notifyListeners();
+      return ApiResult(success: true, message: 'Cập nhật thông tin người dùng thành công!');
     } catch (e) {
-      debugPrint('API Update User (backend call warning): $e');
+      debugPrint('[UserApiService] Lỗi updateUser: $e');
+      return ApiResult(success: false, message: 'Lỗi cập nhật người dùng: $e');
     }
-
-    notifyListeners();
-    return ApiResult(success: true, message: 'Cập nhật thông tin người dùng thành công!');
   }
 
   Future<bool> toggleUserLock(String userId, {bool? isLocked, String? token}) async {
@@ -234,7 +178,7 @@ mixin UserApiService on BaseApiService {
 
       final data = parseApiResponse(response);
       if (data != null) {
-        final existing = _userCache[userId] ?? mockUsers.where((u) => u.id == userId).firstOrNull;
+        final existing = _userCache[userId];
         final bool newLocked;
         if (data is Map<String, dynamic> && data.containsKey('isLocked')) {
           newLocked = data['isLocked'] == true;
@@ -276,40 +220,13 @@ mixin UserApiService on BaseApiService {
         );
 
         _userCache[userId] = updated;
-        final idx = mockUsers.indexWhere((u) => u.id == userId);
-        if (idx != -1) mockUsers[idx] = updated;
         notifyListeners();
         return true;
       }
     } catch (e) {
-      debugPrint('API Error toggleUserLock: $e');
+      debugPrint('[UserApiService] Lỗi toggleUserLock: $e');
     }
-
-    // Fallback Offline / Mock
-    final idx = mockUsers.indexWhere((u) => u.id == userId);
-    final existing = idx != -1 ? mockUsers[idx] : _userCache[userId];
-    if (existing != null) {
-      final newLocked = isLocked ?? !existing.isLocked;
-      final updated = AppUser(
-        id: existing.id,
-        userName: existing.userName,
-        fullName: existing.fullName,
-        email: existing.email,
-        role: existing.role,
-        roles: existing.roles,
-        status: newLocked ? 'Tạm khóa' : 'Hoạt động',
-        isLocked: newLocked,
-        phone: existing.phone,
-        techInterest: existing.techInterest,
-        dateOfBirth: existing.dateOfBirth,
-        address: existing.address,
-        createdAt: existing.createdAt,
-      );
-      if (idx != -1) mockUsers[idx] = updated;
-      _userCache[userId] = updated;
-    }
-    notifyListeners();
-    return true;
+    return false;
   }
 
   Future<bool> updateUserRole(String userId, String roleId, {String? token}) async {
@@ -330,37 +247,31 @@ mixin UserApiService on BaseApiService {
 
       final data = parseApiResponse(response);
       if (data != null) {
+        final existing = _userCache[userId];
+        if (existing != null) {
+          final updated = AppUser(
+            id: existing.id,
+            userName: existing.userName,
+            fullName: existing.fullName,
+            email: existing.email,
+            role: primaryRole,
+            roles: roles,
+            status: existing.status,
+            isLocked: existing.isLocked,
+            phone: existing.phone,
+            techInterest: existing.techInterest,
+            dateOfBirth: existing.dateOfBirth,
+            address: existing.address,
+            createdAt: existing.createdAt,
+          );
+          _userCache[userId] = updated;
+        }
         notifyListeners();
         return true;
       }
     } catch (e) {
-      debugPrint('API Error updateUserRoles: $e');
+      debugPrint('[UserApiService] Lỗi updateUserRoles: $e');
     }
-
-    final idx = mockUsers.indexWhere((u) => u.id == userId);
-    if (idx != -1) {
-      final old = mockUsers[idx];
-      final updated = AppUser(
-        id: old.id,
-        userName: old.userName,
-        fullName: old.fullName,
-        email: old.email,
-        role: primaryRole,
-        roles: roles,
-        status: old.status,
-        isLocked: old.isLocked,
-        phone: old.phone,
-        techInterest: old.techInterest,
-        dateOfBirth: old.dateOfBirth,
-        address: old.address,
-        createdAt: old.createdAt,
-      );
-      mockUsers[idx] = updated;
-      _userCache[userId] = updated;
-    }
-    notifyListeners();
-    return true;
+    return false;
   }
 }
-
-

@@ -4,13 +4,6 @@ import '../models/category.dart';
 import 'base_api_service.dart';
 
 mixin CategoryApiService on BaseApiService {
-  final List<Category> mockCategories = [
-    Category(id: '1', name: 'Laptop & Máy tính', code: 'LAPTOP', productCount: 42, description: '', iconName: ''),
-    Category(id: '2', name: 'Điện thoại thông minh', code: 'SMARTPHONE', productCount: 58, description: '', iconName: ''),
-    Category(id: '3', name: 'Máy tính bảng', code: 'TABLET', productCount: 19, description: '', iconName: ''),
-    Category(id: '4', name: 'Phụ kiện & Âm thanh', code: 'ACCESSORIES', productCount: 120, description: '', iconName: ''),
-  ];
-
   Future<List<Category>> getCategories({String? token}) async {
     try {
       final response = await httpGet(
@@ -28,9 +21,10 @@ mixin CategoryApiService on BaseApiService {
         return data.map((json) => Category.fromJson(json)).toList();
       }
     } catch (e) {
-      debugPrint('API Error getCategories: $e');
+      debugPrint('[CategoryApiService] Lỗi getCategories: $e');
     }
-    return mockCategories;
+    // Hoàn toàn không dùng mock fallback - trả về danh sách rỗng nếu lỗi kết nối
+    return <Category>[];
   }
 
   Future<bool> createCategory(Category category, {String? token}) async {
@@ -47,11 +41,9 @@ mixin CategoryApiService on BaseApiService {
         return true;
       }
     } catch (e) {
-      debugPrint('API Error createCategory: $e');
+      debugPrint('[CategoryApiService] Lỗi createCategory: $e');
     }
-    mockCategories.add(category);
-    notifyListeners();
-    return true;
+    return false;
   }
 
   Future<bool> updateCategory(Category category, {String? token}) async {
@@ -68,12 +60,9 @@ mixin CategoryApiService on BaseApiService {
         return true;
       }
     } catch (e) {
-      debugPrint('API Error updateCategory: $e');
+      debugPrint('[CategoryApiService] Lỗi updateCategory: $e');
     }
-    final idx = mockCategories.indexWhere((c) => c.id == category.id);
-    if (idx != -1) mockCategories[idx] = category;
-    notifyListeners();
-    return true;
+    return false;
   }
 
   Future<ApiResult> deleteCategory(String id, {String? token}) async {
@@ -84,7 +73,6 @@ mixin CategoryApiService on BaseApiService {
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        mockCategories.removeWhere((c) => c.id == id);
         notifyListeners();
         return ApiResult(success: true, message: 'Xóa loại sản phẩm thành công!');
       }
@@ -92,7 +80,7 @@ mixin CategoryApiService on BaseApiService {
       final errorMsg = extractErrorMessage(response);
       return ApiResult(success: false, message: errorMsg);
     } catch (e) {
-      debugPrint('API Error deleteCategory: $e');
+      debugPrint('[CategoryApiService] Lỗi deleteCategory: $e');
       return ApiResult(success: false, message: 'Lỗi kết nối máy chủ: $e');
     }
   }

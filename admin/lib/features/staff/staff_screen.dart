@@ -134,7 +134,7 @@ class _StaffScreenState extends State<StaffScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               PageHeader(
-                title: 'Quản Lý Nhân Viên',
+                title: 'Quản lý nhân viên',
                 subtitle: 'Quản lý tài khoản nhân sự nội bộ, phân quyền vai trò (Admin, Sales, Thủ kho, CRM) và bảo mật hệ thống',
                 action: (authProvider.can('Employees.Create') || authProvider.can('Users.Create')) ? AppButton(
                   label: 'Thêm nhân viên',
@@ -229,6 +229,7 @@ class _StaffScreenState extends State<StaffScreen> {
                           children: [
                             ScrollableTableWrapper(
                               child: DataTable(
+                                showCheckboxColumn: false,
                                 headingRowHeight: 40,
                                 dataRowMinHeight: 46,
                                 dataRowMaxHeight: 46,
@@ -248,6 +249,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                 ],
                                 rows: paginatedStaff.map((u) {
                                   return DataRow(
+                                    onSelectChanged: (_) => _showDetailDialog(context, u),
+                                    mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                     color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                       if (states.contains(WidgetState.hovered)) {
                                         return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
@@ -667,7 +670,7 @@ class _StaffScreenState extends State<StaffScreen> {
             actions: [
               AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
               AppButton(
-                label: isEditing ? 'Lưu Phân Quyền' : 'Tạo Nhân Viên',
+                label: isEditing ? 'Lưu phân quyền' : 'Thêm nhân viên',
                 onPressed: () async {
                   if (fullNameCtrl.text.trim().isEmpty || userNameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -722,12 +725,12 @@ class _StaffScreenState extends State<StaffScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(user.isLocked ? 'Mở Khóa Tài Khoản Nhân Viên' : 'Khóa Tài Khoản Nhân Viên'),
+        title: Text(user.isLocked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'),
         content: Text('Bạn có chắc chắn muốn ${user.isLocked ? 'mở khóa' : 'khóa'} tài khoản nhân viên "${user.fullName}" không?'),
         actions: [
           AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
           AppButton(
-            label: user.isLocked ? 'Mở Khóa' : 'Khóa Ngay',
+            label: user.isLocked ? 'Mở khóa' : 'Khóa ngay',
             variant: user.isLocked ? AppButtonVariant.primary : AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);
