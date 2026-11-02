@@ -66,6 +66,312 @@
 .totalLabel { color: var(--muted); font-size: 12px; }
 .totalPrice { color: var(--ink); font-size: clamp(26px, 2.4vw, 32px); font-weight: 650; letter-spacing: -.035em; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .feeNotice { margin: 0 0 20px; color: var(--muted); font-size: 11px; line-height: 1.7; }
+
+/* ===================================================
+   MÃ GIẢM GIÁ CỦA TÔI
+   =================================================== */
+.voucherSection {
+  margin-bottom: 22px;
+  padding: 16px;
+  border: 1px dashed #d1d5db;
+  border-radius: 14px;
+  background: #fbfbfc;
+}
+
+.voucherSectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.voucherSectionTitle {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.voucherIcon {
+  font-size: 15px;
+}
+
+.voucherRemoveBtn {
+  border: 0;
+  background: none;
+  color: #dc2626;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.voucherRemoveBtn:hover {
+  text-decoration: underline;
+  background: #fee2e2;
+}
+
+.appliedVoucherBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.appliedVoucherInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.appliedVoucherBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #059669;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.appliedVoucherCode {
+  font-weight: 700;
+  color: #065f46;
+  letter-spacing: 0.04em;
+}
+
+.appliedVoucherDiscount {
+  font-weight: 600;
+  color: #dc2626;
+}
+
+.voucherError {
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.voucherLoading {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.myVouchersList {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.voucherCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  transition: all 180ms ease;
+}
+
+.voucherCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.voucherCardSelected {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.voucherCardDisabled {
+  opacity: 0.65;
+  background: #f9fafb;
+}
+
+.voucherCardMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.voucherBadgesRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.voucherCodeBadge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}
+
+.surveyRewardBadge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.voucherCardTitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.voucherCardCondition {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.notEligibleText {
+  color: #dc2626;
+  font-style: italic;
+}
+
+.voucherCardAction {
+  flex-shrink: 0;
+}
+
+.voucherApplyBtn {
+  padding: 6px 12px;
+  border: 1px solid var(--brand);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--brand);
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.voucherApplyBtn:hover:not(:disabled) {
+  background: var(--brand);
+  color: #fff;
+}
+
+.voucherApplyBtn:disabled {
+  border-color: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.voucherActiveBtn {
+  padding: 6px 10px;
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  background: #10b981;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.emptyVoucherBox {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.emptyVoucherBox p {
+  margin: 0 0 4px;
+}
+
+.surveyPromoLink {
+  color: var(--brand);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.surveyPromoLink:hover {
+  text-decoration: underline;
+}
+
+.manualVoucherRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.manualVoucherInput {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 12px;
+  background: #fff;
+  color: var(--ink);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.manualVoucherInput:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.manualVoucherBtn {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 160ms;
+}
+
+.manualVoucherBtn:hover:not(:disabled) {
+  background: #111827;
+}
+
+.manualVoucherBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .submitBtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 50px; padding: 14px 18px; border: 0; border-radius: 10px; background: var(--brand); color: #fff; font-size: 13px; font-weight: 650; cursor: pointer; transition: background 180ms, transform 180ms; }
 .submitBtn:hover:not(:disabled) { background: var(--brand-hover); transform: translateY(-1px); }
 .submitBtn:disabled { cursor: not-allowed; opacity: .65; }

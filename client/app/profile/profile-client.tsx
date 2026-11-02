@@ -311,6 +311,9 @@ export default function ProfileClient({
               <Link className={styles.surveyLink} href="/surveys">
                 Khảo sát của tôi <span aria-hidden="true">↗</span>
               </Link>
+              <Link className={styles.surveyLink} href="/vouchers" style={{ marginTop: "12px", paddingTop: "12px" }}>
+                Mã giảm giá của tôi <span aria-hidden="true">↗</span>
+              </Link>
             </aside>
 
             <section

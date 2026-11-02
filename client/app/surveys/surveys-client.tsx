@@ -229,12 +229,17 @@ export default function SurveysClient({ surveyId }: { surveyId?: string }) {
             <p>{result.message}</p>
             {result.rewardVoucher && (
               <div className={styles.reward}>
-                <strong>{result.rewardVoucher.title}</strong>
+                <strong>🎁 {result.rewardVoucher.title}</strong>
                 <p>
                   Mã ưu đãi: <code>{result.rewardVoucher.code}</code>
                 </p>
                 <p>
-                  Điều kiện sử dụng được kiểm tra khi áp dụng mã tại giỏ hàng.
+                  Mã đã được lưu vào <strong>Mã giảm giá của tôi</strong>. Bạn có thể chọn áp dụng trực tiếp tại trang thanh toán.
+                </p>
+                <p style={{ marginTop: "10px" }}>
+                  <Link href="/checkout" style={{ color: "#bd202d", fontWeight: 650, textDecoration: "underline" }}>
+                    Đi đến trang thanh toán để sử dụng mã →
+                  </Link>
                 </p>
               </div>
             )}

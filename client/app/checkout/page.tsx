@@ -43,6 +43,23 @@ export const SUPPORTED_BANKS = [
   { bin: "970448", shortName: "OCB", name: "OCB (Ngân hàng Phương Đông)" },
 ];
 
+interface MyVoucherItem {
+  userVoucherId: number;
+  voucherId: number;
+  code: string;
+  title: string;
+  description?: string | null;
+  discountType: "PERCENTAGE" | "FIXED_AMOUNT";
+  discountValue: number;
+  minOrderValue: number;
+  maxDiscountAmount?: number | null;
+  startDate: string;
+  endDate: string;
+  assignedType?: string;
+  isUsed: boolean;
+  isUsable: boolean;
+}
+
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const orderIdParam = searchParams.get("orderId");
@@ -58,7 +75,15 @@ function CheckoutContent() {
     refreshCart,
     busy,
     error: cartError,
+    applyVoucher,
+    removeVoucher,
   } = useCart();
+
+  const [myVouchers, setMyVouchers] = useState<MyVoucherItem[]>([]);
+  const [loadingVouchers, setLoadingVouchers] = useState(false);
+  const [voucherInput, setVoucherInput] = useState("");
+  const [voucherError, setVoucherError] = useState("");
+  const [applyingVoucher, setApplyingVoucher] = useState(false);
 
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -128,10 +153,60 @@ function CheckoutContent() {
   const activeBank =
     SUPPORTED_BANKS.find((b) => b.bin === selectedBankBin) || SUPPORTED_BANKS[0];
 
-  // Dynamic shipping fee calculation
-  const shippingFee = 0; // Backend does not currently calculate delivery fees.
+  const grandTotal = finalPrice;
 
-  const grandTotal = finalPrice + shippingFee;
+  // Load My Vouchers from customer wallet
+  useEffect(() => {
+    if (session.status !== "ready") return;
+    let active = true;
+
+    async function loadMyVouchers() {
+      setLoadingVouchers(true);
+      try {
+        const res = await fetch("/api/vouchers/my-wallet?status=USABLE", {
+          cache: "no-store",
+        });
+        if (!active) return;
+        const result = await res.json();
+        if (res.ok && result.success && Array.isArray(result.data)) {
+          setMyVouchers(result.data);
+        }
+      } catch {
+        // Silently continue
+      } finally {
+        if (active) setLoadingVouchers(false);
+      }
+    }
+
+    void loadMyVouchers();
+
+    return () => {
+      active = false;
+    };
+  }, [session.status]);
+
+  const handleApplyVoucherCode = async (code: string) => {
+    if (!code.trim() || applyingVoucher) return;
+    setApplyingVoucher(true);
+    setVoucherError("");
+    try {
+      const res = await applyVoucher(code.trim());
+      if (!res.success) {
+        setVoucherError(res.message);
+      } else {
+        setVoucherInput("");
+      }
+    } catch {
+      setVoucherError("Không thể áp dụng mã giảm giá.");
+    } finally {
+      setApplyingVoucher(false);
+    }
+  };
+
+  const handleRemoveVoucher = () => {
+    removeVoucher();
+    setVoucherError("");
+  };
 
   // Auto-fill logged in user info (including phone number and address) if available
   useEffect(() => {
@@ -422,9 +497,8 @@ function CheckoutContent() {
                     <input
                       id="recipientName"
                       type="text"
-                      className={`${styles.input} ${
-                        errors.recipientName ? styles.inputError : ""
-                      }`}
+                      className={`${styles.input} ${errors.recipientName ? styles.inputError : ""
+                        }`}
                       placeholder="Nguyễn Văn A"
                       value={recipientName}
                       autoComplete="shipping name"
@@ -452,9 +526,8 @@ function CheckoutContent() {
                     <input
                       id="recipientPhone"
                       type="tel"
-                      className={`${styles.input} ${
-                        errors.recipientPhone ? styles.inputError : ""
-                      }`}
+                      className={`${styles.input} ${errors.recipientPhone ? styles.inputError : ""
+                        }`}
                       placeholder="0987654321"
                       value={recipientPhone}
                       autoComplete="shipping tel"
@@ -508,9 +581,8 @@ function CheckoutContent() {
                     <input
                       id="shippingAddress"
                       type="text"
-                      className={`${styles.input} ${
-                        errors.shippingAddress ? styles.inputError : ""
-                      }`}
+                      className={`${styles.input} ${errors.shippingAddress ? styles.inputError : ""
+                        }`}
                       placeholder="Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé"
                       value={shippingAddress}
                       autoComplete="shipping street-address"
@@ -558,9 +630,8 @@ function CheckoutContent() {
 
               <div className={styles.paymentOptions}>
                 <label
-                  className={`${styles.paymentCard} ${
-                    paymentMethod === "COD" ? styles.paymentCardActive : ""
-                  }`}
+                  className={`${styles.paymentCard} ${paymentMethod === "COD" ? styles.paymentCardActive : ""
+                    }`}
                 >
                   <input
                     type="radio"
@@ -581,9 +652,8 @@ function CheckoutContent() {
                 </label>
 
                 <label
-                  className={`${styles.paymentCard} ${
-                    paymentMethod === "BANKING" ? styles.paymentCardActive : ""
-                  }`}
+                  className={`${styles.paymentCard} ${paymentMethod === "BANKING" ? styles.paymentCardActive : ""
+                    }`}
                 >
                   <input
                     type="radio"
@@ -694,6 +764,135 @@ function CheckoutContent() {
                 ))}
               </div>
 
+              {/* MỤC LỰA CHỌN MÃ GIẢM GIÁ: MÃ GIẢM GIÁ CỦA TÔI */}
+              <div className={styles.voucherSection}>
+                <div className={styles.voucherSectionHeader}>
+                  <h3 className={styles.voucherSectionTitle}>
+                    <span className={styles.voucherIcon} aria-hidden="true">🏷️</span> Mã giảm giá của tôi
+                  </h3>
+                  {appliedVoucher && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveVoucher}
+                      className={styles.voucherRemoveBtn}
+                    >
+                      Gỡ bỏ
+                    </button>
+                  )}
+                </div>
+
+                {appliedVoucher && (
+                  <div className={styles.appliedVoucherBanner}>
+                    <div className={styles.appliedVoucherInfo}>
+                      <span className={styles.appliedVoucherBadge}>Đang dùng</span>
+                      <span className={styles.appliedVoucherCode}>{appliedVoucher.code}</span>
+                      <span className={styles.appliedVoucherDiscount}>
+                        (-{formatPrice(discountAmount)})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {voucherError && (
+                  <p className={styles.voucherError} role="alert">
+                    {voucherError}
+                  </p>
+                )}
+
+                {loadingVouchers ? (
+                  <p className={styles.voucherLoading}>Đang tải mã giảm giá của bạn…</p>
+                ) : myVouchers.length > 0 ? (
+                  <div className={styles.myVouchersList}>
+                    {myVouchers.map((voucher) => {
+                      const isApplied = appliedVoucher?.code === voucher.code;
+                      const isEligible = totalPrice >= (voucher.minOrderValue || 0);
+                      const isSurveyReward = voucher.assignedType === "SURVEY_REWARD";
+
+                      return (
+                        <div
+                          key={voucher.userVoucherId || voucher.code}
+                          className={`${styles.voucherCard} ${isApplied ? styles.voucherCardSelected : ""
+                            } ${!isEligible ? styles.voucherCardDisabled : ""}`}
+                        >
+                          <div className={styles.voucherCardMain}>
+                            <div className={styles.voucherBadgesRow}>
+                              <span className={styles.voucherCodeBadge}>{voucher.code}</span>
+                              {isSurveyReward && (
+                                <span className={styles.surveyRewardBadge}>
+                                  🎁 Thưởng khảo sát
+                                </span>
+                              )}
+                            </div>
+                            <div className={styles.voucherCardTitle}>{voucher.title}</div>
+                            {voucher.minOrderValue > 0 && (
+                              <div className={styles.voucherCardCondition}>
+                                Đơn tối thiểu: {formatPrice(voucher.minOrderValue)}
+                                {!isEligible && (
+                                  <span className={styles.notEligibleText}>
+                                    {" "}(chưa đủ điều kiện)
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className={styles.voucherCardAction}>
+                            {isApplied ? (
+                              <button
+                                type="button"
+                                onClick={handleRemoveVoucher}
+                                className={styles.voucherActiveBtn}
+                                disabled={applyingVoucher}
+                              >
+                                Đang áp dụng ✓
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => void handleApplyVoucherCode(voucher.code)}
+                                className={styles.voucherApplyBtn}
+                                disabled={!isEligible || applyingVoucher}
+                              >
+                                {isEligible ? "Áp dụng" : "Chưa đủ ĐK"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className={styles.emptyVoucherBox}>
+                    <p>Bạn chưa có mã giảm giá nào trong ví.</p>
+                    <Link href="/surveys" className={styles.surveyPromoLink}>
+                      Hoàn thành khảo sát để nhận mã ưu đãi ↗
+                    </Link>
+                  </div>
+                )}
+
+                {/* Ô nhập mã giảm giá thủ công */}
+                <div className={styles.manualVoucherRow}>
+                  <input
+                    type="text"
+                    placeholder="Nhập mã ưu đãi khác..."
+                    value={voucherInput}
+                    onChange={(e) => {
+                      setVoucherInput(e.target.value.toUpperCase());
+                      if (voucherError) setVoucherError("");
+                    }}
+                    className={styles.manualVoucherInput}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleApplyVoucherCode(voucherInput)}
+                    disabled={!voucherInput.trim() || applyingVoucher}
+                    className={styles.manualVoucherBtn}
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              </div>
+
               <div className={styles.calcRows}>
                 <div className={styles.calcRow}>
                   <span>Tạm tính ({items.length} món)</span>
@@ -707,19 +906,6 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                <div className={styles.calcRow}>
-                  <span>Phí vận chuyển</span>
-                  <span>
-                    {shippingFee === 0 ? (
-                      <span className={styles.shippingPending}>
-                        Chưa tính phí
-                      </span>
-                    ) : (
-                      formatPrice(shippingFee)
-                    )}
-                  </span>
-                </div>
-
                 <div className={styles.totalRow}>
                   <span className={styles.totalLabel}>Tổng thanh toán</span>
                   <span className={styles.totalPrice}>
@@ -727,8 +913,6 @@ function CheckoutContent() {
                   </span>
                 </div>
               </div>
-
-              <p className={styles.feeNotice}>Phí vận chuyển chưa được hệ thống tính trong tổng tiền này.</p>
               <button
                 type="submit"
                 disabled={isSubmitting || busy || !!cartError}
