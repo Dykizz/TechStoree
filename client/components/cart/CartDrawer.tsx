@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { useCart } from "../../lib/context/CartContext";
-import { formatPrice } from "../../lib/products-client";
-import styles from "./CartDrawer.module.css";
+import { useCart } from "@/lib/context/CartContext";
+import { formatPrice } from "@/lib/products-client";
+import CartItemRow from "@/components/cart/CartItemRow";
+import { cn } from "@/lib/utils";
 
 export default function CartDrawer() {
   const drawer = useRef<HTMLElement>(null);
@@ -85,7 +85,10 @@ export default function CartDrawer() {
   return (
     <>
       <div
-        className={`${styles.backdrop} ${isCartOpen ? styles.backdropOpen : ""}`}
+        className={cn(
+          "fixed inset-0 bg-black/40 backdrop-blur-[4px] z-[200] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          isCartOpen ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+        )}
         onClick={closeCart}
         aria-hidden="true"
       />
@@ -94,19 +97,22 @@ export default function CartDrawer() {
         ref={drawer}
         aria-hidden={!isCartOpen}
         inert={!isCartOpen}
-        className={`${styles.drawer} ${isCartOpen ? styles.drawerOpen : ""}`}
+        className={cn(
+          "fixed top-0 right-0 bottom-0 w-full max-w-[440px] bg-white z-[210] flex flex-col shadow-[-4px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-[350ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+          isCartOpen ? "translate-x-0" : "translate-x-full"
+        )}
         role="dialog"
         aria-modal={isCartOpen ? "true" : undefined}
         aria-label="Giỏ hàng mua sắm"
       >
-        <div className={styles.header}>
-          <h2 className={styles.title}>
+        <div className="px-6 py-5 flex items-center justify-between border-b border-gray-100">
+          <h2 className="text-[1.15rem] font-semibold text-ink m-0">
             Giỏ hàng
-            <span className={styles.itemCount}>({totalItems})</span>
+            <span className="text-sm font-normal text-muted ml-1.5">({totalItems})</span>
           </h2>
           <button
             type="button"
-            className={styles.closeButton}
+            className="bg-transparent border-none text-xl cursor-pointer text-muted p-1 sm:px-2 rounded flex items-center justify-center hover:bg-gray-100 hover:text-ink transition-colors"
             onClick={closeCart}
             aria-label="Đóng giỏ hàng"
           >
@@ -114,11 +120,11 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        <div className={styles.body}>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
           {items.length === 0 ? (
-            <div className={styles.emptyState}>
+            <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 gap-4">
               <svg
-                className={styles.emptyIcon}
+                className="w-14 h-14 text-gray-300"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -133,109 +139,53 @@ export default function CartDrawer() {
               <p>Giỏ hàng của bạn đang trống.</p>
               <Link
                 href="/products"
-                className={styles.shopNowBtn}
+                className="bg-ink text-white no-underline px-6 py-3 rounded-md text-[0.9rem] font-medium transition-colors hover:bg-gray-800 inline-block"
                 onClick={closeCart}
               >
                 Khám phá sản phẩm
               </Link>
             </div>
           ) : (
-            <ul className={styles.itemList}>
+            <ul className="list-none p-0 m-0 flex flex-col gap-5">
               {items.map((item) => (
-                <li key={item.cartItemId} className={styles.item}>
-                  <div className={styles.imageWrap}>
-                    {item.imageUrl ? (
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.productName}
-                        fill
-                        className={styles.thumb}
-                        sizes="76px"
-                      />
-                    ) : (
-                      <div className={styles.thumb} />
-                    )}
-                  </div>
-
-                  <div className={styles.itemInfo}>
-                    <div className={styles.itemTop}>
-                      <h3 className={styles.itemName}>{item.productName}</h3>
-                      <button
-                        type="button"
-                        className={styles.removeBtn}
-                        onClick={() => removeItem(item.cartItemId)}
-                        aria-label={`Xóa ${item.productName}`}
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    <div className={styles.itemVariant}>
-                      {item.variantName ||
-                        Object.values(item.attributes).join(" · ")}
-                    </div>
-
-                    <div className={styles.itemBottom}>
-                      <span className={styles.price}>
-                        {formatPrice(item.price)}
-                      </span>
-
-                      <div className={styles.qtyControl}>
-                        <button
-                          type="button"
-                          className={styles.qtyBtn}
-                          disabled={busy}
-                          onClick={() =>
-                            updateQuantity(item.cartItemId, item.quantity - 1)
-                          }
-                          aria-label="Giảm số lượng"
-                        >
-                          -
-                        </button>
-                        <span className={styles.qtyValue}>{item.quantity}</span>
-                        <button
-                          type="button"
-                          className={styles.qtyBtn}
-                          disabled={busy || item.quantity >= item.stockQuantity}
-                          onClick={() =>
-                            updateQuantity(item.cartItemId, item.quantity + 1)
-                          }
-                          aria-label="Tăng số lượng"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </li>
+                <CartItemRow
+                  key={item.cartItemId}
+                  item={item}
+                  onRemove={() => removeItem(item.cartItemId)}
+                  onUpdateQty={(newQty) =>
+                    updateQuantity(item.cartItemId, newQty)
+                  }
+                  busy={busy}
+                  onClose={closeCart}
+                />
               ))}
             </ul>
           )}
         </div>
 
         {items.length > 0 && (
-          <div className={styles.footer}>
-            <div className={styles.subtotalRow}>
+          <div className="px-6 py-5 border-t border-gray-100 bg-[#fafafa]">
+            <div className="flex justify-between items-center mb-2 text-[0.95rem] text-gray-600">
               <span>Tạm tính</span>
-              <span className={styles.subtotalPrice}>
+              <span className="text-[1.15rem] font-bold text-ink">
                 {formatPrice(totalPrice)}
               </span>
             </div>
-            <p className={styles.shippingNote}>
+            <p className="text-xs text-gray-400 mb-4">
               Phí vận chuyển và ưu đãi sẽ được áp dụng khi thanh toán.
             </p>
 
-            <div className={styles.actions}>
+            <div className="flex flex-col gap-2.5">
               <Link
                 href="/cart"
-                className={styles.viewCartBtn}
+                className="text-center bg-transparent border border-ink text-ink p-3 rounded-md no-underline text-[0.9rem] font-semibold transition-all hover:bg-ink hover:text-white"
                 onClick={closeCart}
               >
                 Xem tất cả / Đi đến giỏ hàng
               </Link>
               <button
                 type="button"
-                className={styles.checkoutBtn}
+                className="text-center bg-brand border border-brand text-white p-3 rounded-md no-underline text-[0.9rem] font-semibold cursor-pointer transition-colors hover:bg-brandHover"
                 onClick={() => {
                   closeCart();
                   router.push("/checkout");

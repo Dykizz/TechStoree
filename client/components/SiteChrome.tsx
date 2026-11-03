@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCart } from "../lib/context/CartContext";
+import { useCart } from "@/lib/context/CartContext";
 import { usePathname } from "next/navigation";
 import Header from "./header/Header";
 import Footer from "./footer/Footer";

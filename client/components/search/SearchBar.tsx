@@ -1,36 +1,30 @@
 "use client";
 
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import {
   useCallback,
-  useEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
 } from "react";
-import { formatPrice } from "../../lib/products-client";
 import {
   getAutocompleteSuggestions,
   type AutocompleteResult,
-} from "../../lib/search/search-engine";
-import type { ProductBaseDto } from "../../lib/types/product";
-import styles from "./SearchBar.module.css";
+} from "@/lib/search/search-engine";
+import type { ProductBaseDto } from "@/lib/types/product";
+import { useClickOutside } from "@/hooks/useClickOutside";
+import { useDebounce } from "@/hooks/useDebounce";
+import SearchDropdown from "./SearchDropdown";
+import { cn } from "@/lib/utils";
 
 const RECENT_SEARCHES_KEY = "techstoree_recent_searches";
 const MAX_RECENT_ITEMS = 6;
 
-// Danh mục từ khóa thịnh hành gợi ý sẵn
-const TRENDING_SEARCHES = [
-  "MacBook Air M3",
-  "Sony WH-1000XM5",
-  "Logitech MX Master 3S",
-  "Laptop Gaming Nitro",
-  "Bàn phím cơ FL-Esports",
-  "Robot Xiaomi Dreame",
-  "Màn hình Dell UltraSharp",
-  "Tai nghe AirPods Pro 2",
-];
+const emptySuggestions: AutocompleteResult = {
+  keywordSuggestions: [],
+  products: [],
+  hasTypo: false,
+};
 
 interface SearchBarProps {
   value: string;
@@ -47,42 +41,43 @@ export default function SearchBar({
   allProducts,
   placeholder = "Tìm kiếm máy tính, điện thoại, phụ kiện...",
 }: SearchBarProps) {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [suggestions, setSuggestions] = useState<AutocompleteResult>({
-    keywordSuggestions: [],
-    products: [],
-    hasTypo: false,
-  });
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Tải lịch sử tìm kiếm từ localStorage
-  useEffect(() => {
+  // 1. Tải lịch sử tìm kiếm từ localStorage (Lazy initializer, không cascading render)
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
       const saved = localStorage.getItem(RECENT_SEARCHES_KEY);
-      if (saved) {
-        setRecentSearches(JSON.parse(saved));
-      }
+      return saved ? (JSON.parse(saved) as string[]) : [];
     } catch {
-      // Bỏ qua nếu môi trường không hỗ trợ localStorage
+      return [];
     }
-  }, []);
+  });
 
-  // 2. Lưu từ khóa vào lịch sử
+  // 2. Debounce truy vấn tìm kiếm
+  const debouncedQuery = useDebounce(value.trim(), 150);
+
+  // 3. Tính toán gợi ý tức thì qua useMemo (không dùng setState trong useEffect)
+  const suggestions = useMemo<AutocompleteResult>(() => {
+    if (!debouncedQuery) return emptySuggestions;
+    return getAutocompleteSuggestions(debouncedQuery, allProducts);
+  }, [debouncedQuery, allProducts]);
+
+  // 4. Click outside để đóng dropdown
+  useClickOutside(containerRef, () => setIsOpen(false), isOpen);
+
+  // 5. Quản lý lịch sử tìm kiếm
   const saveToRecent = useCallback((query: string) => {
     const clean = query.trim();
     if (!clean) return;
 
     setRecentSearches((prev) => {
-      const updated = [clean, ...prev.filter((item) => item.toLowerCase() !== clean.toLowerCase())].slice(
-        0,
-        MAX_RECENT_ITEMS,
-      );
+      const updated = [
+        clean,
+        ...prev.filter((item) => item.toLowerCase() !== clean.toLowerCase()),
+      ].slice(0, MAX_RECENT_ITEMS);
       try {
         localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(updated));
       } catch {
@@ -92,7 +87,6 @@ export default function SearchBar({
     });
   }, []);
 
-  // Xóa 1 từ khóa khỏi lịch sử
   const removeRecentItem = (e: React.MouseEvent, itemToRemove: string) => {
     e.stopPropagation();
     setRecentSearches((prev) => {
@@ -106,7 +100,6 @@ export default function SearchBar({
     });
   };
 
-  // Xóa toàn bộ lịch sử
   const clearAllRecent = (e: React.MouseEvent) => {
     e.stopPropagation();
     setRecentSearches([]);
@@ -117,49 +110,6 @@ export default function SearchBar({
     }
   };
 
-  // 3. Tính toán gợi ý Autocomplete khi người dùng gõ (Debounce 150ms siêu tốc)
-  useEffect(() => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    if (!value.trim()) {
-      setSuggestions({
-        keywordSuggestions: [],
-        products: [],
-        hasTypo: false,
-      });
-      return;
-    }
-
-    debounceTimerRef.current = setTimeout(() => {
-      const result = getAutocompleteSuggestions(value, allProducts, 5, 4);
-      setSuggestions(result);
-    }, 120);
-
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-  }, [value, allProducts]);
-
-  // 4. Click ngoài để đóng dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // 5. Xử lý khi nộp tìm kiếm
   const handlePerformSearch = (query: string) => {
     const clean = query.trim();
     saveToRecent(clean);
@@ -168,7 +118,6 @@ export default function SearchBar({
     setIsOpen(false);
   };
 
-  // 6. Điều hướng bàn phím (Phím Mũi tên lên/xuống, Enter, Escape)
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -179,21 +128,27 @@ export default function SearchBar({
     }
   };
 
-  const hasTypoCorrection = suggestions.hasTypo && suggestions.correctedQuery;
   const isTyping = value.trim().length > 0;
 
   return (
-    <div className={styles.searchBarContainer} ref={containerRef}>
-      {/* Khung nhập liệu tìm kiếm chính */}
+    <div className="relative w-full max-w-[580px] z-50" ref={containerRef}>
       <div
-        className={`${styles.inputWrapper} ${isOpen ? styles.inputWrapperFocused : ""}`}
+        className={cn(
+          "flex items-center gap-2.5 bg-white border-[1.5px] rounded-full py-2 px-4 transition-all duration-200 cursor-text",
+          isOpen
+            ? "border-brand shadow-[0_0_0_4px_rgba(189,32,45,0.12),0_4px_16px_rgba(0,0,0,0.08)]"
+            : "border-slate-200 shadow-[0_2px_8px_rgba(0,0,0,0.04)]"
+        )}
         onClick={() => {
           setIsOpen(true);
           inputRef.current?.focus();
         }}
       >
         <svg
-          className={styles.searchIcon}
+          className={cn(
+            "shrink-0 transition-colors",
+            isOpen ? "text-brand" : "text-slate-400"
+          )}
           width="18"
           height="18"
           viewBox="0 0 24 24"
@@ -210,7 +165,7 @@ export default function SearchBar({
         <input
           ref={inputRef}
           type="text"
-          className={styles.searchInput}
+          className="flex-1 border-none outline-none bg-transparent text-[0.95rem] text-slate-900 font-inherit placeholder:text-slate-400 placeholder:text-[0.9rem]"
           aria-label="Tìm kiếm sản phẩm"
           placeholder={placeholder}
           value={value}
@@ -218,14 +173,13 @@ export default function SearchBar({
             onChange(e.target.value);
             setIsOpen(true);
           }}
-          onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
         />
 
         {value && (
           <button
             type="button"
-            className={styles.clearBtn}
+            className="bg-slate-200 border-none w-5 h-5 rounded-full text-[11px] font-bold text-slate-500 flex items-center justify-center cursor-pointer p-0 transition-colors shrink-0 hover:bg-slate-300 hover:text-slate-900"
             onClick={(e) => {
               e.stopPropagation();
               onChange("");
@@ -240,201 +194,17 @@ export default function SearchBar({
         )}
       </div>
 
-      {/* DROPDOWN THÔNG MINH (Chỉ hiện khi Focus) */}
       {isOpen && (
-        <div className={styles.dropdownModal}>
-          {/* TRẠNG THÁI 1: Khi chưa gõ gì -> Hiển thị Lịch sử & Xu hướng thịnh hành */}
-          {!isTyping && (
-            <div className={styles.historyAndTrending}>
-              {/* Khối Lịch sử tìm kiếm gần đây */}
-              {recentSearches.length > 0 && (
-                <div className={styles.sectionBlock}>
-                  <div className={styles.sectionHeader}>
-                    <span className={styles.sectionTitle}>
-                      <span className={styles.iconCircle}>🕒</span> Lịch sử tìm kiếm
-                    </span>
-                    <button
-                      type="button"
-                      className={styles.clearHistoryBtn}
-                      onClick={clearAllRecent}
-                    >
-                      Xóa tất cả
-                    </button>
-                  </div>
-                  <div className={styles.tagsGrid}>
-                    {recentSearches.map((item, idx) => (
-                      <span
-                        key={idx}
-                        className={styles.recentTag}
-                        onClick={() => handlePerformSearch(item)}
-                      >
-                        <span className={styles.tagText}>{item}</span>
-                        <button
-                          type="button"
-                          className={styles.removeTagBtn}
-                          onClick={(e) => removeRecentItem(e, item)}
-                          title="Xóa mục này"
-                        >
-                          ✕
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Khối Xu hướng tìm kiếm */}
-              <div className={styles.sectionBlock}>
-                <div className={styles.sectionHeader}>
-                  <span className={styles.sectionTitle}>
-                    <span className={styles.iconCircle}>🔥</span> Xu hướng tìm kiếm
-                  </span>
-                </div>
-                <div className={styles.trendingChips}>
-                  {TRENDING_SEARCHES.map((trend, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className={styles.trendingChip}
-                      onClick={() => handlePerformSearch(trend)}
-                    >
-                      <span className={styles.trendRank}>{idx + 1}</span>
-                      <span className={styles.trendLabel}>{trend}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TRẠNG THÁI 2: Khi đang gõ -> Hiển thị Autocomplete & Quick Preview */}
-          {isTyping && (
-            <div className={styles.resultsGrid}>
-              {/* Cột trái: Từ khóa gợi ý & Sửa lỗi chính tả */}
-              <div className={styles.keywordsCol}>
-                {hasTypoCorrection && (
-                  <div
-                    className={styles.typoAlertBanner}
-                    onClick={() => handlePerformSearch(suggestions.correctedQuery!)}
-                  >
-                    <span className={styles.typoIcon}>💡</span>
-                    <div className={styles.typoText}>
-                      Có phải bạn muốn tìm:{" "}
-                      <strong>{suggestions.correctedQuery}</strong>?
-                    </div>
-                  </div>
-                )}
-
-                <div className={styles.colHeader}>GỢI Ý TỪ KHÓA</div>
-                <div className={styles.keywordList}>
-                  {suggestions.keywordSuggestions.length > 0 ? (
-                    suggestions.keywordSuggestions.map((kw, idx) => (
-                      <div
-                        key={idx}
-                        className={styles.keywordItem}
-                        onClick={() => handlePerformSearch(kw)}
-                      >
-                        <svg
-                          className={styles.kwSearchIcon}
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <circle cx="11" cy="11" r="8" />
-                          <path d="m21 21-4.3-4.3" />
-                        </svg>
-                        <span className={styles.kwLabel}>{kw}</span>
-                        <span className={styles.kwArrow}>↗</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className={styles.noKeywordsNotice}>
-                      Nhấn Enter để tìm <strong>"{value}"</strong>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Cột phải: Sản phẩm xem nhanh (Quick Products) */}
-              <div className={styles.productsCol}>
-                <div className={styles.colHeader}>SẢN PHẨM KHỚP NHẤT</div>
-                {suggestions.products.length > 0 ? (
-                  <div className={styles.quickProductsList}>
-                    {suggestions.products.map((p) => {
-                      const effectivePrice =
-                        p.promotion?.promotionalMinPrice ?? p.minPrice;
-                      const hasPromo = p.promotion?.hasPromotion ?? false;
-
-                      return (
-                        <div
-                          key={p.productId}
-                          className={styles.quickProductItem}
-                          onClick={() => {
-                            setIsOpen(false);
-                            router.push(`/products/${p.productId}`);
-                          }}
-                        >
-                          <div className={styles.productThumb}>
-                            {p.imageUrl ? (
-                              <Image
-                                src={p.imageUrl}
-                                alt={p.productName}
-                                fill
-                                sizes="48px"
-                                className={styles.thumbImg}
-                              />
-                            ) : (
-                              <div className={styles.noThumb}>Tech</div>
-                            )}
-                          </div>
-
-                          <div className={styles.productInfo}>
-                            <span className={styles.productCategory}>
-                              {p.categoryName}
-                            </span>
-                            <h4 className={styles.productTitle}>
-                              {p.productName}
-                            </h4>
-                            <div className={styles.productPriceRow}>
-                              <span className={styles.currentPrice}>
-                                {formatPrice(effectivePrice)}
-                              </span>
-                              {hasPromo && (
-                                <span className={styles.originalPrice}>
-                                  {formatPrice(p.minPrice)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className={styles.noQuickProducts}>
-                    <span>Không có sản phẩm nào khớp tức thì</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Thanh chân trang: Xem tất cả kết quả */}
-          {isTyping && (
-            <div
-              className={styles.dropdownFooter}
-              onClick={() => handlePerformSearch(value)}
-            >
-              <span>
-                Xem tất cả kết quả cho <strong>"{value}"</strong>
-              </span>
-              <span className={styles.enterBadge}>Nhấn Enter ↵</span>
-            </div>
-          )}
-        </div>
+        <SearchDropdown
+          value={value}
+          isTyping={isTyping}
+          recentSearches={recentSearches}
+          suggestions={suggestions}
+          onSelectKeyword={handlePerformSearch}
+          onRemoveRecent={removeRecentItem}
+          onClearAllRecent={clearAllRecent}
+          onClose={() => setIsOpen(false)}
+        />
       )}
     </div>
   );

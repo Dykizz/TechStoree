@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import styles from "./HomeHero.module.css";
+import { cn } from "@/lib/utils";
 
 const ROTATION_MS = 5_000;
 const TRANSITION_MS = 800;
@@ -13,6 +13,13 @@ const slides = [
   { name: "AirPods Pro 3", image: "/images/showcase-airpods-pro-3.png", theme: "airpods" },
   { name: "Galaxy Z Fold8", image: "/images/showcase-galaxy-z-fold8.png", theme: "galaxy" },
 ] as const;
+
+const themeVars: Record<string, Record<string, string>> = {
+  pro: { "--canvas": "#000", "--foreground": "#f5f5f7", "--muted": "#b8b8bf", "--accent": "#ff7d88" },
+  duo: { "--canvas": "#f6f5f8", "--foreground": "#1d1d1f", "--muted": "#64646b", "--accent": "#ba2030" },
+  airpods: { "--canvas": "#fdfdfb", "--foreground": "#1d1d1f", "--muted": "#64646b", "--accent": "#ba2030" },
+  galaxy: { "--canvas": "#514971", "--foreground": "#f5f5f7", "--muted": "#e0daef", "--accent": "#ffadb5" },
+};
 
 export default function HomeHero() {
   const [frame, setFrame] = useState({ active: 0, previous: null as number | null });
@@ -65,7 +72,7 @@ export default function HomeHero() {
 
   return (
     <section
-      className={styles.hero}
+      className="relative isolate overflow-hidden min-h-[620px] lg:min-h-[720px] max-md:min-h-[840px] bg-black"
       aria-label="Bộ sưu tập công nghệ TechStoree"
       aria-roledescription="trình chiếu"
       onFocusCapture={() => setFocused(true)}
@@ -76,22 +83,37 @@ export default function HomeHero() {
       {slides.map((slide, index) => {
         const active = frame.active === index;
         const outgoing = frame.previous === index;
+        const isGalaxy = slide.theme === "galaxy";
         return (
           <div
             key={slide.name}
-            className={`${styles.scene} ${styles[slide.theme]} ${active ? styles.active : ""} ${outgoing ? styles.outgoing : ""} ${active && frame.previous !== null ? styles.entering : ""}`}
+            style={themeVars[slide.theme] as React.CSSProperties}
+            className={cn(
+              "absolute inset-0 invisible pointer-events-none bg-[var(--canvas)] text-[var(--foreground)]",
+              active && "!visible !pointer-events-auto z-10",
+              outgoing && "!visible z-0",
+              active && frame.previous !== null && "animate-reveal motion-reduce:animate-none"
+            )}
             aria-hidden={!active}
             inert={!active}
             role="group"
             aria-roledescription="ảnh trình chiếu"
             aria-label={`${index + 1} / ${slides.length}: ${slide.name}`}
           >
-            <div className={styles.media}>
+            <div
+              className={cn(
+                "absolute inset-[4%_-4%_0_28%] 2xl:inset-[4%_2%_0_34%] max-md:inset-[auto_0_85px] max-md:h-[360px]",
+                isGalaxy
+                  ? "[mask-image:linear-gradient(to_right,transparent,#000_22%),linear-gradient(to_bottom,transparent,#000_12%,#000_88%,transparent)] [mask-composite:intersect] max-md:[mask-image:linear-gradient(to_bottom,transparent,#000_12%,#000_88%,transparent)]"
+                  : "[mask-image:linear-gradient(to_right,transparent,#000_18%)] max-md:[mask-image:none]"
+              )}
+            >
               <Image
                 src={slide.image}
                 alt=""
                 fill
-                sizes="(max-width: 760px) 100vw, 75vw"
+                className="object-contain [object-position:center_70%] max-md:object-center"
+                sizes="(max-width: 768px) 100vw, 75vw"
                 loading="eager"
                 fetchPriority={index === 0 ? "high" : "auto"}
                 onLoad={async (event) => {
@@ -101,20 +123,40 @@ export default function HomeHero() {
                 }}
               />
             </div>
-            <div className={styles.scrim} />
-            <div className={styles.inner}>
-              <div className={styles.copy}>
-                <p className={styles.eyebrow}>TECHSTOREE · CÔNG NGHỆ CHO MỖI NGÀY</p>
-                <h1>Nguyên bản.<br /><span>Tinh tế trong từng lựa chọn.</span></h1>
-                <p className={styles.subtitle}>
+            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(90deg,var(--canvas)_0%,color-mix(in_srgb,var(--canvas)_94%,transparent)_25%,color-mix(in_srgb,var(--canvas)_65%,transparent)_43%,transparent_65%)] max-md:bg-[linear-gradient(to_bottom,var(--canvas)_0%,var(--canvas)_44%,transparent_63%)]" />
+            <div className="relative max-w-7xl min-h-[620px] lg:min-h-[720px] max-md:min-h-[840px] mx-auto px-8 pt-20 pb-28 max-lg:pt-14 max-md:px-5 max-md:pt-10 max-md:pb-96 flex items-center max-md:items-start">
+              <div className="max-w-lg w-1/2 max-lg:w-3/5 max-md:w-full">
+                <p className="text-[var(--accent)] text-xs font-bold tracking-widest leading-relaxed">
+                  TECHSTOREE · CÔNG NGHỆ CHO MỖI NGÀY
+                </p>
+                <h1 className="mt-5 mb-6 max-md:mt-4 max-md:mb-5 text-4xl sm:text-5xl lg:text-6xl font-semibold tracking-tight leading-tight [text-wrap:balance]">
+                  Nguyên bản.<br />
+                  <span className="text-[var(--muted)]">Tinh tế trong từng lựa chọn.</span>
+                </h1>
+                <p className="max-w-md text-[var(--muted)] text-sm sm:text-base leading-relaxed">
                   Khám phá thiết bị phù hợp với cách bạn làm việc, sáng tạo và tận hưởng cuộc sống.
                 </p>
-                <div className={styles.actions}>
-                  <Link href="/products" className={styles.primary}>Khám phá sản phẩm <span aria-hidden="true">↗</span></Link>
-                  <Link href="/products?onSale=true" className={styles.secondary}>Xem ưu đãi hiện có <span aria-hidden="true">→</span></Link>
+                <div className="flex flex-wrap gap-5 max-md:gap-4 items-center mt-7">
+                  <Link
+                    href="/products"
+                    className="inline-flex items-center gap-3 px-5 py-3.5 rounded-lg bg-[var(--foreground)] text-[var(--canvas)] text-sm font-semibold no-underline transition-colors duration-200 hover:bg-brand hover:text-white motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4"
+                  >
+                    Khám phá sản phẩm <span aria-hidden="true">↗</span>
+                  </Link>
+                  <Link
+                    href="/products?onSale=true"
+                    className="text-[var(--foreground)] no-underline text-sm font-semibold hover:underline hover:underline-offset-4 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4"
+                  >
+                    Xem ưu đãi hiện có <span aria-hidden="true">→</span>
+                  </Link>
                 </div>
               </div>
-              <p className={styles.caption}>{slide.name}<span>Hình ảnh tham khảo</span></p>
+              <p className="absolute right-8 max-md:right-5 bottom-9 max-md:bottom-7 grid gap-1 text-sm font-semibold text-right">
+                {slide.name}
+                <span className="text-[var(--muted)] text-xs font-normal tracking-wide">
+                  Hình ảnh tham khảo
+                </span>
+              </p>
             </div>
           </div>
         );
