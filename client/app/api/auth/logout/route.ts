@@ -6,7 +6,7 @@ import {
   clearSessionCookies,
   sameOrigin,
   type LoginData,
-} from "../../../../lib/auth-server";
+} from "@/lib/auth-server";
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) {

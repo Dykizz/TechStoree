@@ -1,4 +1,5 @@
 import type { Order } from "./types/order";
+
 export type BackendOrder = {
   orderId: number;
   orderCode: string;
@@ -29,6 +30,7 @@ export type BackendOrder = {
     imageUrl: string | null;
   }[];
 };
+
 export function mapOrder(data: BackendOrder): Order {
   return {
     orderId: String(data.orderId),
@@ -53,7 +55,51 @@ export function mapOrder(data: BackendOrder): Order {
     items: (data.items || []).map((it) => ({
       ...it,
       orderItemId: String(it.orderItemId),
-      productId: 0,
+      productId: (it as { productId?: number }).productId ?? 0,
     })),
   };
+}
+
+export async function cancelOrderApi(
+  orderId: string,
+  reason: string
+): Promise<void> {
+  const response = await fetch(`/api/orders/${orderId}/cancel`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: reason.trim() }),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || "Không thể hủy đơn hàng.");
+  }
+}
+
+export type CheckoutPayload = {
+  receiverName: string;
+  receiverPhone: string;
+  shippingAddress: string;
+  notes?: string;
+  paymentMethod: "BANK_TRANSFER" | "COD";
+  voucherCode?: string;
+  cartItemIds: number[];
+};
+
+export async function checkoutOrderApi(
+  payload: CheckoutPayload
+): Promise<BackendOrder> {
+  const response = await fetch("/api/orders/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = (await response.json()) as {
+    success: boolean;
+    message: string;
+    data: BackendOrder;
+  };
+  if (!response.ok || !result.success || !result.data?.orderId) {
+    throw new Error(result.message || "Không thể đặt hàng.");
+  }
+  return result.data;
 }

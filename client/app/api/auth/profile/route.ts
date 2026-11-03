@@ -8,24 +8,24 @@ import {
   setSessionCookies,
   sameOrigin,
   type ProfileData,
-} from "../../../../lib/auth-server";
+} from "@/lib/auth-server";
 
 type ProfileUpdate = Pick<
   ProfileData,
   "fullName" | "phone" | "dateOfBirth" | "techInterest" | "address"
 >;
 
-function publicProfile(data: any): ProfileData {
+function publicProfile(data: Record<string, unknown>): ProfileData {
   return {
-    userId: data.userId ?? data.UserId,
-    username: data.username ?? data.Username,
-    fullName: data.fullName ?? data.FullName,
-    email: data.email ?? data.Email,
-    role: data.role ?? data.Role ?? "USER",
-    phone: data.phone ?? data.Phone ?? null,
-    dateOfBirth: data.dateOfBirth ?? data.DateOfBirth ?? null,
-    techInterest: data.techInterest ?? data.TechInterest ?? null,
-    address: data.address ?? data.Address ?? null,
+    userId: Number(data.userId ?? data.UserId),
+    username: String(data.username ?? data.Username ?? ""),
+    fullName: String(data.fullName ?? data.FullName ?? ""),
+    email: String(data.email ?? data.Email ?? ""),
+    role: String(data.role ?? data.Role ?? "USER"),
+    phone: typeof (data.phone ?? data.Phone) === "string" ? String(data.phone ?? data.Phone) : null,
+    dateOfBirth: typeof (data.dateOfBirth ?? data.DateOfBirth) === "string" ? String(data.dateOfBirth ?? data.DateOfBirth) : null,
+    techInterest: typeof (data.techInterest ?? data.TechInterest) === "string" ? String(data.techInterest ?? data.TechInterest) : null,
+    address: typeof (data.address ?? data.Address) === "string" ? String(data.address ?? data.Address) : null,
   };
 }
 

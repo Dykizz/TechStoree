@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { backendRequest, sameOrigin, type SessionUser } from "../../../../lib/auth-server";
+import { backendRequest, sameOrigin, type SessionUser } from "@/lib/auth-server";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

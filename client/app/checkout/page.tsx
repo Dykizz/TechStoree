@@ -4,17 +4,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useCart } from "../../lib/context/CartContext";
-import { useProtectedSession } from "../../lib/use-protected-session";
-import { mapOrder, type BackendOrder } from "../../lib/orders-api";
+import { useCart } from "@/lib/context/CartContext";
+import { useProtectedSession } from "@/lib/use-protected-session";
+import { useProfile } from "@/hooks/queries/useProfile";
+import { useCheckoutOrder } from "@/hooks/mutations/useCheckoutOrder";
+import { mapOrder } from "@/lib/orders-api";
 import {
-  notifyPaymentConfirmed,
   publishNotification,
-} from "../../lib/customer-notifications";
-import { formatPrice } from "../../lib/products-client";
-import { Order, PaymentMethod } from "../../lib/types/order";
+} from "@/lib/customer-notifications";
+import { formatPrice } from "@/lib/products-client";
+import { Order, PaymentMethod } from "@/lib/types/order";
 import OrderConfirmation from "./OrderConfirmation";
-import styles from "./checkout.module.css";
+import { cn } from "@/lib/utils";
 
 const PROVINCES = [
   "TP. Hồ Chí Minh",
@@ -30,7 +31,7 @@ const PROVINCES = [
   "Tỉnh / Thành khác",
 ];
 
-export const SUPPORTED_BANKS = [
+const SUPPORTED_BANKS = [
   { bin: "970422", shortName: "MBBank", name: "MBBank (Ngân hàng TMCP Quân Đội)" },
   { bin: "970436", shortName: "Vietcombank", name: "Vietcombank (Ngân hàng Ngoại Thương)" },
   { bin: "970407", shortName: "Techcombank", name: "Techcombank (Ngân hàng Kỹ Thương)" },
@@ -78,6 +79,7 @@ function CheckoutContent() {
     applyVoucher,
     removeVoucher,
   } = useCart();
+  const { mutateAsync: checkoutOrderMutation } = useCheckoutOrder();
 
   const [myVouchers, setMyVouchers] = useState<MyVoucherItem[]>([]);
   const [loadingVouchers, setLoadingVouchers] = useState(false);
@@ -94,10 +96,10 @@ function CheckoutContent() {
   const [selectedBankBin, setSelectedBankBin] = useState<string>(
     process.env.NEXT_PUBLIC_BANK_BIN || "970422",
   );
-  const [bankAccount, setBankAccount] = useState<string>(
+  const [bankAccount] = useState<string>(
     process.env.NEXT_PUBLIC_BANK_ACCOUNT || "0372933562",
   );
-  const [bankAccountName, setBankAccountName] = useState<string>(
+  const [bankAccountName] = useState<string>(
     process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "NGUYEN HONG SON",
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -109,7 +111,7 @@ function CheckoutContent() {
   const [orderError, setOrderError] = useState<string>("");
   const submitting = useRef(false);
 
-  // Tải thông tin đơn hàng nếu có orderId hoặc orderCode trên URL (Khách bấm quay lại từ danh sách đơn hàng)
+  // Tải thông tin đơn hàng nếu có orderId hoặc orderCode trên URL
   useEffect(() => {
     if (!orderIdParam && !orderCodeParam) return;
     if (session.status !== "ready") return;
@@ -153,7 +155,8 @@ function CheckoutContent() {
   const activeBank =
     SUPPORTED_BANKS.find((b) => b.bin === selectedBankBin) || SUPPORTED_BANKS[0];
 
-  const grandTotal = finalPrice;
+  const shippingFee = 0;
+  const grandTotal = finalPrice + shippingFee;
 
   // Load My Vouchers from customer wallet
   useEffect(() => {
@@ -208,174 +211,114 @@ function CheckoutContent() {
     setVoucherError("");
   };
 
-  // Auto-fill logged in user info (including phone number and address) if available
-  useEffect(() => {
-    if (session.status !== "ready") return;
-
-    if (session.user) {
-      const u = session.user;
-      if (u.fullName || u.username) {
-        setRecipientName((prev) => prev || u.fullName || u.username);
-      }
-      if (u.phone) {
-        setRecipientPhone((prev) => prev || u.phone!.trim());
-      }
-      if (u.address) {
-        setShippingAddress((prev) => prev || u.address!.trim());
-      }
+  // Auto-fill logged in user info
+  const [syncedUser, setSyncedUser] = useState(false);
+  if (!syncedUser && session.status === "ready" && session.user) {
+    setSyncedUser(true);
+    const u = session.user;
+    if (u.fullName || u.username) {
+      setRecipientName((prev) => prev || u.fullName || u.username);
     }
-
-    let active = true;
-    async function loadFreshProfile() {
-      try {
-        const res = await fetch("/api/auth/profile", { cache: "no-store" });
-        if (!active) return;
-        if (res.ok) {
-          const data = await res.json();
-          const p = data?.profile;
-          if (p) {
-            if (p.fullName || p.username) {
-              setRecipientName((prev) => prev || p.fullName || p.username);
-            }
-            if (p.phone) {
-              setRecipientPhone((prev) => prev || p.phone.trim());
-            }
-            if (p.address) {
-              setShippingAddress((prev) => prev || p.address.trim());
-            }
-          }
-        }
-      } catch {
-        // Silently continue
-      }
+    if (u.phone) {
+      setRecipientPhone((prev) => prev || u.phone?.trim() || "");
     }
-    void loadFreshProfile();
+    if (u.address) {
+      setShippingAddress((prev) => prev || u.address?.trim() || "");
+    }
+  }
 
-    return () => {
-      active = false;
-    };
-  }, [session.status, session.user]);
+  // Sync fresh profile asynchronously via TanStack Query without cascading render
+  const isSessionReady = session.status === "ready";
+  const { data: userProfile } = useProfile(isSessionReady);
+  const [syncedProfile, setSyncedProfile] = useState<typeof userProfile | null>(null);
+  if (userProfile && userProfile !== syncedProfile) {
+    setSyncedProfile(userProfile);
+    if (userProfile.fullName || userProfile.username) {
+      setRecipientName((prev) => prev || userProfile.fullName || userProfile.username);
+    }
+    if (userProfile.phone) {
+      setRecipientPhone((prev) => prev || userProfile.phone?.trim() || "");
+    }
+    if (userProfile.address) {
+      setShippingAddress((prev) => prev || userProfile.address?.trim() || "");
+    }
+  }
 
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!recipientName.trim()) {
-      errs.recipientName = "Vui lòng nhập họ và tên người nhận.";
+      errs.recipientName = "Vui lòng nhập họ tên người nhận";
     }
-    const cleanPhone = recipientPhone.replace(/[\s.-]/g, "");
-    const phoneRegex = /^(0|\+?84)[0-9]{9}$/;
     if (!recipientPhone.trim()) {
-      errs.recipientPhone = "Vui lòng nhập số điện thoại.";
-    } else if (!phoneRegex.test(cleanPhone)) {
-      errs.recipientPhone = "Số điện thoại không hợp lệ (10 số).";
+      errs.recipientPhone = "Vui lòng nhập số điện thoại";
+    } else if (!/^(0[3|5|7|8|9])+([0-9]{8})$/.test(recipientPhone.trim())) {
+      errs.recipientPhone = "Số điện thoại không đúng định dạng VN (10 số)";
     }
     if (!shippingAddress.trim()) {
-      errs.shippingAddress = "Vui lòng nhập địa chỉ cụ thể.";
+      errs.shippingAddress = "Vui lòng nhập địa chỉ giao hàng";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      submitting.current ||
-      isSubmitting ||
-      busy ||
-      !!cartError ||
-      session.status !== "ready" ||
-      !validate() ||
-      items.length === 0
-    )
-      return;
+    if (!validate()) return;
+    if (items.length === 0) return;
+    if (submitting.current) return;
 
     submitting.current = true;
     setIsSubmitting(true);
 
-    const fullAddress = `${shippingAddress.trim()}, ${province}`;
     try {
+      const fullAddress = `${shippingAddress.trim()}, ${province}`;
       const backendCartIds = items
-        .map((it) => it.backendCartItemId)
-        .filter((id): id is number => typeof id === "number" && id > 0);
-      if (backendCartIds.length !== items.length)
-        throw new Error("Giỏ hàng chưa đồng bộ. Vui lòng tải lại.");
+        .map((item) => Number(item.backendCartItemId))
+        .filter((id) => !Number.isNaN(id) && id > 0);
+
       let formattedNotes = note.trim();
       if (paymentMethod === "BANKING") {
         const bankTag = `[VIETQR | ${activeBank.shortName} - STK: ${bankAccount.trim()} - ${bankAccountName.trim().toUpperCase()}]`;
         formattedNotes = formattedNotes ? `${bankTag} ${formattedNotes}` : bankTag;
       }
 
-      const response = await fetch("/api/orders/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          receiverName: recipientName.trim(),
-          receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
-          shippingAddress: fullAddress,
-          notes: formattedNotes ? formattedNotes.slice(0, 500) : undefined,
-          paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : "COD",
-          voucherCode: appliedVoucher?.code || undefined,
-          cartItemIds: backendCartIds,
-        }),
+      const backendOrder = await checkoutOrderMutation({
+        receiverName: recipientName.trim(),
+        receiverPhone: recipientPhone.replace(/[\s.-]/g, ""),
+        shippingAddress: fullAddress,
+        notes: formattedNotes ? formattedNotes.slice(0, 500) : undefined,
+        paymentMethod: paymentMethod === "BANKING" ? "BANK_TRANSFER" : "COD",
+        voucherCode: appliedVoucher?.code || undefined,
+        cartItemIds: backendCartIds,
       });
-      const result = (await response.json()) as {
-        success: boolean;
-        message: string;
-        data: BackendOrder;
-      };
-      if (!response.ok || !result.success || !result.data?.orderId)
-        throw new Error(result.message || "Không thể đặt hàng.");
-      const order = mapOrder(result.data);
+
+      const order = mapOrder(backendOrder);
       setCreatedOrder(order);
-      const paymentNote = order.paymentStatus === "PAID"
-        ? ""
-        : order.paymentMethod === "BANKING"
-          ? " Thanh toán chuyển khoản đang chờ xác nhận."
-          : " Bạn sẽ thanh toán khi nhận hàng.";
-      if (order.userId === session.user.userId) {
+
+      if (session.status === "ready") {
         publishNotification(session.user.userId, {
-          id: `order:${order.orderId}`,
+          id: `order-placed:${order.orderId}`,
           kind: "order",
           title: "Đặt hàng thành công",
-          message: `Đơn ${order.orderCode} đã được tạo.${paymentNote}`,
-          href: `/orders?code=${encodeURIComponent(order.orderCode)}`,
+          message: `Đơn hàng ${order.orderCode} đã được tạo với tổng giá trị ${formatPrice(order.totalAmount)}.`,
+          href: "/orders",
         });
       }
-      notifyPaymentConfirmed(session.user.userId, order);
+
       await refreshCart();
-    } catch (error) {
-      setErrors({
-        submit:
-          error instanceof Error
-            ? error.message
-            : "Không thể kết nối đến máy chủ.",
-      });
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Đã có lỗi xảy ra");
     } finally {
       submitting.current = false;
       setIsSubmitting(false);
     }
   };
 
-  if (session.status !== "ready")
-    return (
-      <main className={styles.main}>
-        <div className={styles.container} role="status">
-          {session.status === "error" ? (
-            <>
-              <p>{session.message}</p>
-              <button onClick={session.retry}>Thử lại</button>
-            </>
-          ) : (
-            "Đang kiểm tra phiên đăng nhập…"
-          )}
-        </div>
-      </main>
-    );
-
   if (loadingOrder) {
     return (
-      <main className={styles.main}>
-        <div className={styles.container} role="status">
-          <p>Đang tải thông tin đơn hàng và mã QR thanh toán…</p>
+      <main className="min-h-[calc(100vh-68px)] px-4 py-[26px] pb-[52px] sm:px-6 sm:py-11 sm:pb-20 bg-[#f5f5f7] text-ink leading-[1.55]">
+        <div className="max-w-[1200px] mx-auto min-w-0" role="status">
+          <p>Đang tải thông tin đơn hàng…</p>
         </div>
       </main>
     );
@@ -383,10 +326,10 @@ function CheckoutContent() {
 
   if (orderError) {
     return (
-      <main className={styles.main}>
-        <div className={styles.container} role="alert">
-          <p style={{ color: "#dc2626", marginBottom: "16px" }}>{orderError}</p>
-          <Link href="/orders" className={styles.backLink}>
+      <main className="min-h-[calc(100vh-68px)] px-4 py-[26px] pb-[52px] sm:px-6 sm:py-11 sm:pb-20 bg-[#f5f5f7] text-ink leading-[1.55]">
+        <div className="max-w-[1200px] mx-auto min-w-0" role="alert">
+          <p className="text-[#a11929]">{orderError}</p>
+          <Link href="/orders" className="text-brand text-xs hover:underline">
             ← Quay lại danh sách đơn hàng
           </Link>
         </div>
@@ -395,64 +338,38 @@ function CheckoutContent() {
   }
 
   if (createdOrder) {
-    let customBank = {
-      bin: selectedBankBin,
-      name: activeBank.name,
-      account: bankAccount,
-      accountName: bankAccountName,
-    };
-
-    if (createdOrder.note) {
-      const match = createdOrder.note.match(
-        /\[VIETQR \| ([^-]+) - STK: ([^-]+) - ([^\]]+)\]/,
-      );
-      if (match) {
-        const parsedBank = SUPPORTED_BANKS.find(
-          (b) => b.shortName.toLowerCase() === match[1].trim().toLowerCase(),
-        );
-        customBank = {
-          bin: parsedBank?.bin || selectedBankBin,
-          name: parsedBank?.name || match[1].trim(),
-          account: match[2].trim(),
-          accountName: match[3].trim(),
-        };
-      }
-    }
-
     return (
-      <main className={styles.main}>
-        <div className={styles.container}>
-          <OrderConfirmation
-            order={createdOrder}
-            customBank={customBank}
-          />
-        </div>
-      </main>
+      <OrderConfirmation
+        order={createdOrder}
+        customBank={{
+          bin: activeBank.bin,
+          name: activeBank.name,
+          account: bankAccount,
+          accountName: bankAccountName,
+        }}
+      />
     );
   }
 
   if (items.length === 0) {
     return (
-      <main className={styles.main}>
-        <div className={styles.container}>
-          <div style={{ textAlign: "center", padding: "80px 24px" }}>
-            <h2>Giỏ hàng của bạn đang trống</h2>
-            <p style={{ color: "#666", margin: "16px 0 24px" }}>
-              Bạn chưa có sản phẩm nào để tiến hành thanh toán.
+      <main className="min-h-[calc(100vh-68px)] px-4 py-[26px] pb-[52px] sm:px-6 sm:py-11 sm:pb-20 bg-[#f5f5f7] text-ink leading-[1.55]">
+        <div className="max-w-[1200px] mx-auto min-w-0">
+          <div className="mb-8 max-w-[720px]">
+            <Link href="/cart" className="inline-block mb-6 text-muted text-xs hover:text-brand transition-colors">
+              ← Quay lại giỏ hàng
+            </Link>
+            <h1 className="my-3 mb-3.5 text-[clamp(28px,3.2vw,42px)] font-semibold tracking-[-0.045em] leading-[1.16]">
+              Giỏ hàng trống
+            </h1>
+            <p className="text-muted text-sm leading-[1.75]">
+              Bạn chưa có sản phẩm nào trong giỏ để thực hiện thanh toán.
             </p>
             <Link
               href="/products"
-              style={{
-                backgroundColor: "#111",
-                color: "#fff",
-                padding: "12px 24px",
-                borderRadius: "999px",
-                textDecoration: "none",
-                fontWeight: 600,
-                display: "inline-block",
-              }}
+              className="inline-block mt-5 px-5 py-3 rounded-lg bg-ink text-white text-xs font-semibold hover:bg-brand transition-colors"
             >
-              Khám phá sản phẩm ngay
+              Tiếp tục mua sắm
             </Link>
           </div>
         </div>
@@ -461,225 +378,228 @@ function CheckoutContent() {
   }
 
   return (
-    <main className={styles.main}>
-      <div className={styles.container}>
-        {errors.submit && (
-          <p
-            role="alert"
-            className={styles.submitError}
-          >
-            {errors.submit}
-          </p>
-        )}
-        <div className={styles.heading}>
-          <Link href="/cart" className={styles.backLink}>← Quay lại giỏ hàng</Link>
-          <p className={styles.eyebrow}>HOÀN TẤT ĐƠN HÀNG</p>
-          <h1 className={styles.title}>Một bước nữa là hoàn tất.</h1>
-          <p className={styles.subtitle}>
-            Kiểm tra thông tin nhận hàng và chọn phương thức thanh toán phù hợp.
+    <main className="min-h-[calc(100vh-68px)] px-4 py-[26px] pb-[52px] sm:px-6 sm:py-11 sm:pb-20 bg-[#f5f5f7] text-ink leading-[1.55]">
+      <div className="max-w-[1200px] mx-auto min-w-0">
+        <div className="mb-8 max-w-[720px]">
+          <Link href="/cart" className="inline-block mb-6 text-muted text-xs hover:text-brand transition-colors">
+            ← Quay lại giỏ hàng
+          </Link>
+          <span className="text-brand text-[10px] font-bold tracking-[.13em] leading-[1.7] uppercase block">QUY TRÌNH MUA SẮM</span>
+          <h1 className="my-3 mb-3.5 text-[clamp(28px,3.2vw,42px)] font-semibold tracking-[-0.045em] leading-[1.16]">
+            Thanh toán an toàn
+          </h1>
+          <p className="text-muted text-sm leading-[1.75]">
+            Vui lòng điền địa chỉ nhận hàng và chọn phương thức thanh toán phù
+            hợp.
           </p>
         </div>
 
-        <form onSubmit={handlePlaceOrder} noValidate aria-busy={isSubmitting}>
-          <div className={`${styles.layout} ${isSubmitting ? styles.submittingLayout : ""}`}>
-            <fieldset className={styles.formSection} disabled={isSubmitting}>
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.stepNumber}>1</span>
-                Thông tin nhận hàng
-              </h2>
+        <form onSubmit={handleSubmit}>
+          <div
+            className={cn(
+              "grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,400px)] gap-7 items-start transition-all duration-[220ms]",
+              isSubmitting && "opacity-70 translate-y-0.5"
+            )}
+          >
+            {/* Form Section */}
+            <div className="min-w-0 m-0 p-[30px] border border-border rounded-[20px] bg-white shadow-[0_8px_30px_#1d1d1f03]">
+              <div className="flex gap-3 items-center mb-6 text-base font-semibold leading-normal">
+                <span className="inline-flex flex-none w-7 h-7 items-center justify-center rounded-full bg-[#f3f3f5] text-ink text-xs font-semibold">1</span>
+                <span>Thông tin giao hàng</span>
+              </div>
 
-              <div className={styles.fieldsGrid}>
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label htmlFor="recipientName" className={styles.label}>
-                      Họ và tên <span className={styles.required}>*</span>
+              <div className="grid gap-[22px] mb-9">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-[18px] items-start">
+                  <div className="flex flex-col gap-2.5 min-w-0">
+                    <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="recipientName">
+                      Họ và tên <span className="text-brand">*</span>
                     </label>
                     <input
                       id="recipientName"
                       type="text"
-                      className={`${styles.input} ${errors.recipientName ? styles.inputError : ""
-                        }`}
+                      disabled={isSubmitting}
                       placeholder="Nguyễn Văn A"
                       value={recipientName}
-                      autoComplete="shipping name"
-                      aria-invalid={!!errors.recipientName}
-                      aria-describedby={errors.recipientName ? "recipient-name-error" : undefined}
                       onChange={(e) => {
                         setRecipientName(e.target.value);
                         if (errors.recipientName) {
                           setErrors((prev) => ({ ...prev, recipientName: "" }));
                         }
                       }}
-                      required
+                      className={cn(
+                        "w-full min-w-0 p-[13px_14px] min-h-[49px] border rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors placeholder:text-[#909098] focus:border-brand focus:ring-1 focus:ring-brand outline-none",
+                        errors.recipientName ? "border-brand" : "border-[#dedee2]"
+                      )}
                     />
                     {errors.recipientName && (
-                      <span id="recipient-name-error" className={styles.errorText}>
+                      <span className="text-[#a11929] text-xs leading-relaxed" role="alert">
                         {errors.recipientName}
                       </span>
                     )}
                   </div>
 
-                  <div className={styles.field}>
-                    <label htmlFor="recipientPhone" className={styles.label}>
-                      Số điện thoại <span className={styles.required}>*</span>
+                  <div className="flex flex-col gap-2.5 min-w-0">
+                    <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="recipientPhone">
+                      Số điện thoại <span className="text-brand">*</span>
                     </label>
                     <input
                       id="recipientPhone"
                       type="tel"
-                      className={`${styles.input} ${errors.recipientPhone ? styles.inputError : ""
-                        }`}
-                      placeholder="0987654321"
+                      disabled={isSubmitting}
+                      placeholder="0901234567"
                       value={recipientPhone}
-                      autoComplete="shipping tel"
-                      aria-invalid={!!errors.recipientPhone}
-                      aria-describedby={errors.recipientPhone ? "recipient-phone-error" : undefined}
                       onChange={(e) => {
                         setRecipientPhone(e.target.value);
                         if (errors.recipientPhone) {
-                          setErrors((prev) => ({
-                            ...prev,
-                            recipientPhone: "",
-                          }));
+                          setErrors((prev) => ({ ...prev, recipientPhone: "" }));
                         }
                       }}
-                      required
+                      className={cn(
+                        "w-full min-w-0 p-[13px_14px] min-h-[49px] border rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors placeholder:text-[#909098] focus:border-brand focus:ring-1 focus:ring-brand outline-none",
+                        errors.recipientPhone ? "border-brand" : "border-[#dedee2]"
+                      )}
                     />
                     {errors.recipientPhone && (
-                      <span id="recipient-phone-error" className={styles.errorText}>
+                      <span className="text-[#a11929] text-xs leading-relaxed" role="alert">
                         {errors.recipientPhone}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className={styles.fieldRow}>
-                  <div className={styles.field}>
-                    <label htmlFor="provinceSelect" className={styles.label}>
-                      Tỉnh / Thành phố{" "}
-                      <span className={styles.required}>*</span>
-                    </label>
-                    <select
-                      id="provinceSelect"
-                      className={styles.input}
-                      value={province}
-                      autoComplete="shipping address-level1"
-                      onChange={(e) => setProvince(e.target.value)}
-                    >
-                      {PROVINCES.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className={styles.field}>
-                    <label htmlFor="shippingAddress" className={styles.label}>
-                      Địa chỉ cụ thể{" "}
-                      <span className={styles.required}>*</span>
-                    </label>
-                    <input
-                      id="shippingAddress"
-                      type="text"
-                      className={`${styles.input} ${errors.shippingAddress ? styles.inputError : ""
-                        }`}
-                      placeholder="Ví dụ: 123 Nguyễn Huệ, Phường Bến Nghé"
-                      value={shippingAddress}
-                      autoComplete="shipping street-address"
-                      aria-invalid={!!errors.shippingAddress}
-                      aria-describedby={errors.shippingAddress ? "shipping-address-error" : "shipping-address-help"}
-                      onChange={(e) => {
-                        setShippingAddress(e.target.value);
-                        if (errors.shippingAddress) {
-                          setErrors((prev) => ({
-                            ...prev,
-                            shippingAddress: "",
-                          }));
-                        }
-                      }}
-                      required
-                    />
-                    {errors.shippingAddress && (
-                      <span id="shipping-address-error" className={styles.errorText}>
-                        {errors.shippingAddress}
-                      </span>
-                    )}
-                    <span id="shipping-address-help" className={styles.fieldHint}>Số nhà, tên đường và phường/xã.</span>
-                  </div>
+                <div className="flex flex-col gap-2.5 min-w-0">
+                  <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="province">
+                    Tỉnh / Thành phố <span className="text-brand">*</span>
+                  </label>
+                  <select
+                    id="province"
+                    disabled={isSubmitting}
+                    value={province}
+                    onChange={(e) => setProvince(e.target.value)}
+                    className="w-full min-w-0 p-[13px_14px] min-h-[49px] border border-[#dedee2] rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  >
+                    {PROVINCES.map((p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className={styles.field}>
-                  <label htmlFor="orderNote" className={styles.label}>
-                    Ghi chú đơn hàng (Tùy chọn)
+                <div className="flex flex-col gap-2.5 min-w-0">
+                  <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="shippingAddress">
+                    Địa chỉ chi tiết (Số nhà, ngõ/tổ, đường, phường/xã){" "}
+                    <span className="text-brand">*</span>
                   </label>
+                  <input
+                    id="shippingAddress"
+                    type="text"
+                    disabled={isSubmitting}
+                    placeholder="Số 123 đường ABC, Phường X, Quận Y"
+                    value={shippingAddress}
+                    onChange={(e) => {
+                      setShippingAddress(e.target.value);
+                      if (errors.shippingAddress) {
+                        setErrors((prev) => ({ ...prev, shippingAddress: "" }));
+                      }
+                    }}
+                    className={cn(
+                      "w-full min-w-0 p-[13px_14px] min-h-[49px] border rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors placeholder:text-[#909098] focus:border-brand focus:ring-1 focus:ring-brand outline-none",
+                      errors.shippingAddress ? "border-brand" : "border-[#dedee2]"
+                    )}
+                  />
+                  {errors.shippingAddress && (
+                    <span className="text-[#a11929] text-xs leading-relaxed" role="alert">
+                      {errors.shippingAddress}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2.5 min-w-0">
+                  <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="note">Ghi chú đơn hàng (Tùy chọn)</label>
                   <textarea
-                    id="orderNote"
-                    rows={2}
-                    className={styles.textarea}
-                    placeholder="Ví dụ: Giao hàng vào giờ hành chính, gọi trước khi giao..."
+                    id="note"
+                    disabled={isSubmitting}
+                    placeholder="Lời dặn riêng: Giao giờ hành chính, gọi trước khi giao..."
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
+                    className="w-full min-w-0 p-[13px_14px] min-h-[98px] resize-y border border-[#dedee2] rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors placeholder:text-[#909098] focus:border-brand focus:ring-1 focus:ring-brand outline-none"
                   />
                 </div>
               </div>
 
-              <h2 className={styles.sectionTitle}>
-                <span className={styles.stepNumber}>2</span>
-                Phương thức thanh toán
-              </h2>
+              <div className="flex gap-3 items-center mb-6 text-base font-semibold leading-normal">
+                <span className="inline-flex flex-none w-7 h-7 items-center justify-center rounded-full bg-[#f3f3f5] text-ink text-xs font-semibold">2</span>
+                <span>Phương thức thanh toán</span>
+              </div>
 
-              <div className={styles.paymentOptions}>
+              <div className="grid gap-3.5">
                 <label
-                  className={`${styles.paymentCard} ${paymentMethod === "COD" ? styles.paymentCardActive : ""
-                    }`}
+                  className={cn(
+                    "flex items-start gap-3.5 p-[18px] border rounded-[13px] cursor-pointer transition-colors",
+                    paymentMethod === "COD"
+                      ? "border-brand bg-[#fff8f8]"
+                      : "border-border hover:border-[#c4c4c9]"
+                  )}
                 >
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="COD"
+                    disabled={isSubmitting}
                     checked={paymentMethod === "COD"}
                     onChange={() => setPaymentMethod("COD")}
-                    className={styles.radioInput}
+                    className="flex-none w-4 h-4 mt-1 accent-brand"
                   />
-                  <div className={styles.paymentContent}>
-                    <div className={styles.paymentTitle}>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold leading-[1.6]">
                       Thanh toán khi nhận hàng (COD)
                     </div>
-                    <div className={styles.paymentDesc}>
-                      Thanh toán cho đơn vị giao hàng khi bạn nhận được hàng.
+                    <div className="mt-1.5 text-muted text-xs leading-[1.75]">
+                      Bạn kiểm tra hàng và thanh toán tiền mặt trực tiếp cho nhân
+                      viên giao hàng khi nhận được gói bọc bảo mật.
                     </div>
                   </div>
                 </label>
 
                 <label
-                  className={`${styles.paymentCard} ${paymentMethod === "BANKING" ? styles.paymentCardActive : ""
-                    }`}
+                  className={cn(
+                    "flex items-start gap-3.5 p-[18px] border rounded-[13px] cursor-pointer transition-colors",
+                    paymentMethod === "BANKING"
+                      ? "border-brand bg-[#fff8f8]"
+                      : "border-border hover:border-[#c4c4c9]"
+                  )}
                 >
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="BANKING"
+                    disabled={isSubmitting}
                     checked={paymentMethod === "BANKING"}
                     onChange={() => setPaymentMethod("BANKING")}
-                    className={styles.radioInput}
+                    className="flex-none w-4 h-4 mt-1 accent-brand"
                   />
-                  <div className={styles.paymentContent}>
-                    <div className={styles.paymentTitle}>
-                      Chuyển khoản ngân hàng qua mã QR (VietQR 24/7)
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold leading-[1.6]">
+                      Chuyển khoản liên ngân hàng (VietQR - Tự động duyệt)
                     </div>
-                    <div className={styles.paymentDesc}>
-                      Quét mã VietQR bằng ứng dụng ngân hàng bất kỳ để chuyển khoản nhanh 24/7.
+                    <div className="mt-1.5 text-muted text-xs leading-[1.75]">
+                      Hệ thống tạo mã QR động đúng số tiền và nội dung đơn. Bạn
+                      chỉ cần quét qua app ngân hàng bất kỳ để hoàn tất nhanh
+                      chóng.
                     </div>
+
                     {paymentMethod === "BANKING" && (
-                      <div className={styles.bankQrBox}>
-                        <div className={styles.bankConfigField}>
-                          <label className={styles.bankFieldLabel}>
-                            Ngân hàng thụ hưởng:
+                      <div className="grid gap-2.5 mt-4 p-3.5 border border-border rounded-[9px] bg-white text-[#53535a] text-xs [overflow-wrap:anywhere]">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[#424245] text-xs font-semibold leading-normal" htmlFor="bankSelect">
+                            Chọn ngân hàng thụ hưởng nhận tiền:
                           </label>
                           <select
-                            className={styles.bankSelect}
+                            id="bankSelect"
                             value={selectedBankBin}
                             onChange={(e) => setSelectedBankBin(e.target.value)}
+                            className="w-full min-w-0 p-[13px_14px] min-h-[49px] border border-[#dedee2] rounded-[10px] bg-white text-ink text-sm leading-normal transition-colors outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                           >
                             {SUPPORTED_BANKS.map((b) => (
                               <option key={b.bin} value={b.bin}>
@@ -688,76 +608,59 @@ function CheckoutContent() {
                             ))}
                           </select>
                         </div>
-                        <div className={styles.bankConfigGrid}>
-                          <div className={styles.bankConfigField}>
-                            <label className={styles.bankFieldLabel}>
-                              Số tài khoản nhận tiền:
-                            </label>
-                            <input
-                              type="text"
-                              className={styles.bankInput}
-                              value={bankAccount}
-                              onChange={(e) => setBankAccount(e.target.value)}
-                              placeholder="Nhập số tài khoản"
-                            />
-                          </div>
-                          <div className={styles.bankConfigField}>
-                            <label className={styles.bankFieldLabel}>
-                              Tên chủ tài khoản:
-                            </label>
-                            <input
-                              type="text"
-                              className={styles.bankInput}
-                              value={bankAccountName}
-                              onChange={(e) => setBankAccountName(e.target.value)}
-                              placeholder="Nhập tên chủ tài khoản"
-                            />
-                          </div>
-                        </div>
-                        <p style={{ marginTop: "10px", color: "#166534", fontSize: "12px", lineHeight: "1.5" }}>
-                          ✓ Hệ thống sẽ tạo mã VietQR chuẩn theo ngân hàng &amp; số tài khoản bạn chọn. Khi bấm "Xác nhận đặt hàng", mã QR sẽ hiển thị kèm nút báo tín hiệu đã thanh toán.
+                        <p className="m-0 leading-[1.7]">
+                          <strong>Số tài khoản:</strong> {bankAccount}
                         </p>
+                        <p className="m-0 leading-[1.7]">
+                          <strong>Chủ tài khoản:</strong> {bankAccountName}
+                        </p>
+                        <p className="m-0 leading-[1.7]">
+                          <strong>Ngân hàng:</strong> {activeBank.name}
+                        </p>
+                        <span className="text-muted text-[11px] leading-[1.6]">
+                          * Mã QR chính thức kèm mã giao dịch sẽ hiển thị ngay
+                          sau khi bạn bấm &ldquo;Xác nhận đặt hàng&rdquo;.
+                        </span>
                       </div>
                     )}
                   </div>
                 </label>
               </div>
-            </fieldset>
+            </div>
 
-            <aside className={styles.summarySection}>
-              <div className={styles.summaryHeader}>
-                <h2 className={styles.summaryTitle}>
-                  Tóm tắt đơn hàng
-                </h2>
-                <Link href="/cart" className={styles.editCartLink}>
-                  Chỉnh sửa giỏ
+            {/* Summary Section */}
+            <aside className="min-w-0 m-0 p-[26px] border border-border rounded-[20px] bg-white shadow-[0_8px_30px_#1d1d1f03] sticky top-24">
+              <div className="flex flex-wrap gap-2.5 items-center justify-between mb-6">
+                <h2 className="text-base font-semibold leading-normal m-0">Tóm tắt đơn hàng</h2>
+                <Link href="/cart" className="text-brand text-[11px] no-underline hover:underline hover:underline-offset-2">
+                  Sửa giỏ hàng
                 </Link>
               </div>
 
-              <div className={styles.itemsList}>
+              <div className="grid gap-5 max-h-[350px] overflow-y-auto pt-0.5 pb-6 mb-6 border-b border-border">
                 {items.map((it) => (
-                  <div key={it.cartItemId} className={styles.itemRow}>
-                    <div className={styles.itemThumb}>
+                  <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-x-3.5 gap-y-1 items-start" key={it.cartItemId}>
+                    <div className="row-span-2 w-14 h-14 rounded-[10px] overflow-hidden relative bg-[#f7f7f9] border border-[#eeeeef]">
                       {it.imageUrl ? (
                         <Image
                           src={it.imageUrl}
                           alt={it.productName}
                           fill
-                          sizes="52px"
-                          className={styles.itemImage}
+                          sizes="56px"
+                          className="object-contain p-[3px] pointer-events-none"
                         />
                       ) : (
-                        <div className={styles.orderItemPlaceholder} />
+                        <div className="w-full h-full bg-[#eeeeee]" />
                       )}
-                      <span className={styles.itemQtyBadge}>{it.quantity}</span>
+                      <span className="absolute top-0.5 right-0.5 flex items-center justify-center min-w-[17px] min-h-[17px] px-1 rounded-[9px] bg-ink text-white text-[9px] font-semibold pointer-events-none">{it.quantity}</span>
                     </div>
 
-                    <div className={styles.itemDetails}>
-                      <div className={styles.itemName}>{it.productName}</div>
-                      <div className={styles.itemVariant}>{it.variantName}</div>
+                    <div className="min-w-0 [overflow-wrap:anywhere]">
+                      <div className="text-xs font-semibold leading-[1.65]">{it.productName}</div>
+                      <div className="mt-1 text-muted text-[11px] leading-[1.6]">{it.variantName}</div>
                     </div>
 
-                    <div className={styles.itemPrice}>
+                    <div className="col-start-2 text-[13px] font-semibold leading-[1.6] tabular-nums [overflow-wrap:anywhere]">
                       {formatPrice(it.price * it.quantity)}
                     </div>
                   </div>
@@ -765,16 +668,16 @@ function CheckoutContent() {
               </div>
 
               {/* MỤC LỰA CHỌN MÃ GIẢM GIÁ: MÃ GIẢM GIÁ CỦA TÔI */}
-              <div className={styles.voucherSection}>
-                <div className={styles.voucherSectionHeader}>
-                  <h3 className={styles.voucherSectionTitle}>
-                    <span className={styles.voucherIcon} aria-hidden="true">🏷️</span> Mã giảm giá của tôi
+              <div className="mb-5 p-4 border border-dashed border-neutral-300 rounded-xl bg-neutral-50/70">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="m-0 flex items-center gap-1.5 text-[13px] font-bold text-ink">
+                    <span aria-hidden="true">🏷️</span> Mã giảm giá của tôi
                   </h3>
                   {appliedVoucher && (
                     <button
                       type="button"
                       onClick={handleRemoveVoucher}
-                      className={styles.voucherRemoveBtn}
+                      className="bg-transparent border-0 text-[#dc2626] text-xs font-semibold cursor-pointer hover:underline"
                     >
                       Gỡ bỏ
                     </button>
@@ -782,11 +685,11 @@ function CheckoutContent() {
                 </div>
 
                 {appliedVoucher && (
-                  <div className={styles.appliedVoucherBanner}>
-                    <div className={styles.appliedVoucherInfo}>
-                      <span className={styles.appliedVoucherBadge}>Đang dùng</span>
-                      <span className={styles.appliedVoucherCode}>{appliedVoucher.code}</span>
-                      <span className={styles.appliedVoucherDiscount}>
+                  <div className="p-2.5 mb-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-brand text-white px-1.5 py-0.5 rounded text-[10px] font-bold">Đang dùng</span>
+                      <span className="font-mono font-bold text-brand">{appliedVoucher.code}</span>
+                      <span className="font-semibold text-brand">
                         (-{formatPrice(discountAmount)})
                       </span>
                     </div>
@@ -794,15 +697,15 @@ function CheckoutContent() {
                 )}
 
                 {voucherError && (
-                  <p className={styles.voucherError} role="alert">
+                  <p className="text-[#dc2626] text-xs mb-3 font-medium" role="alert">
                     {voucherError}
                   </p>
                 )}
 
                 {loadingVouchers ? (
-                  <p className={styles.voucherLoading}>Đang tải mã giảm giá của bạn…</p>
+                  <p className="text-muted text-xs my-2">Đang tải mã giảm giá của bạn…</p>
                 ) : myVouchers.length > 0 ? (
-                  <div className={styles.myVouchersList}>
+                  <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto mb-3 pr-1">
                     {myVouchers.map((voucher) => {
                       const isApplied = appliedVoucher?.code === voucher.code;
                       const isEligible = totalPrice >= (voucher.minOrderValue || 0);
@@ -811,37 +714,41 @@ function CheckoutContent() {
                       return (
                         <div
                           key={voucher.userVoucherId || voucher.code}
-                          className={`${styles.voucherCard} ${isApplied ? styles.voucherCardSelected : ""
-                            } ${!isEligible ? styles.voucherCardDisabled : ""}`}
+                          className={cn(
+                            "flex items-center justify-between p-2.5 bg-white border rounded-lg text-xs transition-colors",
+                            isApplied
+                              ? "border-brand bg-red-50/30"
+                              : !isEligible
+                                ? "opacity-60 bg-neutral-50 border-neutral-200"
+                                : "border-neutral-200 hover:border-neutral-300"
+                          )}
                         >
-                          <div className={styles.voucherCardMain}>
-                            <div className={styles.voucherBadgesRow}>
-                              <span className={styles.voucherCodeBadge}>{voucher.code}</span>
+                          <div className="min-w-0 flex-1 pr-2">
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="font-mono font-bold text-ink px-1.5 py-0.5 bg-neutral-100 rounded text-[11px]">{voucher.code}</span>
                               {isSurveyReward && (
-                                <span className={styles.surveyRewardBadge}>
+                                <span className="bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5 rounded">
                                   🎁 Thưởng khảo sát
                                 </span>
                               )}
                             </div>
-                            <div className={styles.voucherCardTitle}>{voucher.title}</div>
+                            <div className="font-medium text-neutral-800 truncate">{voucher.title}</div>
                             {voucher.minOrderValue > 0 && (
-                              <div className={styles.voucherCardCondition}>
+                              <div className="text-[11px] text-muted mt-0.5">
                                 Đơn tối thiểu: {formatPrice(voucher.minOrderValue)}
                                 {!isEligible && (
-                                  <span className={styles.notEligibleText}>
-                                    {" "}(chưa đủ điều kiện)
-                                  </span>
+                                  <span className="text-red-500 font-medium"> (chưa đủ ĐK)</span>
                                 )}
                               </div>
                             )}
                           </div>
 
-                          <div className={styles.voucherCardAction}>
+                          <div className="shrink-0">
                             {isApplied ? (
                               <button
                                 type="button"
                                 onClick={handleRemoveVoucher}
-                                className={styles.voucherActiveBtn}
+                                className="px-2.5 py-1 rounded bg-neutral-200 text-neutral-700 font-medium cursor-pointer"
                                 disabled={applyingVoucher}
                               >
                                 Đang áp dụng ✓
@@ -850,7 +757,12 @@ function CheckoutContent() {
                               <button
                                 type="button"
                                 onClick={() => void handleApplyVoucherCode(voucher.code)}
-                                className={styles.voucherApplyBtn}
+                                className={cn(
+                                  "px-2.5 py-1 rounded font-semibold transition-colors cursor-pointer",
+                                  isEligible
+                                    ? "bg-brand text-white hover:bg-brand-hover"
+                                    : "bg-neutral-100 text-neutral-400 cursor-not-allowed"
+                                )}
                                 disabled={!isEligible || applyingVoucher}
                               >
                                 {isEligible ? "Áp dụng" : "Chưa đủ ĐK"}
@@ -862,16 +774,16 @@ function CheckoutContent() {
                     })}
                   </div>
                 ) : (
-                  <div className={styles.emptyVoucherBox}>
-                    <p>Bạn chưa có mã giảm giá nào trong ví.</p>
-                    <Link href="/surveys" className={styles.surveyPromoLink}>
+                  <div className="text-center py-3 bg-white border border-neutral-200 rounded-lg text-xs mb-3">
+                    <p className="text-muted m-0">Bạn chưa có mã giảm giá nào trong ví.</p>
+                    <Link href="/surveys" className="text-brand font-semibold hover:underline block mt-1">
                       Hoàn thành khảo sát để nhận mã ưu đãi ↗
                     </Link>
                   </div>
                 )}
 
                 {/* Ô nhập mã giảm giá thủ công */}
-                <div className={styles.manualVoucherRow}>
+                <div className="flex gap-2">
                   <input
                     type="text"
                     placeholder="Nhập mã ưu đãi khác..."
@@ -880,53 +792,75 @@ function CheckoutContent() {
                       setVoucherInput(e.target.value.toUpperCase());
                       if (voucherError) setVoucherError("");
                     }}
-                    className={styles.manualVoucherInput}
+                    className="flex-1 min-w-0 px-3 py-1.5 border border-neutral-300 rounded-lg text-xs uppercase outline-none focus:border-brand"
                   />
                   <button
                     type="button"
                     onClick={() => void handleApplyVoucherCode(voucherInput)}
                     disabled={!voucherInput.trim() || applyingVoucher}
-                    className={styles.manualVoucherBtn}
+                    className="px-3 py-1.5 rounded-lg bg-neutral-900 text-white text-xs font-semibold hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Áp dụng
                   </button>
                 </div>
               </div>
 
-              <div className={styles.calcRows}>
-                <div className={styles.calcRow}>
+              <div className="grid gap-3.5 mb-[18px]">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 items-start text-[#63636b] text-xs leading-[1.7] [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span:last-child]:text-right [&>span:last-child]:tabular-nums [&>span:last-child]:text-ink">
                   <span>Tạm tính ({items.length} món)</span>
                   <span>{formatPrice(totalPrice)}</span>
                 </div>
 
                 {discountAmount > 0 && (
-                  <div className={styles.calcRow} style={{ color: "#dc2626" }}>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 items-start text-[#dc2626] text-xs leading-[1.7] [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span:last-child]:text-right [&>span:last-child]:tabular-nums">
                     <span>Voucher ({appliedVoucher?.code})</span>
                     <span>-{formatPrice(discountAmount)}</span>
                   </div>
                 )}
 
-                <div className={styles.totalRow}>
-                  <span className={styles.totalLabel}>Tổng thanh toán</span>
-                  <span className={styles.totalPrice}>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 items-start text-[#63636b] text-xs leading-[1.7] [&>span]:min-w-0 [&>span]:[overflow-wrap:anywhere] [&>span:last-child]:text-right [&>span:last-child]:tabular-nums [&>span:last-child]:text-ink">
+                  <span>Phí vận chuyển</span>
+                  <span>
+                    {shippingFee === 0 ? (
+                      <span className="text-muted">
+                        Chưa tính phí
+                      </span>
+                    ) : (
+                      formatPrice(shippingFee)
+                    )}
+                  </span>
+                </div>
+
+                <div className="grid gap-1.5 pt-5 mt-1.5 border-t border-border">
+                  <span className="text-muted text-xs">Tổng thanh toán</span>
+                  <span className="text-ink text-[clamp(26px,2.4vw,32px)] font-semibold tracking-[-0.035em] leading-[1.3] tabular-nums [overflow-wrap:anywhere]">
                     {formatPrice(grandTotal)}
                   </span>
                 </div>
               </div>
+
+              <p className="mb-5 text-muted text-[11px] leading-[1.7]">Phí vận chuyển chưa được hệ thống tính trong tổng tiền này.</p>
               <button
                 type="submit"
                 disabled={isSubmitting || busy || !!cartError}
-                className={styles.submitBtn}
+                className="flex items-center justify-center gap-2.5 w-full min-h-[50px] px-[18px] py-3.5 border-0 rounded-[10px] bg-brand text-white text-[13px] font-semibold cursor-pointer hover:enabled:bg-brand-hover hover:enabled:-translate-y-px disabled:cursor-not-allowed disabled:opacity-65 transition-all duration-[180ms]"
               >
-                {isSubmitting && <span className={styles.spinner} aria-hidden="true" />}
+                {isSubmitting && <span className="shrink-0 w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" aria-hidden="true" />}
                 {isSubmitting ? "Đang xác nhận đơn…" : "Xác nhận đặt hàng"}
               </button>
 
-              <p className={styles.processingStatus} role="status" aria-live="polite">
+              <p
+                className={cn(
+                  "text-[#63636b] text-[11px] leading-[1.65]",
+                  isSubmitting && "mt-3.5"
+                )}
+                role="status"
+                aria-live="polite"
+              >
                 {isSubmitting ? "Đang gửi đơn đến hệ thống. Vui lòng chờ và không đóng trang." : ""}
               </p>
 
-              <p className={styles.policyNotice}>
+              <p className="mt-4 text-muted text-[10px] leading-[1.75]">
                 Bằng việc bấm xác nhận, bạn đồng ý với Điều khoản mua hàng &
                 Chính sách bảo mật của TechStoree.
               </p>
@@ -942,8 +876,8 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <main className={styles.main}>
-          <div className={styles.container} role="status">
+        <main className="min-h-[calc(100vh-68px)] px-4 py-[26px] pb-[52px] sm:px-6 sm:py-11 sm:pb-20 bg-[#f5f5f7] text-ink leading-[1.55]">
+          <div className="max-w-[1200px] mx-auto min-w-0" role="status">
             <p>Đang tải trang thanh toán…</p>
           </div>
         </main>
@@ -953,4 +887,3 @@ export default function CheckoutPage() {
     </Suspense>
   );
 }
-

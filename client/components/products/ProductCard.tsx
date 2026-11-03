@@ -1,9 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { formatPrice } from "../../lib/products-client";
-import { ProductBaseDto } from "../../lib/types/product";
-import styles from "./ProductCard.module.css";
+import { formatPrice } from "@/lib/products-client";
+import { ProductBaseDto } from "@/lib/types/product";
 
 interface ProductCardProps {
   product: ProductBaseDto;
@@ -41,21 +40,21 @@ export default function ProductCard({ product }: ProductCardProps) {
   return (
     <Link
       href={`/products/${product.productId}`}
-      className={styles.card}
+      className="group flex flex-col bg-white border border-neutral-200 rounded-2xl overflow-hidden no-underline text-inherit transition-all duration-200 ease-out relative hover:-translate-y-1 hover:shadow-lg hover:border-neutral-300 focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4"
       aria-label={`Xem chi tiết ${product.productName}`}
     >
-      <div className={styles.imageContainer}>
+      <div className="relative w-full aspect-[4/3] bg-[#f7f7f7] overflow-hidden">
         {product.imageUrl && !imageError ? (
           <Image
             src={product.imageUrl}
             alt={product.productName}
             fill
-            className={styles.image}
+            className="object-contain p-5 transition-transform duration-300 ease-out text-transparent group-hover:scale-105"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             onError={() => setImageError(true)}
           />
         ) : (
-          <div className={styles.placeholderWrap}>
+          <div className="absolute inset-0 flex items-center justify-center bg-[#f7f7f7]">
             <svg
               width="44"
               height="44"
@@ -74,39 +73,51 @@ export default function ProductCard({ product }: ProductCardProps) {
         )}
 
         {promo && (
-          <span className={styles.saleBadge}>{discountBadgeText()}</span>
+          <span className="absolute top-3 right-3 bg-[linear-gradient(135deg,#e52d27_0%,#b31217_100%)] text-white px-2.5 py-1 rounded text-xs font-bold tracking-wide shadow-[0_2px_8px_rgba(189,32,45,0.35)] z-10">
+            {discountBadgeText()}
+          </span>
         )}
         {isOutOfStock && (
-          <span className={styles.outOfStockBadge}>Tạm hết</span>
+          <span className="absolute top-3 right-3 bg-black/75 text-white px-2.5 py-1 rounded text-xs font-semibold tracking-wide z-10">
+            Tạm hết
+          </span>
         )}
       </div>
 
-      <div className={styles.content}>
+      <div className="p-5 flex flex-col flex-1 justify-between">
         <div>
-          <span className={styles.category}>{product.categoryName}</span>
-          <h3 className={styles.title}>{product.productName}</h3>
+          <span className="text-xs uppercase tracking-wider text-neutral-500 mb-1.5 font-medium block">
+            {product.categoryName}
+          </span>
+          <h3 className="text-base sm:text-lg font-semibold text-neutral-900 m-0 mb-3 leading-snug line-clamp-2">
+            {product.productName}
+          </h3>
         </div>
 
-        <div className={styles.footer}>
-          <div className={styles.priceWrapper}>
-            <span className={styles.priceLabel}>
+        <div className="flex items-end justify-between gap-3 flex-wrap mt-auto pt-3 border-t border-neutral-100">
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <span className="text-xs text-neutral-400 uppercase">
               {promo ? "Giá ưu đãi" : "Giá bán"}
             </span>
             {promo ? (
-              <div className={styles.priceRow}>
-                <span className={styles.promoPrice}>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-lg font-bold text-brand tracking-tight">
                   {displayPromotionalPrice()}
                 </span>
-                <span className={styles.originalPrice}>
+                <span className="text-xs text-neutral-400 line-through font-normal">
                   {displayOriginalPrice()}
                 </span>
               </div>
             ) : (
-              <span className={styles.price}>{displayOriginalPrice()}</span>
+              <span className="text-base font-bold text-neutral-900 tracking-tight">
+                {displayOriginalPrice()}
+              </span>
             )}
           </div>
 
-          <span className={styles.viewDetails}>Chi tiết &rarr;</span>
+          <span className="text-xs font-semibold text-brand flex items-center gap-1 transition-transform duration-150 group-hover:translate-x-1">
+            Chi tiết &rarr;
+          </span>
         </div>
       </div>
     </Link>

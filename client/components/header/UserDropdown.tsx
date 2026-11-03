@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import styles from "./UserDropdown.module.css";
+import { useClickOutside } from "@/hooks/useClickOutside";
+import { cn } from "@/lib/utils";
 
 interface SessionUser {
   userId: number;
@@ -48,23 +49,19 @@ export default function UserDropdown({
     setIsOpen(false);
   };
 
-  // Close dropdown on route change
-  useEffect(() => {
-    closeDropdown();
-  }, [pathname]);
+  // Close dropdown on route change without cascading render
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setIsOpen(false);
+  }
 
-  // Click outside and escape key handling
+  // Click outside handling
+  useClickOutside(containerRef, () => setIsOpen(false), isOpen);
+
+  // Escape key handling
   useEffect(() => {
     if (!isOpen) return;
-
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    }
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -72,11 +69,9 @@ export default function UserDropdown({
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
 
@@ -85,7 +80,7 @@ export default function UserDropdown({
 
   return (
     <div
-      className={styles.dropdownContainer}
+      className="relative inline-flex items-center"
       ref={containerRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -93,18 +88,24 @@ export default function UserDropdown({
       {/* Trigger Button */}
       <button
         type="button"
-        className={`${styles.triggerBtn} ${isOpen ? styles.triggerBtnActive : ""}`}
+        className={cn(
+          "bg-transparent border border-black/10 rounded-full py-1 pr-3 pl-1.5 flex items-center gap-2 cursor-pointer transition-all duration-200 text-neutral-900 font-sans hover:bg-neutral-50 hover:border-black/20 hover:shadow-sm",
+          isOpen && "bg-neutral-50 border-black/20 shadow-sm"
+        )}
         onClick={toggleOpen}
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-label={`Tài khoản của ${displayName}`}
       >
-        <span className={styles.avatarCircle} aria-hidden="true">
+        <span className="w-7.5 h-7.5 rounded-full bg-gradient-to-br from-slate-800 to-slate-950 text-white flex items-center justify-center text-xs font-bold shrink-0 shadow-sm" aria-hidden="true">
           {initial}
         </span>
-        <span className={styles.nameText}>{displayName}</span>
+        <span className="text-sm font-semibold max-w-[120px] truncate text-slate-800">{displayName}</span>
         <svg
-          className={`${styles.chevronIcon} ${isOpen ? styles.chevronOpen : ""}`}
+          className={cn(
+            "text-slate-500 transition-transform duration-200 ease-out shrink-0",
+            isOpen && "rotate-180 text-slate-900"
+          )}
           width="12"
           height="12"
           viewBox="0 0 24 24"
@@ -121,40 +122,44 @@ export default function UserDropdown({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
-          className={styles.menuPopover}
+          className="absolute top-[calc(100%+8px)] right-0 w-64 bg-white rounded-2xl shadow-[0_14px_40px_-10px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.06)] z-[1000] overflow-hidden animate-slideDown"
           role="menu"
           aria-label="Menu người dùng"
         >
           {/* Header Thông tin user */}
-          <div className={styles.menuHeader}>
-            <div className={styles.headerAvatar}>{initial}</div>
-            <div className={styles.headerDetails}>
-              <strong className={styles.headerName} title={displayName}>
+          <div className="p-4 flex items-center gap-3 bg-gradient-to-b from-slate-50 to-white">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand to-rose-900 text-white flex items-center justify-center text-lg font-bold shrink-0 shadow-md shadow-brand/25">{initial}</div>
+            <div className="flex flex-col overflow-hidden min-w-0">
+              <strong className="text-sm font-bold text-slate-900 truncate" title={displayName}>
                 {displayName}
               </strong>
-              <span className={styles.headerEmail} title={user.email}>
+              <span className="text-xs text-slate-500 truncate mt-0.5" title={user.email}>
                 {user.email || "techstoree@member.vn"}
               </span>
-              <span className={styles.roleTag}>
+              <span className="inline-block self-start mt-1 px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-wider">
                 {user.role === "ADMIN" ? "Quản trị viên" : "Khách hàng thân thiết"}
               </span>
             </div>
           </div>
 
-          <div className={styles.menuDivider} />
+          <div className="h-px bg-slate-100 m-0" />
 
           {/* Danh sách liên kết điều hướng */}
-          <div className={styles.menuItemsGroup}>
+          <div className="p-1.5 flex flex-col gap-0.5">
             <Link
               href="/profile"
-              className={`${styles.menuItem} ${
-                pathname === "/profile" ? styles.menuItemActive : ""
-              }`}
+              className={cn(
+                "group flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 no-underline text-sm font-medium transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5",
+                pathname === "/profile" && "bg-slate-100 text-brand font-semibold"
+              )}
               onClick={closeDropdown}
               role="menuitem"
             >
               <svg
-                className={styles.itemIcon}
+                className={cn(
+                  "text-slate-500 shrink-0 transition-colors group-hover:text-brand",
+                  pathname === "/profile" && "text-brand"
+                )}
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"
@@ -170,17 +175,20 @@ export default function UserDropdown({
               <span>Hồ sơ cá nhân</span>
             </Link>
 
-            {/* Mục "Đơn hàng" chuyển từ menu giữa vào đây theo đúng yêu cầu */}
             <Link
               href="/orders"
-              className={`${styles.menuItem} ${
-                pathname === "/orders" ? styles.menuItemActive : ""
-              }`}
+              className={cn(
+                "group flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 no-underline text-sm font-medium transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5",
+                pathname === "/orders" && "bg-slate-100 text-brand font-semibold"
+              )}
               onClick={closeDropdown}
               role="menuitem"
             >
               <svg
-                className={styles.itemIcon}
+                className={cn(
+                  "text-slate-500 shrink-0 transition-colors group-hover:text-brand",
+                  pathname === "/orders" && "text-brand"
+                )}
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"
@@ -194,19 +202,36 @@ export default function UserDropdown({
                 <path d="M3 6h18" />
                 <path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
-              <span className={styles.itemLabelWithBadge}>
+              <span className="flex items-center justify-between w-full">
                 <span>Đơn hàng của tôi</span>
-                <span className={styles.menuBadge}>Theo dõi</span>
+                <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full tracking-wide">Theo dõi</span>
               </span>
             </Link>
 
             <Link
               href="/reviews"
-              className={`${styles.menuItem} ${pathname === "/reviews" ? styles.menuItemActive : ""}`}
+              className={cn(
+                "group flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 no-underline text-sm font-medium transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5",
+                pathname === "/reviews" && "bg-slate-100 text-brand font-semibold"
+              )}
               onClick={closeDropdown}
               role="menuitem"
             >
-              <svg className={styles.itemIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg
+                className={cn(
+                  "text-slate-500 shrink-0 transition-colors group-hover:text-brand",
+                  pathname === "/reviews" && "text-brand"
+                )}
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
                 <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z" />
               </svg>
               <span>Đánh giá của tôi</span>
@@ -214,14 +239,18 @@ export default function UserDropdown({
 
             <Link
               href="/surveys"
-              className={`${styles.menuItem} ${
-                pathname === "/surveys" ? styles.menuItemActive : ""
-              }`}
+              className={cn(
+                "group flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 no-underline text-sm font-medium transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5",
+                pathname === "/surveys" && "bg-slate-100 text-brand font-semibold"
+              )}
               onClick={closeDropdown}
               role="menuitem"
             >
               <svg
-                className={styles.itemIcon}
+                className={cn(
+                  "text-slate-500 shrink-0 transition-colors group-hover:text-brand",
+                  pathname === "/surveys" && "text-brand"
+                )}
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"
@@ -240,14 +269,18 @@ export default function UserDropdown({
 
             <Link
               href="/vouchers"
-              className={`${styles.menuItem} ${
-                pathname === "/vouchers" ? styles.menuItemActive : ""
-              }`}
+              className={cn(
+                "group flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-slate-700 no-underline text-sm font-medium transition-all duration-150 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-0.5",
+                pathname === "/vouchers" && "bg-slate-100 text-brand font-semibold"
+              )}
               onClick={closeDropdown}
               role="menuitem"
             >
               <svg
-                className={styles.itemIcon}
+                className={cn(
+                  "text-slate-500 shrink-0 transition-colors group-hover:text-brand",
+                  pathname === "/vouchers" && "text-brand"
+                )}
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"
@@ -267,13 +300,13 @@ export default function UserDropdown({
             </Link>
           </div>
 
-          <div className={styles.menuDivider} />
+          <div className="h-px bg-slate-100 m-0" />
 
           {/* Nút Đăng xuất */}
-          <div className={styles.logoutWrapper}>
+          <div className="p-1.5 bg-neutral-50">
             <button
               type="button"
-              className={styles.logoutButton}
+              className="group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-transparent border-0 text-slate-500 text-sm font-medium cursor-pointer text-left transition-colors duration-150 hover:bg-red-50 hover:text-red-500 disabled:opacity-60 disabled:cursor-wait"
               onClick={() => {
                 closeDropdown();
                 void onLogout();
@@ -282,7 +315,7 @@ export default function UserDropdown({
               role="menuitem"
             >
               <svg
-                className={styles.logoutIcon}
+                className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
                 width="16"
                 height="16"
                 viewBox="0 0 24 24"

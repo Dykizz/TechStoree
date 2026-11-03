@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ProductVariantDto } from "../../lib/types/product";
-import styles from "./VariantSelector.module.css";
+import { useState } from "react";
+import { ProductVariantDto } from "@/lib/types/product";
+import { cn } from "@/lib/utils";
 
 interface VariantSelectorProps {
   attributes: string[];
@@ -19,30 +19,29 @@ export default function VariantSelector({
   onVariantChange,
   onAttributesChange,
 }: VariantSelectorProps) {
+  const [prevVariant, setPrevVariant] = useState(selectedVariant);
   const [selectedAttrs, setSelectedAttrs] = useState<Record<string, string>>(() => {
     return selectedVariant?.attributes ? { ...selectedVariant.attributes } : {};
   });
 
-  // Sync internal selectedAttrs when selectedVariant is set from parent
-  useEffect(() => {
-    if (selectedVariant) {
-      setSelectedAttrs({ ...selectedVariant.attributes });
-    }
-  }, [selectedVariant]);
+  if (prevVariant !== selectedVariant) {
+    setPrevVariant(selectedVariant);
+    setSelectedAttrs(selectedVariant?.attributes ? { ...selectedVariant.attributes } : {});
+  }
 
   // Handle case where product has multiple variants but no variantAttributes list
   if (attributes.length === 0 && variants.length > 1) {
     return (
-      <div className={styles.container}>
-        <div className={styles.attributeGroup}>
-          <div className={styles.attributeLabel}>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-2">
+          <div className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
             <span>Phiên bản:</span>
-            <span className={styles.selectedValue}>
+            <span className="font-normal text-neutral-600">
               {selectedVariant?.variantName || "Chưa chọn"}
             </span>
           </div>
 
-          <div className={styles.optionsList}>
+          <div className="flex flex-wrap gap-2">
             {variants.map((v) => {
               const isSelected = selectedVariant?.variantId === v.variantId;
               const hasStock = v.isActive && v.stockQuantity > 0;
@@ -52,9 +51,13 @@ export default function VariantSelector({
                   key={v.variantId}
                   type="button"
                   disabled={!hasStock}
-                  className={`${styles.optionButton} ${
-                    isSelected ? styles.optionSelected : ""
-                  } ${!hasStock ? styles.optionDisabled : ""}`}
+                  className={cn(
+                    "px-4 py-2 border rounded-md text-sm font-medium cursor-pointer transition-colors duration-150 relative",
+                    isSelected
+                      ? "!border-black !bg-black !text-white font-semibold hover:!bg-black hover:!text-white"
+                      : "bg-white border-neutral-300 text-neutral-900 hover:enabled:border-neutral-500 hover:enabled:bg-neutral-50",
+                    !hasStock && "border-neutral-200 bg-neutral-100 text-neutral-400 cursor-not-allowed line-through"
+                  )}
                   onClick={() => {
                     const next = isSelected ? null : v;
                     onVariantChange(next);
@@ -66,7 +69,7 @@ export default function VariantSelector({
                 >
                   {v.variantName}
                   {!hasStock && (
-                    <span className={styles.outOfStockTag}> (Hết)</span>
+                    <span className="text-xs opacity-80 font-normal ml-0.5"> (Hết)</span>
                   )}
                 </button>
               );
@@ -142,21 +145,21 @@ export default function VariantSelector({
   };
 
   return (
-    <div className={styles.container}>
+    <div className="flex flex-col gap-5">
       {attributes.map((attrName) => {
         const values = getValuesForAttribute(attrName);
         const currentValue = selectedAttrs[attrName];
 
         return (
-          <div key={attrName} className={styles.attributeGroup}>
-            <div className={styles.attributeLabel}>
+          <div key={attrName} className="flex flex-col gap-2">
+            <div className="text-sm font-semibold text-neutral-900 flex items-center gap-2">
               <span>{attrName}:</span>
-              <span className={styles.selectedValue}>
+              <span className="font-normal text-neutral-600">
                 {currentValue || "Chưa chọn"}
               </span>
             </div>
 
-            <div className={styles.optionsList}>
+            <div className="flex flex-wrap gap-2">
               {values.map((val) => {
                 const isSelected = currentValue === val;
 
@@ -191,9 +194,13 @@ export default function VariantSelector({
                     key={val}
                     type="button"
                     disabled={isDisabled}
-                    className={`${styles.optionButton} ${
-                      isSelected ? styles.optionSelected : ""
-                    } ${isDisabled ? styles.optionDisabled : ""}`}
+                    className={cn(
+                      "px-4 py-2 border rounded-md text-sm font-medium cursor-pointer transition-colors duration-150 relative",
+                      isSelected
+                        ? "!border-black !bg-black !text-white font-semibold hover:!bg-black hover:!text-white"
+                        : "bg-white border-neutral-300 text-neutral-900 hover:enabled:border-neutral-500 hover:enabled:bg-neutral-50",
+                      isDisabled && "border-neutral-200 bg-neutral-100 text-neutral-400 cursor-not-allowed line-through"
+                    )}
                     onClick={() => handleSelect(attrName, val)}
                     title={
                       !isCompatible
@@ -205,7 +212,7 @@ export default function VariantSelector({
                   >
                     {val}
                     {isCompatible && !hasStock && (
-                      <span className={styles.outOfStockTag}> (Hết)</span>
+                      <span className="text-xs opacity-80 font-normal ml-0.5"> (Hết)</span>
                     )}
                   </button>
                 );

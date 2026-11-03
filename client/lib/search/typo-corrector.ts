@@ -86,7 +86,7 @@ const COMMON_TYPO_MAPPING: Record<string, string> = {
  * Tính khoảng cách Damerau-Levenshtein giữa 2 chuỗi
  * (Bao gồm chèn, xóa, thay thế và hoán vị 2 ký tự liền kề)
  */
-export function damerauLevenshtein(a: string, b: string): number {
+function damerauLevenshtein(a: string, b: string): number {
   if (a === b) return 0;
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
@@ -140,7 +140,7 @@ export function correctTypo(rawQuery: string): {
 
   const clean = normalizeText(original);
   const telexFixed = fixVietnameseTelex(clean);
-  let normalized = telexFixed;
+  const normalized = telexFixed;
 
   // 1. Kiểm tra bảng ánh xạ nhanh các cụm từ sai phổ biến
   if (COMMON_TYPO_MAPPING[clean] || COMMON_TYPO_MAPPING[normalized]) {

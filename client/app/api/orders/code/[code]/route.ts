@@ -3,7 +3,7 @@ import {
   callBackendWithSession,
   setSessionCookies,
   REMEMBER_COOKIE,
-} from "../../../../../lib/auth-server";
+} from "@/lib/auth-server";
 
 export async function GET(
   request: NextRequest,

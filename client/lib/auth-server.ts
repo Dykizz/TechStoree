@@ -44,10 +44,6 @@ export function apiEndpoint(path: string) {
   return `${base}/api/${path}`;
 }
 
-export function apiUrl(path: string) {
-  return apiEndpoint(`Auth/${path}`);
-}
-
 export async function backendApiRequest<T>(path: string, init: RequestInit) {
   const response = await fetch(apiEndpoint(path), {
     ...init,
@@ -67,15 +63,15 @@ export function backendRequest<T>(path: string, init: RequestInit) {
   return backendApiRequest<T>(`Auth/${path}`, init);
 }
 
-export function publicUser(user: any): SessionUser {
+export function publicUser(user: Record<string, unknown>): SessionUser {
   return {
-    userId: user.userId ?? user.UserId,
-    username: user.username ?? user.Username,
-    fullName: user.fullName ?? user.FullName,
-    email: user.email ?? user.Email,
-    role: user.role ?? user.Role ?? "USER",
-    phone: user.phone ?? user.Phone ?? null,
-    address: user.address ?? user.Address ?? null,
+    userId: Number(user.userId ?? user.UserId),
+    username: String(user.username ?? user.Username ?? ""),
+    fullName: String(user.fullName ?? user.FullName ?? ""),
+    email: String(user.email ?? user.Email ?? ""),
+    role: String(user.role ?? user.Role ?? "USER"),
+    phone: typeof (user.phone ?? user.Phone) === "string" ? String(user.phone ?? user.Phone) : null,
+    address: typeof (user.address ?? user.Address) === "string" ? String(user.address ?? user.Address) : null,
   };
 }
 

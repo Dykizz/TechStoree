@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "@fontsource-variable/inter/wght.css";
 import "./globals.css";
-import SiteChrome from "../components/SiteChrome";
-import { CartProvider } from "../lib/context/CartContext";
+import SiteChrome from "@/components/SiteChrome";
+import { CartProvider } from "@/lib/context/CartContext";
+import ReactQueryProvider from "@/providers/ReactQueryProvider";
 
 export const metadata: Metadata = {
   title: "TechStoree - Thiết bị công nghệ nguyên bản và tinh tế",
@@ -18,9 +19,11 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <CartProvider>
-          <SiteChrome>{children}</SiteChrome>
-        </CartProvider>
+        <ReactQueryProvider>
+          <CartProvider>
+            <SiteChrome>{children}</SiteChrome>
+          </CartProvider>
+        </ReactQueryProvider>
       </body>
     </html>
   );

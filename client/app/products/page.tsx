@@ -1,19 +1,21 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import PriceFilterDropdown from "../../components/products/PriceFilterDropdown";
-import ProductCard from "../../components/products/ProductCard";
-import ProductsHeroBanner from "../../components/products/ProductsHeroBanner";
-import SearchBar from "../../components/search/SearchBar";
+import PriceFilterDropdown from "@/components/products/PriceFilterDropdown";
+import ProductCard from "@/components/products/ProductCard";
+import ProductsHeroBanner from "@/components/products/ProductsHeroBanner";
+import SearchBar from "@/components/search/SearchBar";
+import Pagination from "@/components/ui/Pagination";
 import {
-  fetchCategories,
   fetchProducts,
   formatPrice,
-} from "../../lib/products-client";
-import { executeSearch } from "../../lib/search/search-engine";
-import { CategoryDto, ProductBaseDto } from "../../lib/types/product";
-import styles from "./products.module.css";
+} from "@/lib/products-client";
+import { executeSearch } from "@/lib/search/search-engine";
+import { ProductBaseDto } from "@/lib/types/product";
+import { cn } from "@/lib/utils";
+import { useCategories } from "@/hooks/queries/useCategories";
+import { useProducts } from "@/hooks/queries/useProducts";
 
 interface SearchTypoInfo {
   hasTypo: boolean;
@@ -27,8 +29,13 @@ function ProductsContent() {
   const initialSearch = query.get("search") || "";
 
   const [products, setProducts] = useState<ProductBaseDto[]>([]);
-  const [catalogProducts, setCatalogProducts] = useState<ProductBaseDto[]>([]);
-  const [categories, setCategories] = useState<CategoryDto[]>([]);
+  const { data: categories = [] } = useCategories();
+  const { data: catalogData } = useProducts({ pageSize: 100 });
+  const catalogProducts = useMemo(
+    () => catalogData?.items || [],
+    [catalogData?.items]
+  );
+
   const [selectedCategory, setSelectedCategory] = useState<number | null>(
     Number.isSafeInteger(initialCategory) && initialCategory > 0
       ? initialCategory
@@ -47,23 +54,6 @@ function ProductsContent() {
 
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
-
-  // 1. Tải danh mục và toàn bộ kho sản phẩm để phục vụ Search Engine in-memory
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        const [cats, catalogRes] = await Promise.all([
-          fetchCategories(),
-          fetchProducts({ pageSize: 100 }),
-        ]);
-        setCategories(cats);
-        setCatalogProducts(catalogRes.items);
-      } catch {
-        /* Lỗi sẽ được hiển thị khi tải danh sách chính */
-      }
-    }
-    void loadInitialData();
-  }, []);
 
   // 2. Lọc và xếp hạng sản phẩm (Kết hợp Okapi BM25 + Faceted Search)
   useEffect(() => {
@@ -227,12 +217,12 @@ function ProductsContent() {
   };
 
   return (
-    <main className={styles.main}>
-      <div className={styles.container}>
+    <main className="min-h-[calc(100vh-68px)] bg-[#fbfbfb] py-10 px-6 pb-20 max-sm:py-6 max-sm:px-4 max-sm:pb-[60px]">
+      <div className="max-w-[1280px] mx-auto">
         <ProductsHeroBanner />
 
-        <section className={styles.toolbar} aria-label="Bộ lọc sản phẩm">
-          <div className={styles.topFilters}>
+        <section className="bg-white border border-[#ebebeb] rounded-xl p-4 sm:px-5 mb-8 flex flex-col gap-4 shadow-[0_2px_10px_rgba(0,0,0,0.02)]" aria-label="Bộ lọc sản phẩm">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             {/* THANH TÌM KIẾM THÔNG MINH (AUTOCOMPLETE + HISTORY + TRENDING) */}
             <SearchBar
               value={search}
@@ -253,7 +243,7 @@ function ProductsContent() {
               allProducts={catalogProducts}
             />
 
-            <div className={styles.filterControls}>
+            <div className="flex items-center gap-2.5 flex-wrap">
               <PriceFilterDropdown
                 key={`${minPrice}-${maxPrice}`}
                 minPrice={minPrice}
@@ -262,7 +252,7 @@ function ProductsContent() {
               />
 
               <select
-                className={styles.sortSelect}
+                className="py-2.5 px-4 border border-[#e0e0e0] rounded-md bg-white text-[0.9rem] text-[#333333] cursor-pointer outline-none transition-colors hover:border-[#111111]"
                 value={sortBy}
                 onChange={(e) => {
                   setSortBy(e.target.value);
@@ -280,10 +270,15 @@ function ProductsContent() {
             </div>
           </div>
 
-          <div className={styles.categoryPills} aria-label="Danh mục">
+          <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]" aria-label="Danh mục">
             <button
               type="button"
-              className={`${styles.salePill} ${onSaleOnly ? styles.salePillActive : ""}`}
+              className={cn(
+                "flex items-center gap-1.5 py-2 px-4 rounded-full border text-[0.85rem] font-semibold whitespace-nowrap cursor-pointer transition-all",
+                onSaleOnly
+                  ? "bg-gradient-to-br from-[#e52d27] to-[#b31217] text-white border-[#b31217] shadow-[0_2px_8px_rgba(189,32,45,0.3)]"
+                  : "border-[#ffd0d0] bg-[#fff5f5] text-brand hover:bg-[#ffe6e6] hover:border-[#ffb3b3]"
+              )}
               onClick={() => {
                 setOnSaleOnly((prev) => !prev);
                 setPage(1);
@@ -294,11 +289,12 @@ function ProductsContent() {
             </button>
             <button
               type="button"
-              className={`${styles.categoryPill} ${
+              className={cn(
+                "py-2 px-4 rounded-full border text-[0.85rem] cursor-pointer whitespace-nowrap transition-all",
                 selectedCategory === null && !onSaleOnly
-                  ? styles.categoryPillActive
-                  : ""
-              }`}
+                  ? "bg-[#111111] border-[#111111] text-white font-semibold hover:bg-[#222222] hover:text-white"
+                  : "border-[#e5e5e5] bg-white text-[#555555] font-medium hover:border-[#aaaaaa] hover:text-[#111111]"
+              )}
               onClick={() => {
                 setSelectedCategory(null);
                 setOnSaleOnly(false);
@@ -311,11 +307,12 @@ function ProductsContent() {
               <button
                 key={cat.categoryId}
                 type="button"
-                className={`${styles.categoryPill} ${
+                className={cn(
+                  "py-2 px-4 rounded-full border text-[0.85rem] cursor-pointer whitespace-nowrap transition-all",
                   selectedCategory === cat.categoryId
-                    ? styles.categoryPillActive
-                    : ""
-                }`}
+                    ? "bg-[#111111] border-[#111111] text-white font-semibold hover:bg-[#222222] hover:text-white"
+                    : "border-[#e5e5e5] bg-white text-[#555555] font-medium hover:border-[#aaaaaa] hover:text-[#111111]"
+                )}
                 onClick={() => {
                   setSelectedCategory(cat.categoryId);
                   setPage(1);
@@ -327,9 +324,9 @@ function ProductsContent() {
           </div>
 
           {(minPrice !== undefined || maxPrice !== undefined) && (
-            <div className={styles.activeFilterRow}>
-              <span className={styles.activeFilterLabel}>Đang lọc giá:</span>
-              <span className={styles.activePriceBadge}>
+            <div className="flex items-center gap-2.5 pt-2 border-t border-dashed border-[#ebebeb] flex-wrap">
+              <span className="text-[0.82rem] text-[#777777] font-medium">Đang lọc giá:</span>
+              <span className="inline-flex items-center gap-2 py-1.5 px-3 bg-[#111111] text-white rounded-full text-[0.82rem] font-medium shadow-[0_2px_6px_rgba(0,0,0,0.1)]">
                 💰{" "}
                 {minPrice !== undefined && maxPrice !== undefined
                   ? `${formatPrice(minPrice)} — ${formatPrice(maxPrice)}`
@@ -338,7 +335,7 @@ function ProductsContent() {
                     : `Đến ${formatPrice(maxPrice!)}`}
                 <button
                   type="button"
-                  className={styles.removeFilterBtn}
+                  className="bg-transparent border-none text-[#cccccc] cursor-pointer p-0 inline-flex items-center justify-center text-[11px] w-4 h-4 rounded-full transition-all hover:bg-white/25 hover:text-white"
                   onClick={() => handlePriceChange(undefined, undefined)}
                   title="Xóa lọc giá"
                   aria-label="Xóa lọc giá"
@@ -348,7 +345,7 @@ function ProductsContent() {
               </span>
               <button
                 type="button"
-                className={styles.clearAllBtn}
+                className="bg-transparent border-none text-[#888888] text-[0.8rem] underline cursor-pointer p-0.5 px-1 transition-colors hover:text-brand"
                 onClick={() => handlePriceChange(undefined, undefined)}
               >
                 Xóa bộ lọc giá
@@ -359,14 +356,14 @@ function ProductsContent() {
 
         {/* BANNER THÔNG BÁO SỬA LỖI CHÍNH TẢ (TYPO TOLERANCE NOTICE) */}
         {searchInfo?.hasTypo && (
-          <div className={styles.typoNoticeBanner}>
+          <div className="flex items-center justify-between gap-3 bg-[#fefce8] border border-[#fef08a] border-l-4 border-l-[#eab308] p-3 sm:px-[18px] rounded-lg mb-6 text-[0.92rem] text-[#854d0e] shadow-[0_2px_8px_rgba(234,179,8,0.08)]">
             <div>
               💡 Hiển thị kết quả cho:{" "}
-              <strong>&ldquo;{searchInfo.effectiveQuery}&rdquo;</strong>.
+              <strong className="text-[#713f12] font-bold">&ldquo;{searchInfo.effectiveQuery}&rdquo;</strong>.
             </div>
             <button
               type="button"
-              className={styles.typoOverrideBtn}
+              className="bg-transparent border-none text-[0.84rem] text-[#92400e] underline cursor-pointer py-1 px-2 transition-colors whitespace-nowrap hover:text-[#b45309]"
               onClick={() => {
                 setSearch(searchInfo.originalQuery);
                 setSearchInfo(null);
@@ -380,44 +377,44 @@ function ProductsContent() {
         )}
 
         {error ? (
-          <div className={styles.empty} role="alert">
-            <p>{error}</p>
+          <div className="text-center py-20 px-6 bg-white border border-[#ebebeb] rounded-xl mb-10" role="alert">
+            <p className="text-[#777777] text-[0.95rem] mb-5">{error}</p>
             <button
-              className={styles.resetBtn}
+              className="bg-[#111111] text-white border-none py-2.5 px-5 rounded-md text-[0.9rem] cursor-pointer transition-colors hover:bg-[#333333]"
               onClick={() => setAttempt((a) => a + 1)}
             >
               Thử lại
             </button>
           </div>
         ) : loading ? (
-          <div className={styles.loading}>Đang tìm kiếm sản phẩm phù hợp…</div>
+          <div className="text-center py-20 text-[#666666] text-base">Đang tìm kiếm sản phẩm phù hợp…</div>
         ) : products.length === 0 ? (
           /* GIAO DIỆN CỨU CÁNH DEAD-END RESCUE KHI 0 KẾT QUẢ */
-          <div className={styles.deadEndContainer}>
-            <div className={styles.deadEndIcon}>🔍</div>
-            <h3 className={styles.deadEndTitle}>
+          <div className="bg-white border border-[#ebebeb] rounded-2xl p-12 sm:px-8 mb-10 text-center flex flex-col items-center shadow-[0_4px_20px_rgba(0,0,0,0.03)]">
+            <div className="text-5xl mb-3">🔍</div>
+            <h3 className="text-[1.45rem] font-bold text-slate-900 mb-2">
               Không tìm thấy kết quả phù hợp cho &ldquo;{search}&rdquo;
             </h3>
-            <p className={styles.deadEndSubtitle}>
+            <p className="text-[0.95rem] text-slate-500 max-w-[520px] mb-5">
               Rất tiếc, chúng tôi không tìm thấy thiết bị nào khớp với từ khóa tìm kiếm hoặc bộ lọc hiện tại.
             </p>
 
-            <div className={styles.deadEndTips}>
-              <div className={styles.tipItem}>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 sm:px-5 mb-6 text-left max-w-[520px] w-full flex flex-col gap-2">
+              <div className="text-[0.86rem] text-slate-600">
                 ✓ Kiểm tra lại lỗi chính tả hoặc thử các từ khóa ngắn gọn hơn (VD: &ldquo;laptop&rdquo;, &ldquo;tai nghe&rdquo;).
               </div>
-              <div className={styles.tipItem}>
+              <div className="text-[0.86rem] text-slate-600">
                 ✓ Thử tìm bằng từ đồng nghĩa hoặc tên thương hiệu (VD: &ldquo;Sony&rdquo;, &ldquo;Logitech&rdquo;, &ldquo;Asus&rdquo;).
               </div>
-              <div className={styles.tipItem}>
+              <div className="text-[0.86rem] text-slate-600">
                 ✓ Xóa bỏ bớt các bộ lọc khoảng giá hoặc danh mục để mở rộng phạm vi tìm kiếm.
               </div>
             </div>
 
-            <div className={styles.deadEndActions}>
+            <div className="mb-8">
               <button
                 type="button"
-                className={styles.resetBtn}
+                className="bg-[#111111] text-white border-none py-2.5 px-5 rounded-md text-[0.9rem] cursor-pointer transition-colors hover:bg-[#333333]"
                 onClick={handleResetFilters}
               >
                 Xóa tất cả bộ lọc &amp; tìm kiếm
@@ -425,16 +422,16 @@ function ProductsContent() {
             </div>
 
             {/* Gợi ý danh mục hàng đầu */}
-            <div className={styles.suggestedCategories}>
-              <span className={styles.suggestedCatTitle}>
+            <div className="flex flex-col items-center gap-3 mb-9 w-full">
+              <span className="text-[0.86rem] font-bold text-slate-600 uppercase tracking-[0.05em]">
                 Khám phá các danh mục công nghệ hàng đầu:
               </span>
-              <div className={styles.suggestedCatPills}>
+              <div className="flex flex-wrap gap-2 justify-center">
                 {categories.map((cat) => (
                   <button
                     key={cat.categoryId}
                     type="button"
-                    className={styles.suggestedCatPill}
+                    className="bg-slate-100 border border-slate-300 text-slate-800 py-2 px-4.5 rounded-full text-[0.88rem] font-semibold cursor-pointer transition-colors hover:bg-slate-900 hover:text-white hover:border-slate-900"
                     onClick={() => {
                       setSelectedCategory(cat.categoryId);
                       setSearch("");
@@ -449,12 +446,12 @@ function ProductsContent() {
 
             {/* Gợi ý các sản phẩm nổi bật bán chạy */}
             {catalogProducts.length > 0 && (
-              <div className={styles.featuredRescueSection}>
-                <h4 className={styles.featuredRescueHeading}>
+              <div className="w-full border-t border-slate-100 pt-8">
+                <h4 className="text-[1.15rem] font-bold text-slate-900 mb-6 text-left">
                   🔥 Sản phẩm công nghệ nổi bật gợi ý cho bạn
                 </h4>
-                <div className={styles.grid}>
-                  {catalogProducts.slice(0, 3).map((p) => (
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 mb-10 max-sm:grid-cols-1 max-sm:gap-4">
+                  {catalogProducts.slice(0, 3).map((p: ProductBaseDto) => (
                     <ProductCard key={p.productId} product={p} />
                   ))}
                 </div>
@@ -463,35 +460,17 @@ function ProductsContent() {
           </div>
         ) : (
           <>
-            <div className={styles.grid}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6 mb-10 max-sm:grid-cols-1 max-sm:gap-4">
               {products.map((product) => (
                 <ProductCard key={product.productId} product={product} />
               ))}
             </div>
 
-            {totalPages > 1 && (
-              <div className={styles.pagination}>
-                <button
-                  type="button"
-                  className={styles.pageBtn}
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                >
-                  &larr; Trang trước
-                </button>
-                <span className={styles.pageInfo}>
-                  Trang {page} / {totalPages}
-                </span>
-                <button
-                  type="button"
-                  className={styles.pageBtn}
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-                >
-                  Trang sau &rarr;
-                </button>
-              </div>
-            )}
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
           </>
         )}
       </div>

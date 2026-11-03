@@ -4,7 +4,7 @@ import {
   callBackendWithSession,
   setSessionCookies,
   REMEMBER_COOKIE,
-} from "../../../../../lib/auth-server";
+} from "@/lib/auth-server";
 
 // Cache internal admin token to avoid re-authenticating on every click
 let cachedAdminToken: { token: string; expiresAt: number } | null = null;
