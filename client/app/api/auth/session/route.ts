@@ -7,7 +7,7 @@ import {
   REMEMBER_COOKIE,
   type BackendEnvelope,
   type SessionUser,
-} from "../../../../lib/auth-server";
+} from "@/lib/auth-server";
 export async function GET(request: NextRequest) {
   try {
     const { response, renewed } = await callBackendWithSession(

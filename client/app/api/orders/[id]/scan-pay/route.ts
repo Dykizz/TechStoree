@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { apiEndpoint } from "../../../../../lib/auth-server";
+import { apiEndpoint } from "@/lib/auth-server";
 
 // Cache internal admin token
 let cachedAdminToken: { token: string; expiresAt: number } | null = null;

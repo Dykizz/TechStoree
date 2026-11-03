@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { backendApiRequest } from "../../../lib/auth-server";
+import { backendApiRequest } from "@/lib/auth-server";
 export async function GET() {
   try {
     const { response, body } = await backendApiRequest<

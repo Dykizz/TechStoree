@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { customerProxy } from "../../../../lib/customer-proxy";
+import { customerProxy } from "@/lib/customer-proxy";
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
