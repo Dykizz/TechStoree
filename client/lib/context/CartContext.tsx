@@ -1,4 +1,5 @@
 "use client";
+
 import {
   createContext,
   useCallback,
@@ -8,23 +9,23 @@ import {
   useState,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { cartKeys } from "@/lib/query-keys/cart.keys";
+import {
+  fetchCartApi,
+  previewCartApi,
+  mutateCartApi,
+  type ServerItem,
+} from "@/lib/api/cart-api";
 import type { CartContextType, CartItem } from "../types/cart";
 import type { Voucher } from "../types/order";
+
 const CartContext = createContext<CartContextType | undefined>(undefined);
-type ServerItem = {
-  cartItemId: number;
-  productId: number;
-  productName: string;
-  variantId: number;
-  variantName: string;
-  imageUrl: string | null;
-  price: number;
-  quantity: number;
-  stockQuantity: number;
-};
+
 export function resolveCartItemImage(url?: string | null) {
   return url || null;
 }
+
 function mapItem(it: ServerItem): CartItem {
   return {
     ...it,
@@ -33,49 +34,56 @@ function mapItem(it: ServerItem): CartItem {
     attributes: {},
   };
 }
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
   const [items, setItems] = useState<CartItem[]>([]);
   const [appliedVoucher, setAppliedVoucher] = useState<Voucher | null>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
   const pending = useRef(false);
   const version = useRef(0);
   const voucherRef = useRef<Voucher | null>(null);
+
   const readCart = useCallback(async () => {
     const current = ++version.current;
-    const response = await fetch("/api/cart", { cache: "no-store" });
-    const body = await response.json();
+    const cartRes = await fetchCartApi();
     if (current !== version.current) return;
-    if (response.status === 401) {
+
+    if (cartRes.status === 401) {
       setItems([]);
       setAppliedVoucher(null);
       voucherRef.current = null;
       setDiscountAmount(0);
       return;
     }
-    if (!response.ok || !body.success || !body.data)
-      throw new Error(body.message || "Không thể tải giỏ hàng.");
-    if (body.data.items.length) {
-      const preview = await fetch("/api/orders/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voucherCode: voucherRef.current?.code }),
-      });
-      const result = await preview.json();
+
+    if (!cartRes.data) {
+      throw new Error(cartRes.message || "Không thể tải giỏ hàng.");
+    }
+
+    if (cartRes.data.items.length) {
+      const previewRes = await previewCartApi(voucherRef.current?.code);
       if (current !== version.current) return;
-      if (!preview.ok || !result.success)
-        throw new Error(result.message || "Không thể cập nhật giá giỏ hàng.");
+      if (!previewRes.ok || !previewRes.data) {
+        throw new Error(
+          previewRes.message || "Không thể cập nhật giá giỏ hàng."
+        );
+      }
+
       setItems(
-        result.data.items.map((it: ServerItem & { unitPrice: number }) =>
-          mapItem({ ...it, price: it.unitPrice }),
-        ),
+        previewRes.data.items.map((it) =>
+          mapItem({ ...it, price: it.unitPrice })
+        )
       );
-      setDiscountAmount(result.data.voucherDiscountAmount);
-      if (voucherRef.current && !result.data.isVoucherApplied) {
+      setDiscountAmount(previewRes.data.voucherDiscountAmount);
+      if (voucherRef.current && !previewRes.data.isVoucherApplied) {
         voucherRef.current = null;
         setAppliedVoucher(null);
       }
@@ -84,6 +92,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setDiscountAmount(0);
     }
   }, []);
+
   const refreshCart = useCallback(async () => {
     try {
       await readCart();
@@ -92,6 +101,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setError(e instanceof Error ? e.message : "Không thể tải giỏ hàng.");
     }
   }, [readCart]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       void refreshCart();
@@ -100,29 +110,29 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(timer);
     };
   }, [pathname, refreshCart]);
+
   async function mutate(url: string, method: string, body?: unknown) {
     if (pending.current) return false;
     pending.current = true;
     setBusy(true);
     setError("");
+
     try {
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
-      const result = await response.json();
-      if (response.status === 401) {
+      const res = await mutateCartApi(url, method, body);
+      if (res.status === 401) {
         router.push(`/login?next=${encodeURIComponent(pathname)}`);
         return false;
       }
-      if (!response.ok || !result.success)
-        throw new Error(result.message || "Không thể cập nhật giỏ hàng.");
+      if (!res.ok) {
+        throw new Error(res.message || "Không thể cập nhật giỏ hàng.");
+      }
+
       await readCart();
+      void queryClient.invalidateQueries({ queryKey: cartKeys.all });
       return true;
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "Không thể kết nối đến máy chủ.",
+        e instanceof Error ? e.message : "Không thể kết nối đến máy chủ."
       );
       return false;
     } finally {
@@ -130,10 +140,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setBusy(false);
     }
   }
+
   const addItem: CartContextType["addItem"] = async (
     item,
     quantity = 1,
-    openDrawer = false,
+    openDrawer = false
   ) => {
     const ok = await mutate("/api/cart/items", "POST", {
       variantId: item.variantId,
@@ -142,20 +153,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     if (ok && openDrawer) setIsCartOpen(true);
     return ok;
   };
+
   const updateQuantity: CartContextType["updateQuantity"] = async (
     id,
-    quantity,
+    quantity
   ) => {
     const item = items.find((i) => i.cartItemId === id);
     if (!item?.backendCartItemId) return false;
     return mutate(
       `/api/cart/items/${item.backendCartItemId}`,
       quantity <= 0 ? "DELETE" : "PUT",
-      quantity > 0 ? { quantity } : undefined,
+      quantity > 0 ? { quantity } : undefined
     );
   };
+
   const removeItem: CartContextType["removeItem"] = (id) =>
     updateQuantity(id, 0);
+
   const clearCart = async () => {
     const ok = await mutate("/api/cart", "DELETE");
     if (ok) {
@@ -165,35 +179,35 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
     return ok;
   };
+
   const applyVoucher = async (code: string) => {
-    if (pending.current)
+    if (pending.current) {
       return {
         success: false,
         message: "Giỏ hàng đang cập nhật. Vui lòng thử lại.",
       };
+    }
     pending.current = true;
     setBusy(true);
+
     try {
-      const response = await fetch("/api/orders/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ voucherCode: code.trim() }),
-      });
-      const body = await response.json();
-      if (!response.ok || !body.success || !body.data?.isVoucherApplied)
+      const preview = await previewCartApi(code.trim());
+      if (!preview.ok || !preview.data?.isVoucherApplied) {
         return {
           success: false,
           message:
-            body.data?.voucherMessage ||
-            body.message ||
+            preview.data?.voucherMessage ||
+            preview.message ||
             "Mã không áp dụng được.",
         };
+      }
+
       const voucher: Voucher = {
         voucherId: 0,
-        code: body.data.voucherCode,
-        title: body.data.voucherTitle,
+        code: preview.data.voucherCode || code.trim(),
+        title: preview.data.voucherTitle || "Mã ưu đãi",
         discountType: "FIXED",
-        discountValue: body.data.voucherDiscountAmount,
+        discountValue: preview.data.voucherDiscountAmount,
         minOrderValue: 0,
         usageLimit: 0,
         limitPerUser: 1,
@@ -201,10 +215,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         endDate: "",
         isActive: true,
       };
+
       voucherRef.current = voucher;
       setAppliedVoucher(voucher);
-      setDiscountAmount(body.data.voucherDiscountAmount);
+      setDiscountAmount(preview.data.voucherDiscountAmount);
       await readCart();
+      void queryClient.invalidateQueries({ queryKey: cartKeys.all });
       return { success: true, message: "Đã áp dụng mã ưu đãi." };
     } catch {
       return {
@@ -216,11 +232,14 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       setBusy(false);
     }
   };
+
   const openCart = useCallback(() => setIsCartOpen(true), []);
   const closeCart = useCallback(() => setIsCartOpen(false), []);
   const toggleCart = useCallback(() => setIsCartOpen((v) => !v), []);
+
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
   const totalPrice = items.reduce((s, i) => s + i.quantity * i.price, 0);
+
   return (
     <CartContext.Provider
       value={{
@@ -254,6 +273,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     </CartContext.Provider>
   );
 }
+
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) throw new Error("CartProvider is required");
