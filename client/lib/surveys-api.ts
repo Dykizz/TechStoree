@@ -6,6 +6,7 @@ export type CustomerSurvey = {
   isCompleted: boolean;
   completedAt: string | null;
 };
+
 export type SurveyQuestion = {
   questionId: number;
   questionText: string;
@@ -14,6 +15,7 @@ export type SurveyQuestion = {
   orderNum: number;
   options: { optionId: number; optionText: string; orderNum: number }[];
 };
+
 export type SurveyForm = {
   surveyId: number;
   title: string;
@@ -21,6 +23,7 @@ export type SurveyForm = {
   rewardVoucherTitle: string | null;
   questions: SurveyQuestion[];
 };
+
 export type SurveyResult = {
   success: boolean;
   message: string;
@@ -34,3 +37,53 @@ export type SurveyResult = {
     endDate: string;
   } | null;
 };
+
+export async function fetchSurveysApi(): Promise<CustomerSurvey[]> {
+  const response = await fetch("/api/surveys", { cache: "no-store" });
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  const body = await response.json();
+  if (!response.ok || !body.success || !Array.isArray(body.data)) {
+    throw new Error(body.message || "Không thể tải danh sách khảo sát.");
+  }
+  return body.data;
+}
+
+export async function fetchSurveyByIdApi(
+  surveyId: string
+): Promise<SurveyForm> {
+  const response = await fetch(
+    `/api/surveys/${encodeURIComponent(surveyId)}`,
+    { cache: "no-store" }
+  );
+  if (response.status === 401) throw new Error("UNAUTHORIZED");
+  const body = await response.json();
+  if (
+    !response.ok ||
+    !body.success ||
+    !body.data ||
+    !Array.isArray(body.data.questions)
+  ) {
+    throw new Error(body.message || "Không thể tải biểu mẫu khảo sát.");
+  }
+  return body.data;
+}
+
+export async function submitSurveyApi(
+  surveyId: number,
+  answers: {
+    questionId: number;
+    selectedOptionId?: number;
+    textAnswer?: string;
+  }[]
+): Promise<SurveyResult> {
+  const response = await fetch(`/api/surveys/${surveyId}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ answers }),
+  });
+  const body = await response.json();
+  if (!response.ok || !body.success) {
+    throw new Error(body.message || "Gửi khảo sát không thành công.");
+  }
+  return body;
+}
