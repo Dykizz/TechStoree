@@ -31,11 +31,46 @@ class AuthProvider extends ChangeNotifier {
   /// Kiểm tra xem người dùng hiện tại có ở chế độ Offline (mock JWT) hay không
   bool get isOfflineMode => _token != null && _token!.startsWith('demo-jwt-token');
 
-  /// Kiểm tra quyền hạn cụ thể (ADMIN mặc định có tất cả quyền)
+  /// Kiểm tra quyền hạn cụ thể (ADMIN tuân thủ ma trận phân quyền)
   bool can(String permission) {
-    if (isAdmin) return true;
     final target = permission.trim().toLowerCase();
     return _permissions.any((p) => p.trim().toLowerCase() == target);
+  }
+
+  /// Cập nhật ngay lập tức danh sách quyền trong RAM và thông báo cho giao diện (Sidebar, Routing)
+  void updatePermissions(List<String> newPermissions) {
+    _permissions = List<String>.from(newPermissions);
+    notifyListeners();
+  }
+
+  /// Đồng bộ lại thông tin và quyền hạn người dùng hiện tại từ backend
+  Future<void> reloadCurrentPermissions({String? baseUrl}) async {
+    if (hasRefreshToken) {
+      await refreshAccessToken(baseUrl: baseUrl);
+    } else if (_token != null) {
+      final effectiveBaseUrl = (baseUrl != null && baseUrl.isNotEmpty)
+          ? baseUrl
+          : 'http://localhost:5000/api';
+      try {
+        final res = await http.get(
+          Uri.parse('$effectiveBaseUrl/auth/me'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_token',
+          },
+        ).timeout(const Duration(seconds: 5));
+        if (res.statusCode == 200) {
+          final resJson = json.decode(utf8.decode(res.bodyBytes));
+          final data = resJson['data'];
+          if (data != null && data['permissions'] != null && data['permissions'] is List) {
+            _permissions = List<String>.from(data['permissions'].map((e) => e.toString()));
+            notifyListeners();
+          }
+        }
+      } catch (e) {
+        debugPrint('[AuthProvider] Error reloading permissions: $e');
+      }
+    }
   }
 
   bool get isAdmin =>
@@ -139,7 +174,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } else if (cleanEmail == 'sales@techstoree.vn' && password == 'staff123') {
+    } else if ((cleanEmail == 'sales01@techstoree.vn' || cleanEmail == 'sales@techstoree.vn') && password == 'staff123') {
       _isLoggedIn = true;
       _userEmail = 'sales@techstoree.vn';
       _userName = 'Lê Thị Bán Hàng';
@@ -155,7 +190,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } else if (cleanEmail == 'kho@techstoree.vn' && password == 'staff123') {
+    } else if ((cleanEmail == 'warehouse01@techstoree.vn' || cleanEmail == 'kho@techstoree.vn') && password == 'staff123') {
       _isLoggedIn = true;
       _userEmail = 'kho@techstoree.vn';
       _userName = 'Trần Văn Kho';
@@ -173,7 +208,7 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       return true;
-    } else if (cleanEmail == 'survey@techstoree.vn' && password == 'staff123') {
+    } else if ((cleanEmail == 'survey01@techstoree.vn' || cleanEmail == 'survey@techstoree.vn') && password == 'staff123') {
       _isLoggedIn = true;
       _userEmail = 'survey@techstoree.vn';
       _userName = 'Phạm Văn Chăm Sóc';

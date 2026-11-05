@@ -152,7 +152,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       variant: AppButtonVariant.secondary,
                       onPressed: () => setState(() => _showDemographics = true),
                     ),
-                    if (authProvider.can('Customers.Create') || authProvider.can('Users.Create')) ...[
+                    if (authProvider.can('Customers.Create')) ...[
                       const SizedBox(width: 8),
                       AppButton(
                         label: 'Thêm khách hàng',
@@ -364,7 +364,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                               constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                                               tooltip: 'Xem hồ sơ khách hàng',
                                               onPressed: () => _showDetailDialog(context, u),
-                                            ),                                            if (authProvider.can('Customers.Update') || authProvider.can('Users.Update'))
+                                            ),                                            if (authProvider.can('Customers.Update'))
                                               IconButton(
                                                 icon: Icon(Icons.edit_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
@@ -372,7 +372,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                                 tooltip: 'Chỉnh sửa thông tin',
                                                 onPressed: () => _showFormDialog(context, apiService, authProvider.token, u),
                                               ),
-                                            if (authProvider.can('Customers.Lock') || authProvider.can('Users.Lock'))
+                                            if (authProvider.can('Customers.Lock'))
                                               IconButton(
                                                 icon: Icon(
                                                   !u.isLocked ? Icons.lock_outline_rounded : Icons.lock_open_rounded,
