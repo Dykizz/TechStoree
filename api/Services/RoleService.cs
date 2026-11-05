@@ -11,10 +11,9 @@ namespace WebBanHang.Api.Services;
 public class RoleService(AppDbContext context, PermissionCatalogState catalogState) : IRoleService
 {
     /// <summary>
-    /// Vai trò Quản trị viên tối cao: được cấp toàn quyền tự động và không cho phép chỉnh sửa thủ công.
+    /// Vai trò Quản trị viên: Cho phép tùy chỉnh phân quyền để phù hợp với phân nhiệm doanh nghiệp.
     /// </summary>
-    private static bool IsProtectedAdmin(Role role) =>
-        role.IsSystem && role.RoleId.Equals("ADMIN", StringComparison.OrdinalIgnoreCase);
+    private static bool IsProtectedAdmin(Role role) => false;
 
     /// <summary>
     /// Ánh xạ thực thể Permission sang DTO kèm thông tin ngữ cảnh lấy từ danh mục chuẩn:
@@ -119,9 +118,15 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
     {
         var allPermIds = await context.Permissions.AsNoTracking().Select(p => p.PermissionId).ToListAsync();
 
+        // Đếm số lượng tài khoản chính xác theo từng vai trò trực tiếp từ bảng user_roles
+        var userCountByRole = await context.UserRoles
+            .AsNoTracking()
+            .GroupBy(ur => ur.RoleId)
+            .Select(g => new { RoleId = g.Key, Count = g.Select(x => x.UserId).Distinct().Count() })
+            .ToDictionaryAsync(x => x.RoleId, x => x.Count, StringComparer.OrdinalIgnoreCase);
+
         var roles = await context.Roles
             .AsNoTracking()
-            .Include(r => r.UserRoles)
             .Include(r => r.RolePermissions)
             .OrderByDescending(r => r.IsSystem)
             .ThenBy(r => r.RoleName)
@@ -133,7 +138,7 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             RoleName = r.RoleName,
             Description = r.Description,
             IsSystem = r.IsSystem,
-            UserCount = r.UserRoles.Count,
+            UserCount = userCountByRole.TryGetValue(r.RoleId, out var count) ? count : 0,
             Permissions = IsProtectedAdmin(r) ? allPermIds : r.RolePermissions.Select(rp => rp.PermissionId).ToList()
         }).ToList();
     }
@@ -144,7 +149,6 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
 
         var role = await context.Roles
             .AsNoTracking()
-            .Include(r => r.UserRoles)
             .Include(r => r.RolePermissions)
                 .ThenInclude(rp => rp.Permission)
             .FirstOrDefaultAsync(r => r.RoleId.ToUpper() == normalizedRoleId);
@@ -153,6 +157,13 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
         {
             throw new NotFoundException($"Không tìm thấy vai trò với mã '{roleId}'.");
         }
+
+        var userCount = await context.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.RoleId.ToUpper() == normalizedRoleId)
+            .Select(ur => ur.UserId)
+            .Distinct()
+            .CountAsync();
 
         if (IsProtectedAdmin(role))
         {
@@ -168,7 +179,7 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
                 RoleName = role.RoleName,
                 Description = role.Description ?? "Quản trị viên tối cao: toàn quyền trên toàn hệ thống",
                 IsSystem = true,
-                UserCount = role.UserRoles.Count,
+                UserCount = userCount,
                 Permissions = allPerms.Select(p => p.PermissionId).ToList(),
                 PermissionDetails = allPerms.Select(ToPermissionDto).ToList()
             };
@@ -180,7 +191,7 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             RoleName = role.RoleName,
             Description = role.Description,
             IsSystem = role.IsSystem,
-            UserCount = role.UserRoles.Count,
+            UserCount = userCount,
             Permissions = role.RolePermissions.Select(rp => rp.PermissionId).ToList(),
             PermissionDetails = role.RolePermissions
                 .Where(rp => rp.Permission != null)

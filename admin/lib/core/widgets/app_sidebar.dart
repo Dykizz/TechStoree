@@ -19,28 +19,26 @@ class AppSidebar extends StatelessWidget {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    final isAdmin = authProvider.isAdmin;
-
     final allNavItems = [
       _NavItem(icon: Icons.dashboard_outlined, activeIcon: Icons.dashboard_rounded, label: 'Tổng quan', index: 0),
+      _NavItem(icon: Icons.query_stats_outlined, activeIcon: Icons.query_stats_rounded, label: 'Thống kê', index: 15),
       _NavItem(icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2_rounded, label: 'Sản phẩm', index: 1),
+      _NavItem(icon: Icons.category_outlined, activeIcon: Icons.category_rounded, label: 'Loại sản phẩm', index: 4),
       _NavItem(icon: Icons.shopping_bag_outlined, activeIcon: Icons.shopping_bag_rounded, label: 'Đơn hàng', index: 2),
       _NavItem(icon: Icons.receipt_outlined, activeIcon: Icons.receipt_rounded, label: 'Hóa đơn', index: 3),
-      _NavItem(icon: Icons.category_outlined, activeIcon: Icons.category_rounded, label: 'Loại sản phẩm', index: 4),
       _NavItem(icon: Icons.domain_outlined, activeIcon: Icons.domain_rounded, label: 'Nhà cung cấp', index: 5),
       _NavItem(icon: Icons.receipt_long_outlined, activeIcon: Icons.receipt_long_rounded, label: 'Phiếu nhập hàng', index: 6),
       _NavItem(icon: Icons.local_offer_outlined, activeIcon: Icons.local_offer_rounded, label: 'Khuyến mãi & giảm giá', index: 7),
       _NavItem(icon: Icons.confirmation_number_outlined, activeIcon: Icons.confirmation_number_rounded, label: 'Mã giảm giá voucher', index: 8),
+      _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng', index: 10),
       _NavItem(icon: Icons.poll_outlined, activeIcon: Icons.poll_rounded, label: 'Khảo sát thị trường', index: 9),
       _NavItem(icon: Icons.rate_review_outlined, activeIcon: Icons.rate_review_rounded, label: 'Đánh giá sản phẩm', index: 14),
-      _NavItem(icon: Icons.people_outline_rounded, activeIcon: Icons.people_rounded, label: 'Khách hàng', index: 10),
       _NavItem(icon: Icons.badge_outlined, activeIcon: Icons.badge_rounded, label: 'Nhân viên', index: 11),
       _NavItem(icon: Icons.admin_panel_settings_outlined, activeIcon: Icons.admin_panel_settings_rounded, label: 'Vai trò & phân quyền', index: 12),
       _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings_rounded, label: 'Cài đặt hệ thống', index: 13),
     ];
 
     final navItems = allNavItems.where((item) {
-      if (isAdmin) return true;
       switch (item.index) {
         case 0: return true; // Let everyone see Dashboard
         case 1: return authProvider.can('Products.View');
@@ -49,14 +47,16 @@ class AppSidebar extends StatelessWidget {
         case 4: return authProvider.can('Categories.View');
         case 5: return authProvider.can('Suppliers.View');
         case 6: return authProvider.can('PurchaseOrders.View');
-        case 7: return authProvider.can('Promotions.View');
+        case 7: return authProvider.can('Promotions.View'
+        );
         case 8: return authProvider.can('Vouchers.View');
         case 9: return authProvider.can('Surveys.View');
         case 14: return authProvider.can('Reviews.View');
-        case 10: return authProvider.can('Customers.View') || authProvider.can('Users.View');
-        case 11: return authProvider.can('Employees.View') || authProvider.can('Users.View');
+        case 15: return authProvider.can('Invoices.View') || authProvider.can('Orders.View');
+        case 10: return authProvider.can('Customers.View');
+        case 11: return authProvider.can('Employees.View');
         case 12: return authProvider.can('Roles.View');
-        case 13: return false; // Only ADMIN
+        case 13: return authProvider.can('Roles.View') || authProvider.isAdmin;
         default: return false;
       }
     }).toList();

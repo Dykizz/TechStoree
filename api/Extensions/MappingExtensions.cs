@@ -30,12 +30,6 @@ public static class MappingExtensions
 
     public static List<string> ExtractPermissions(this User user)
     {
-        var roles = user.ExtractRoles();
-        if (roles.Any(r => r.Equals("ADMIN", StringComparison.OrdinalIgnoreCase)))
-        {
-            return AppPermissions.Catalog.Select(p => p.Id).ToList();
-        }
-
         return user.UserRoles?
             .Where(ur => ur.Role != null)
             .SelectMany(ur => ur.Role!.RolePermissions)

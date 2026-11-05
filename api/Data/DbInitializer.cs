@@ -118,9 +118,10 @@ public static class DbInitializer
             foreach (var acc in data.Accounts)
             {
                 var emailTrimmed = acc.Email.Trim().ToLower();
+                var usernameTrimmed = acc.Username.Trim().ToLower();
                 var exists = await context.Users
                     .Include(u => u.UserRoles)
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == emailTrimmed);
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == emailTrimmed || u.Username.ToLower() == usernameTrimmed);
 
                 var rolesToAssign = new List<string>();
                 if (acc.Roles != null && acc.Roles.Count > 0)
