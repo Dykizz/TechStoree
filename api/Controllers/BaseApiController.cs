@@ -57,7 +57,7 @@ public abstract class BaseApiController : ControllerBase
     /// Kiểm tra người dùng có claim quyền (Permission) cụ thể hay không
     /// </summary>
     protected bool HasPermission(string permission) =>
-        IsAdmin || User.Claims.Any(c => string.Equals(c.Type, "Permission", StringComparison.OrdinalIgnoreCase) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
+        User.Claims.Any(c => string.Equals(c.Type, "Permission", StringComparison.OrdinalIgnoreCase) && string.Equals(c.Value, permission, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Trả về kết quả thành công HTTP 200 OK kèm dữ liệu được bọc trong ApiResponse

@@ -317,7 +317,7 @@ class _RolesScreenState extends State<RolesScreen> {
 
   /// Lưu thay đổi quyền hạn xuống backend: PUT /roles/{id}/permissions
   Future<void> _savePermissions() async {
-    if (_selectedRoleId == null || !_isCurrentRoleDirty || _isCurrentRoleAdmin) return;
+    if (_selectedRoleId == null || !_isCurrentRoleDirty) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.isOfflineMode) {
@@ -349,6 +349,17 @@ class _RolesScreenState extends State<RolesScreen> {
         _originalPermissions.clear();
         _originalPermissions.addAll(_selectedPermissions);
       });
+
+      // Nếu vai trò vừa cập nhật thuộc về tài khoản đang đăng nhập (ví dụ: ADMIN),
+      // lập tức đồng bộ danh sách quyền và JWT token trong AuthProvider để Sidebar và Router cập nhật ngay!
+      final currentRoleId = _selectedRoleId?.trim().toUpperCase();
+      final userRoles = authProvider.userRoles.map((r) => r.trim().toUpperCase()).toList();
+      final userPrimaryRole = authProvider.userRole.trim().toUpperCase();
+
+      if (currentRoleId != null && (userRoles.contains(currentRoleId) || userPrimaryRole == currentRoleId)) {
+        authProvider.updatePermissions(_selectedPermissions.toList());
+        authProvider.reloadCurrentPermissions();
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1015,185 +1026,212 @@ class _RolesScreenState extends State<RolesScreen> {
             color: cardBg,
             border: Border(bottom: BorderSide(color: borderColor)),
           ),
-          child: Row(
-            children: [
-              // Role Icon Avatar
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: roleColor.withValues(alpha: 0.15),
-                child: Icon(roleIcon, size: 22, color: roleColor),
-              ),
-              const SizedBox(width: 12),
-              // Role Info Details
-              Expanded(
-                child: Column(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 750;
+              final leftDetails = Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: roleColor.withValues(alpha: 0.15),
+                    child: Icon(roleIcon, size: 22, color: roleColor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              role.roleName,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: textPrimary,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: borderColor),
+                              ),
+                              child: Text(
+                                role.roleId,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w600,
+                                  color: textSecondary,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: role.isSystem
+                                    ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC))
+                                    : AppColors.successBg,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: role.isSystem ? borderColor : AppColors.successBorder,
+                                ),
+                              ),
+                              child: Text(
+                                role.isSystem ? 'Hệ thống' : 'Tùy chỉnh',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: role.isSystem ? textSecondary : AppColors.success,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => _showAssignedUsersDrawer(context, role),
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.people_alt_rounded, size: 13, color: AppColors.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '· ${role.userCount} người dùng sở hữu',
+                                      style: const TextStyle(
+                                        fontSize: 11.5,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.w600,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    const Icon(Icons.open_in_new_rounded, size: 11, color: AppColors.primary),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (displayDesc != null && displayDesc.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            displayDesc,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11.5, color: textSecondary, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final rightActions = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Privilege Meter (Thanh tiến độ quyền hạn)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Cấp quyền: ',
+                              style: TextStyle(fontSize: 11, color: textSecondary),
+                            ),
+                            Text(
+                              '$grantedTotal / $_totalAllPermissionsCount',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: textPrimary,
+                              ),
+                            ),
+                            Text(
+                              ' (${(progressPercent * 100).round()}%)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        SizedBox(
+                          width: 140,
+                          height: 5,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(3),
+                            child: LinearProgressIndicator(
+                              value: progressPercent,
+                              backgroundColor: borderColor,
+                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Action buttons (Sửa / Xóa)
+                  AppButton(
+                    label: 'Sửa thông tin',
+                    icon: Icons.edit_outlined,
+                    variant: AppButtonVariant.outline,
+                    onPressed: (authProvider.can('Roles.Update') && !isOffline)
+                        ? _openEditRoleDialog
+                        : null,
+                  ),
+                  if (!role.isSystem) ...[
+                    const SizedBox(width: 8),
+                    AppButton(
+                      label: 'Xóa vai trò',
+                      icon: Icons.delete_outline_rounded,
+                      variant: AppButtonVariant.danger,
+                      onPressed: (authProvider.can('Roles.Delete') && !isOffline)
+                          ? _confirmDeleteRole
+                          : null,
+                    ),
+                  ],
+                ],
+              );
+
+              if (isNarrow) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          role.roleName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: borderColor),
-                          ),
-                          child: Text(
-                            role.roleId,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontFamily: 'monospace',
-                              fontWeight: FontWeight.w600,
-                              color: textSecondary,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: role.isSystem
-                                ? (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC))
-                                : AppColors.successBg,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(
-                              color: role.isSystem ? borderColor : AppColors.successBorder,
-                            ),
-                          ),
-                          child: Text(
-                            role.isSystem ? 'Hệ thống' : 'Tùy chỉnh',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: role.isSystem ? textSecondary : AppColors.success,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        InkWell(
-                          onTap: () => _showAssignedUsersDrawer(context, role),
-                          borderRadius: BorderRadius.circular(4),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.people_alt_rounded, size: 13, color: AppColors.primary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '· ${role.userCount} người dùng sở hữu',
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(Icons.open_in_new_rounded, size: 11, color: AppColors.primary),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (displayDesc != null && displayDesc.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        displayDesc,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, color: textSecondary, fontStyle: FontStyle.italic),
-                      ),
-                    ],
+                    leftDetails,
+                    const SizedBox(height: 10),
+                    rightActions,
                   ],
-                ),
-              ),
+                );
+              }
 
-              // Privilege Meter (Thanh tiến độ quyền hạn)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Cấp quyền: ',
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                        ),
-                        Text(
-                          '$grantedTotal / $_totalAllPermissionsCount',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: textPrimary,
-                          ),
-                        ),
-                        Text(
-                          ' (${(progressPercent * 100).round()}%)',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      width: 140,
-                      height: 5,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: progressPercent,
-                          backgroundColor: borderColor,
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Action buttons (Sửa / Xóa)
-              AppButton(
-                label: 'Sửa thông tin',
-                icon: Icons.edit_outlined,
-                variant: AppButtonVariant.outline,
-                onPressed: (authProvider.can('Roles.Update') && !isOffline)
-                    ? _openEditRoleDialog
-                    : null,
-              ),
-              if (!role.isSystem) ...[
-                const SizedBox(width: 8),
-                AppButton(
-                  label: 'Xóa vai trò',
-                  icon: Icons.delete_outline_rounded,
-                  variant: AppButtonVariant.danger,
-                  onPressed: (authProvider.can('Roles.Delete') && !isOffline)
-                      ? _confirmDeleteRole
-                      : null,
-                ),
-              ],
-            ],
+              return Row(
+                children: [
+                  Expanded(child: leftDetails),
+                  const SizedBox(width: 12),
+                  rightActions,
+                ],
+              );
+            },
           ),
         ),
 
@@ -1201,15 +1239,15 @@ class _RolesScreenState extends State<RolesScreen> {
         if (isAdminRole)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            color: const Color(0xFFFEF3C7),
-            child: const Row(
+            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFEFF6FF),
+            child: Row(
               children: [
-                Icon(Icons.lock_rounded, color: Color(0xFFB45309), size: 16),
-                SizedBox(width: 8),
+                const Icon(Icons.shield_rounded, color: AppColors.primary, size: 16),
+                const SizedBox(width: 8),
                 Text(
-                  'Quản trị viên tối cao luôn có toàn quyền và không thể chỉnh sửa danh sách quyền hạn.',
+                  'Vai trò Quản trị viên: Có thể tùy chỉnh phân quyền để giới hạn các hành động tác nghiệp.',
                   style: TextStyle(
-                    color: Color(0xFFB45309),
+                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E40AF),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1284,70 +1322,72 @@ class _RolesScreenState extends State<RolesScreen> {
             color: cardBg,
             border: Border(bottom: BorderSide(color: borderColor)),
           ),
-          child: Row(
-            children: [
-              // Ô tìm kiếm quyền
-              Expanded(
-                flex: 4,
-                child: TextField(
-                  controller: _searchPermController,
-                  style: TextStyle(fontSize: 12.5, color: textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Tìm theo tên quyền, mã quyền, hoặc endpoint...',
-                    hintStyle: TextStyle(fontSize: 12, color: textSecondary),
-                    prefixIcon: const Icon(Icons.search_rounded, size: 18),
-                    suffixIcon: _permSearchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 16),
-                            onPressed: () => _searchPermController.clear(),
-                          )
-                        : null,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: borderColor),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                // Ô tìm kiếm quyền
+                SizedBox(
+                  width: 260,
+                  child: TextField(
+                    controller: _searchPermController,
+                    style: TextStyle(fontSize: 12.5, color: textPrimary),
+                    decoration: InputDecoration(
+                      hintText: 'Tìm theo tên quyền, mã quyền, hoặc endpoint...',
+                      hintStyle: TextStyle(fontSize: 12, color: textSecondary),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18),
+                      suffixIcon: _permSearchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () => _searchPermController.clear(),
+                            )
+                          : null,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: BorderSide(color: borderColor),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 14),
+                const SizedBox(width: 14),
 
-              // Bộ lọc trạng thái quyền (Segmented Filter: Tất cả | Đã cấp | Chưa cấp)
-              Container(
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: borderColor),
+                // Bộ lọc trạng thái quyền (Segmented Filter: Tất cả | Đã cấp | Chưa cấp)
+                Container(
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildStatusFilterButton(
+                        label: 'Tất cả ($currentScopeTotal)',
+                        value: 'ALL',
+                        isSelected: _statusFilter == 'ALL',
+                      ),
+                      _buildStatusFilterButton(
+                        label: 'Đã cấp ($currentScopeGranted)',
+                        value: 'GRANTED',
+                        isSelected: _statusFilter == 'GRANTED',
+                        activeColor: AppColors.success,
+                      ),
+                      _buildStatusFilterButton(
+                        label: 'Chưa cấp ($currentScopeNotGranted)',
+                        value: 'NOT_GRANTED',
+                        isSelected: _statusFilter == 'NOT_GRANTED',
+                        activeColor: textSecondary,
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildStatusFilterButton(
-                      label: 'Tất cả ($currentScopeTotal)',
-                      value: 'ALL',
-                      isSelected: _statusFilter == 'ALL',
-                    ),
-                    _buildStatusFilterButton(
-                      label: 'Đã cấp ($currentScopeGranted)',
-                      value: 'GRANTED',
-                      isSelected: _statusFilter == 'GRANTED',
-                      activeColor: AppColors.success,
-                    ),
-                    _buildStatusFilterButton(
-                      label: 'Chưa cấp ($currentScopeNotGranted)',
-                      value: 'NOT_GRANTED',
-                      isSelected: _statusFilter == 'NOT_GRANTED',
-                      activeColor: textSecondary,
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
+                const SizedBox(width: 14),
 
-              // Chuyển đổi giao diện: Bảng Ma Trận CRUD 2D vs Thẻ Chi Tiết
+                // Chuyển đổi giao diện: Bảng Ma Trận CRUD 2D vs Thẻ Chi Tiết
               Container(
                 height: 32,
                 padding: const EdgeInsets.all(2),
@@ -1386,7 +1426,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 ),
                 icon: const Icon(Icons.select_all_rounded, size: 16),
                 label: const Text('Chọn tất cả', style: TextStyle(fontSize: 12)),
-                onPressed: (isAdminRole || isOffline)
+                onPressed: isOffline
                     ? null
                     : () {
                         setState(() {
@@ -1408,7 +1448,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 ),
                 icon: const Icon(Icons.deselect_rounded, size: 16),
                 label: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 12)),
-                onPressed: (isAdminRole || isOffline)
+                onPressed: isOffline
                     ? null
                     : () {
                         setState(() {
@@ -1440,6 +1480,7 @@ class _RolesScreenState extends State<RolesScreen> {
             ],
           ),
         ),
+      ),
 
         // ==========================================
         // 4. DANH SÁCH QUYỀN HẠN (Grid Responsive & Thẻ Tinh Gọn)
@@ -1580,7 +1621,7 @@ class _RolesScreenState extends State<RolesScreen> {
                                     child: Checkbox(
                                       value: isAllModuleSelected,
                                       tristate: selectedInModule > 0 && !isAllModuleSelected,
-                                      onChanged: (isAdminRole || isOffline)
+                                      onChanged: isOffline
                                           ? null
                                           : (val) {
                                               setState(() {
@@ -1626,7 +1667,7 @@ class _RolesScreenState extends State<RolesScreen> {
                                     runSpacing: spacing,
                                     children: module.permissions.map((perm) {
                                       final isChecked = _selectedPermissions.contains(perm.permissionId);
-                                      final canToggle = !isAdminRole && !isOffline;
+                                      final canToggle = !isOffline;
 
                                       return SizedBox(
                                         width: itemWidth,
@@ -1729,7 +1770,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 label: 'Hoàn tác',
                 icon: Icons.undo_rounded,
                 variant: AppButtonVariant.secondary,
-                onPressed: (_isCurrentRoleDirty && !isAdminRole && !isOffline && !_isSaving)
+                onPressed: (_isCurrentRoleDirty && !isOffline && !_isSaving)
                     ? _revertChanges
                     : null,
               ),
@@ -1741,7 +1782,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 icon: Icons.save_rounded,
                 variant: AppButtonVariant.primary,
                 isLoading: _isSaving,
-                onPressed: (_isCurrentRoleDirty && !isAdminRole && !isOffline && !_isSaving)
+                onPressed: (_isCurrentRoleDirty && !isOffline && !_isSaving)
                     ? _savePermissions
                     : null,
               ),
@@ -2129,7 +2170,7 @@ class _RolesScreenState extends State<RolesScreen> {
     required bool isAdminRole,
     required bool isOffline,
   }) {
-    final canToggle = !isAdminRole && !isOffline;
+    final canToggle = !isOffline;
     final headerBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
 
     return Container(

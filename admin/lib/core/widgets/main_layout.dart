@@ -21,13 +21,12 @@ import '../../features/staff/staff_screen.dart';
 import '../../features/roles/roles_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
+import '../../features/statistics/statistics_screen.dart';
 
 class MainLayout extends StatelessWidget {
   const MainLayout({super.key});
 
   bool _hasPermissionForRoute(int index, AuthProvider authProvider) {
-    if (authProvider.isAdmin) return true;
-
     switch (index) {
       case 0: return true; // Tổng quan
       case 1: return authProvider.can('Products.View'); // Sản phẩm
@@ -40,10 +39,11 @@ class MainLayout extends StatelessWidget {
       case 8: return authProvider.can('Vouchers.View'); // Vouchers
       case 9: return authProvider.can('Surveys.View'); // Khảo sát
       case 14: return authProvider.can('Reviews.View'); // Đánh giá sản phẩm
-      case 10: return authProvider.can('Customers.View') || authProvider.can('Users.View'); // Khách hàng
-      case 11: return authProvider.can('Employees.View') || authProvider.can('Users.View'); // Nhân viên
+      case 15: return authProvider.can('Invoices.View') || authProvider.can('Orders.View'); // Thống kê
+      case 10: return authProvider.can('Customers.View'); // Khách hàng
+      case 11: return authProvider.can('Employees.View'); // Nhân viên
       case 12: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
-      case 13: return false; // Cài đặt (Admin only)
+      case 13: return authProvider.isAdmin || authProvider.can('Roles.View'); // Cài đặt hệ thống
       default: return false;
     }
   }
@@ -80,6 +80,8 @@ class MainLayout extends StatelessWidget {
         return const SettingsScreen();
       case 14:
         return const ReviewsScreen();
+      case 15:
+        return const StatisticsScreen();
       default:
         return const DashboardScreen();
     }
@@ -107,6 +109,7 @@ class MainLayout extends StatelessWidget {
       'Vai trò & phân quyền',
       'Cài đặt hệ thống',
       'Đánh giá sản phẩm',
+      'Thống kê',
     ];
 
     final rawIndex = navProvider.currentIndex;

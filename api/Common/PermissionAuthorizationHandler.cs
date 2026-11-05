@@ -10,15 +10,7 @@ public class PermissionAuthorizationHandler : AuthorizationHandler<PermissionReq
 {
     protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
-        // 1. Quản trị viên tối cao (ADMIN) có toàn quyền trên toàn bộ hệ thống
-        if (context.User.IsInRole("ADMIN") ||
-            context.User.HasClaim(ClaimTypes.Role, "ADMIN"))
-        {
-            context.Succeed(requirement);
-            return Task.CompletedTask;
-        }
-
-        // 2. Kiểm tra danh sách Claim "permission" của người dùng
+        // Kiểm tra danh sách Claim "permission" của người dùng (áp dụng cho mọi vai trò kể cả ADMIN)
         var hasPermission = context.User.Claims.Any(c =>
             c.Type == "permission" &&
             string.Equals(c.Value, requirement.Permission, StringComparison.OrdinalIgnoreCase));

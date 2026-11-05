@@ -119,6 +119,14 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _quickFillAndLogin(String email, String password) {
+    setState(() {
+      _emailCtrl.text = email;
+      _passwordCtrl.text = password;
+    });
+    _handleLogin();
+  }
+
   void _handleLogin() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final navProvider = Provider.of<NavigationProvider>(context, listen: false);
@@ -195,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SingleActivator(LogicalKeyboardKey.enter): _handleLogin,
             },
             child: Container(
-              width: 430,
+              width: 450,
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
                 color: cardBg,
@@ -357,8 +365,218 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: _handleLogin,
                     ),
                   ),
+                  const SizedBox(height: 22),
+
+                  // Divider "Đăng nhập nhanh theo vai trò"
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: borderColor, height: 1)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text(
+                          'ĐĂNG NHẬP NHANH THEO VAI TRÒ',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.8,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: borderColor, height: 1)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 4 Nút Đăng nhập Nhanh: Admin, Sales, Kho, CRM
+                  _buildQuickLoginGrid(isDark, borderColor, textPrimary, textSecondary),
                 ],
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickLoginGrid(
+    bool isDark,
+    Color borderColor,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickRoleCard(
+                roleName: 'Quản trị viên',
+                roleCode: 'ADMIN',
+                email: 'admin@techstoree.vn',
+                password: 'admin123',
+                icon: Icons.shield_rounded,
+                color: const Color(0xFF6366F1),
+                isDark: isDark,
+                borderColor: borderColor,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildQuickRoleCard(
+                roleName: 'Bán hàng',
+                roleCode: 'SALES',
+                email: 'sales01@techstoree.vn',
+                password: 'staff123',
+                icon: Icons.point_of_sale_rounded,
+                color: const Color(0xFF0284C7),
+                isDark: isDark,
+                borderColor: borderColor,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildQuickRoleCard(
+                roleName: 'Quản lý kho',
+                roleCode: 'KHO',
+                email: 'warehouse01@techstoree.vn',
+                password: 'staff123',
+                icon: Icons.inventory_2_rounded,
+                color: const Color(0xFFD97706),
+                isDark: isDark,
+                borderColor: borderColor,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _buildQuickRoleCard(
+                roleName: 'Khảo sát & CRM',
+                roleCode: 'CRM',
+                email: 'survey01@techstoree.vn',
+                password: 'staff123',
+                icon: Icons.support_agent_rounded,
+                color: const Color(0xFF059669),
+                isDark: isDark,
+                borderColor: borderColor,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuickRoleCard({
+    required String roleName,
+    required String roleCode,
+    required String email,
+    required String password,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isCurrent = _emailCtrl.text.trim().toLowerCase() == email.toLowerCase();
+
+    return Material(
+      color: Colors.transparent,
+      child: Tooltip(
+        message: 'Nhấn để đăng nhập ngay với $roleName ($email)',
+        child: InkWell(
+          onTap: authProvider.isLoading
+              ? null
+              : () => _quickFillAndLogin(email, password),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: isCurrent
+                  ? color.withValues(alpha: isDark ? 0.2 : 0.08)
+                  : (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC)),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isCurrent ? color : borderColor.withValues(alpha: 0.8),
+                width: isCurrent ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: isDark ? 0.22 : 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon, color: color, size: 17),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              roleName,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              roleCode,
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w800,
+                                color: color,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
