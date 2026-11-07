@@ -22,5 +22,10 @@ postman/collections/
 ## Local Auth
 .saved_login.json
 
+## Database backups (may contain private customer data)
+backups/
+*.dump
+*.backup
+
 
 
