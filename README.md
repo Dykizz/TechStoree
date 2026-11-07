@@ -1,5 +1,7 @@
 # Hệ Thống Thông Tin Doanh Nghiệp - Web Bán Hàng
 
+Hướng dẫn sao lưu và phục hồi CSDL bằng PowerShell: [scripts/README.md](scripts/README.md).
+
 Hệ thống Backend RESTful API được xây dựng bằng **ASP.NET Core Web API (.NET 10)** kết hợp cơ sở dữ liệu **PostgreSQL 17** và giao diện quản lý **pgAdmin 4** chạy trên môi trường Docker.
 
 ---
