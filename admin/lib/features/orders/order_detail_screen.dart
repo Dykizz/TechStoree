@@ -8,6 +8,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
@@ -80,12 +81,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     }
 
     if (nextStatuses.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đơn hàng ở trạng thái "${_currentOrder.orderStatusDisplay}" không thể chuyển tiếp trạng thái.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppToast.warning(context, 'Đơn hàng ở trạng thái "${_currentOrder.orderStatusDisplay}" không thể chuyển tiếp trạng thái.');
       return;
     }
 
@@ -250,15 +246,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ? null
                     : () async {
                         if (selectedStatus == 'RETURNED' && reasonCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                            const SnackBar(content: Text('Vui lòng nhập lý do hoàn hàng / giao thất bại.'), backgroundColor: AppColors.danger),
-                          );
+                          AppToast.warning(dialogCtx, 'Vui lòng nhập lý do hoàn hàng / giao thất bại.');
                           return;
                         }
                         if (selectedStatus == 'CANCELLED' && reasonCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                            const SnackBar(content: Text('Vui lòng nhập lý do hủy đơn hàng.'), backgroundColor: AppColors.danger),
-                          );
+                          AppToast.warning(dialogCtx, 'Vui lòng nhập lý do hủy đơn hàng.');
                           return;
                         }
 
@@ -274,15 +266,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Navigator.pop(dialogCtx);
                         }
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res.message),
-                              backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                            ),
-                          );
                           if (res.success) {
+                            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Cập nhật trạng thái thành công!');
                             widget.onOrderUpdated();
                             _fetchFullDetail();
+                          } else {
+                            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Cập nhật trạng thái thất bại!');
                           }
                         }
                       },
@@ -381,9 +370,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ? null
                     : () async {
                         if (reasonCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                            const SnackBar(content: Text('Vui lòng nhập lý do hủy đơn hàng.'), backgroundColor: AppColors.danger),
-                          );
+                          AppToast.warning(dialogCtx, 'Vui lòng nhập lý do hủy đơn hàng.');
                           return;
                         }
 
@@ -398,15 +385,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Navigator.pop(dialogCtx);
                         }
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res.message),
-                              backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                            ),
-                          );
                           if (res.success) {
+                            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Hủy đơn hàng thành công!');
                             widget.onOrderUpdated();
                             _fetchFullDetail();
+                          } else {
+                            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Hủy đơn hàng thất bại!');
                           }
                         }
                       },
@@ -431,12 +415,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         builder: (ctx) => InvoiceDetailDialog(invoice: invoice),
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đơn hàng ${_currentOrder.orderCode} chưa có hóa đơn được tạo trong hệ thống.'),
-          backgroundColor: AppColors.warning,
-        ),
-      );
+      AppToast.warning(context, 'Đơn hàng ${_currentOrder.orderCode} chưa có hóa đơn được tạo trong hệ thống.');
     }
   }
 
@@ -536,15 +515,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           Navigator.pop(dialogCtx);
                         }
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(res.message),
-                              backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                            ),
-                          );
                           if (res.success) {
+                            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xác nhận đối soát COD thành công!');
                             widget.onOrderUpdated();
                             _fetchFullDetail();
+                          } else {
+                            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xác nhận đối soát thất bại!');
                           }
                         }
                       },

@@ -10,6 +10,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/page_header.dart';
 
@@ -82,24 +83,14 @@ class _SurveyStatisticsViewState extends State<SurveyStatisticsView> {
         }
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        AppToast.success(context, 'Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)');
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
-        );
+        AppToast.error(context, 'Không thể tải báo cáo khảo sát.');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi xuất file: $e'), backgroundColor: AppColors.danger),
-      );
+      AppToast.error(context, 'Lỗi khi xuất file: $e');
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }

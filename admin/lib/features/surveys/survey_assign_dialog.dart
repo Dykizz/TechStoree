@@ -9,6 +9,7 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 
 class SurveyAssignDialog extends StatefulWidget {
   final SurveyAdminList survey;
@@ -362,9 +363,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
 
   Future<void> _submitAssign() async {
     if (_targetType == SurveyTargetType.BY_IDS && _selectedUserIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ít nhất 1 khách hàng!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng chọn ít nhất 1 khách hàng!');
       return;
     }
 
@@ -384,12 +383,11 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
       setState(() => _isSubmitting = false);
       Navigator.pop(context);
       widget.onAssigned();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
+      if (res.success) {
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Phân phối khảo sát thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Phân phối khảo sát thất bại!');
+      }
     }
   }
 }

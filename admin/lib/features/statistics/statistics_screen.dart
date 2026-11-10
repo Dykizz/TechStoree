@@ -6,6 +6,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/page_header.dart';
 import 'services/statistics_service.dart';
 import 'widgets/financial_matrix_view.dart';
@@ -109,13 +110,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
 
     if (mounted && path != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã xuất thành công: $path'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.success(context, 'Đã xuất thành công: $path');
     }
   }
 
@@ -132,13 +127,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
 
     if (mounted && path != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã xuất thành công: $path'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.success(context, 'Đã xuất thành công: $path');
     }
   }
 
@@ -155,13 +144,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
 
     if (mounted && path != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Đã xuất thành công: $path'),
-          backgroundColor: AppColors.success,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.success(context, 'Đã xuất thành công: $path');
     }
   }
 

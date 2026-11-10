@@ -7,6 +7,7 @@ import '../../../core/constants/app_tokens.dart';
 import '../../../core/models/order.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class PackingSlipDialog extends StatefulWidget {
   final List<Order> orders;
@@ -73,13 +74,7 @@ class _PackingSlipDialogState extends State<PackingSlipDialog> {
     buffer.writeln('========================================');
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã sao chép nội dung phiếu đóng gói đơn ${order.orderCode} vào clipboard.'),
-        backgroundColor: AppColors.success,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppToast.success(context, 'Đã sao chép nội dung phiếu đóng gói đơn ${order.orderCode} vào clipboard.');
   }
 
   @override
@@ -664,13 +659,7 @@ class _PackingSlipDialogState extends State<PackingSlipDialog> {
                         variant: AppButtonVariant.primary,
                         onPressed: () {
                           _copySlipText(order);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Đã xuất bản mẫu in. Có thể nhấn Ctrl+P trên máy in hoặc dán nội dung vào máy in bưu phẩm.'),
-                              backgroundColor: AppColors.primary,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
+                          AppToast.info(context, 'Đã xuất bản mẫu in. Có thể nhấn Ctrl+P trên máy in hoặc dán nội dung vào máy in bưu phẩm.');
                         },
                       ),
                     ],
