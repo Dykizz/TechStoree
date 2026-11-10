@@ -29,9 +29,26 @@ class DataTableContainer extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(6),
-        child: isScrollableTable
-            ? ScrollableTableWrapper(child: child)
-            : child,
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
+            dataTableTheme: DataTableThemeData(
+              dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                if (states.contains(WidgetState.pressed)) {
+                  return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                }
+                if (states.contains(WidgetState.hovered)) {
+                  return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
+                }
+                return null;
+              }),
+            ),
+          ),
+          child: isScrollableTable
+              ? ScrollableTableWrapper(child: child)
+              : child,
+        ),
       ),
     );
   }

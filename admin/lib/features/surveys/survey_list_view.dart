@@ -10,6 +10,7 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/data_table_container.dart';
@@ -216,8 +217,11 @@ class _SurveyListViewState extends State<SurveyListView> {
                                           onSelectChanged: (_) => widget.onViewDetail(s),
                                           mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                                            if (states.contains(WidgetState.pressed)) {
+                                              return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                            }
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withOpacity(0.5) : const Color(0xFFF1F5F9);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                             }
                                             return null;
                                           }),
@@ -540,43 +544,37 @@ class _SurveyListViewState extends State<SurveyListView> {
           }
 
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 4),
-            ),
-          );
+          AppToast.success(context, 'Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)');
         } else {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
-          );
+          AppToast.error(context, 'Không thể tải báo cáo khảo sát.');
         }
         break;
       case 'CLONE':
         final res = await apiService.cloneSurvey(s.surveyId, token: token);
         if (mounted) {
           _loadSurveys();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
-          );
+          if (res.success) {
+            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
+          } else {
+            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
+          }
         }
         break;
       case 'TOGGLE':
         final res = await apiService.toggleSurveyActive(s.surveyId, token: token);
         if (mounted) {
           _loadSurveys();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res ? 'Đã đổi trạng thái khảo sát!' : 'Đổi trạng thái thất bại!')),
-          );
+          if (res) {
+            AppToast.success(context, 'Đã đổi trạng thái khảo sát!');
+          } else {
+            AppToast.error(context, 'Đổi trạng thái thất bại!');
+          }
         }
         break;
       case 'DELETE':
         if (s.hasResponses) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể xóa khảo sát đã có phản hồi!'), backgroundColor: AppColors.danger),
-          );
+          AppToast.warning(context, 'Không thể xóa khảo sát đã có phản hồi!');
           return;
         }
         final confirm = await showDialog<bool>(
@@ -598,9 +596,11 @@ class _SurveyListViewState extends State<SurveyListView> {
           final res = await apiService.deleteSurvey(s.surveyId, token: token);
           if (mounted) {
             _loadSurveys();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
-            );
+            if (res.success) {
+              AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
+            } else {
+              AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
+            }
           }
         }
         break;

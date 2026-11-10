@@ -103,25 +103,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               PageHeader(
                 title: 'Quản lý nhà cung cấp',
                 subtitle: 'Quản lý thông tin các nhà đối tác phân phối thiết bị và linh kiện',
-                action: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    AppButton(
-                      label: 'Tải lại',
-                      icon: Icons.refresh_rounded,
-                      variant: AppButtonVariant.outline,
-                      onPressed: () => setState(() => _loadSuppliers()),
-                    ),
-                    if (authProvider.can('Suppliers.Create')) ...[
-                      const SizedBox(width: 8),
-                      AppButton(
+                action: authProvider.can('Suppliers.Create')
+                    ? AppButton(
                         label: 'Tạo nhà cung cấp mới',
                         icon: Icons.add_rounded,
                         onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
-                      ),
-                    ],
-                  ],
-                ),
+                      )
+                    : null,
               ),
 
               // Thanh Tabs lọc trạng thái (Tất cả / Đang hợp tác / Ngừng hợp tác)
@@ -201,13 +189,16 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                   return DataRow(
                                     onSelectChanged: (_) => _showDetailDialog(context, sup, textPrimary, textSecondary, isDark),
                                     color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                                      if (states.contains(WidgetState.pressed)) {
+                                        return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                      }
                                       if (!isActive) {
                                         return isDark
                                             ? const Color(0xFF1E293B).withValues(alpha: 0.3)
                                             : const Color(0xFFFFFBEB).withValues(alpha: 0.6);
                                       }
                                       if (states.contains(WidgetState.hovered)) {
-                                        return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
+                                        return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                       }
                                       return null;
                                     }),

@@ -10,6 +10,7 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
@@ -1013,8 +1014,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                         onSelectChanged: (_) => _openProductDetail(product, 0),
                         mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                         color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                          }
                           if (states.contains(WidgetState.hovered)) {
-                            return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
+                            return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                           }
                           return null;
                         }),
@@ -1143,13 +1147,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                         onChanged: (_) async {
                                           final res = await apiService.toggleProductStatus(product.id, token: token);
                                           if (mounted) {
-                                            if (res.success) _loadProducts();
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(
-                                                content: Text(res.message),
-                                                backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                                              ),
-                                            );
+                                            if (res.success) {
+                                              _loadProducts();
+                                              AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                                            } else {
+                                              AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
+                                            }
                                           }
                                         },
                                       ),
@@ -1230,13 +1233,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
               Navigator.pop(ctx);
               final res = await apiService.deleteProduct(product.id, token: token);
               if (context.mounted) {
-                if (res.success) _loadProducts();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message),
-                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                  ),
-                );
+                if (res.success) {
+                  _loadProducts();
+                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa sản phẩm thành công!');
+                } else {
+                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa sản phẩm thất bại!');
+                }
               }
             },
           ),
@@ -1851,13 +1853,12 @@ class _AdminProductCardState extends State<AdminProductCard> {
                           onChanged: (_) async {
                             final res = await widget.apiService.toggleProductStatus(p.id, token: widget.token);
                             if (!context.mounted) return;
-                            if (res.success) widget.onLoadProducts();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                              ),
-                            );
+                            if (res.success) {
+                              widget.onLoadProducts();
+                              AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                            } else {
+                              AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
+                            }
                           },
                         ),
                       ),

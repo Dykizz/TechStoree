@@ -14,6 +14,7 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
@@ -115,12 +116,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
         token: authProvider.token,
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.message),
-            backgroundColor: res.success ? AppColors.success : AppColors.danger,
-          ),
-        );
+        if (res.success) {
+          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+        } else {
+          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
+        }
       }
     } finally {
       if (mounted) {
@@ -382,8 +382,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                         return DataRow(
                                           onSelectChanged: (_) => _showVoucherDetailDialog(context, voucher),
                                           color: WidgetStateProperty.resolveWith<Color?>((states) {
+                                            if (states.contains(WidgetState.pressed)) {
+                                              return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                            }
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                             }
                                             return null;
                                           }),
@@ -420,13 +423,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                                                         InkWell(
                                                           onTap: () {
                                                             Clipboard.setData(ClipboardData(text: voucher.code));
-                                                            ScaffoldMessenger.of(context).showSnackBar(
-                                                              SnackBar(
-                                                                content: Text('Đã sao chép mã: ${voucher.code}'),
-                                                                duration: const Duration(seconds: 2),
-                                                                backgroundColor: AppColors.success,
-                                                              ),
-                                                            );
+                                                            AppToast.success(context, 'Đã sao chép mã: ${voucher.code}');
                                                           },
                                                           child: const Padding(
                                                             padding: EdgeInsets.all(2.0),
@@ -727,13 +724,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                       InkWell(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: voucher.code));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Đã sao chép mã: ${voucher.code}'),
-                              duration: const Duration(seconds: 2),
-                              backgroundColor: AppColors.success,
-                            ),
-                          );
+                          AppToast.success(context, 'Đã sao chép mã: ${voucher.code}');
                         },
                         child: const Padding(
                           padding: EdgeInsets.all(4.0),
@@ -1391,12 +1382,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                     if (!formKey.currentState!.validate()) return;
 
                     if (startDate.isAfter(endDate) || startDate.isAtSameMomentAs(endDate)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Thời gian kết thúc phải sau thời gian bắt đầu.'),
-                          backgroundColor: AppColors.danger,
-                        ),
-                      );
+                      AppToast.warning(context, 'Thời gian kết thúc phải sau thời gian bắt đầu.');
                       return;
                     }
 
@@ -1442,21 +1428,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
                     if (res.success) {
                       Navigator.pop(ctx);
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(res.message),
-                            backgroundColor: AppColors.success,
-                          ),
-                        );
+                        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Lưu voucher thành công!');
                       }
                     } else {
                       if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(res.message),
-                            backgroundColor: AppColors.danger,
-                          ),
-                        );
+                        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Lưu voucher thất bại!');
                       }
                     }
                   },
@@ -1517,12 +1493,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
               Navigator.pop(ctx);
               final res = await apiService.deleteVoucher(voucher.voucherId, token: authProvider.token);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message),
-                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                  ),
-                );
+                if (res.success) {
+                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa voucher thành công!');
+                } else {
+                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa voucher thất bại!');
+                }
               }
             },
           ),
