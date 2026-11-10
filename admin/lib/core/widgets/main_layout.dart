@@ -39,7 +39,7 @@ class MainLayout extends StatelessWidget {
       case 8: return authProvider.can('Vouchers.View'); // Vouchers
       case 9: return authProvider.can('Surveys.View'); // Khảo sát
       case 14: return authProvider.can('Reviews.View'); // Đánh giá sản phẩm
-      case 15: return authProvider.can('Invoices.View') || authProvider.can('Orders.View'); // Thống kê
+      case 15: return authProvider.isAdmin; // Thống kê (Chỉ dành riêng cho Quản trị viên)
       case 10: return authProvider.can('Customers.View'); // Khách hàng
       case 11: return authProvider.can('Employees.View'); // Nhân viên
       case 12: return authProvider.can('Roles.View'); // Vai trò & Phân quyền
