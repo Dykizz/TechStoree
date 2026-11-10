@@ -6,6 +6,7 @@ import '../../../core/constants/app_tokens.dart';
 import '../../../core/models/invoice.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/status_badge.dart';
 
 class InvoiceDetailDialog extends StatelessWidget {
@@ -561,14 +562,7 @@ class InvoiceDetailDialog extends StatelessWidget {
                     label: 'In hóa đơn / Xuất PDF',
                     icon: Icons.print_rounded,
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Đang chuẩn bị lệnh in cho hóa đơn ${invoice.invoiceCode}...'),
-                          backgroundColor: AppColors.success,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
+                      AppToast.info(context, 'Đang chuẩn bị lệnh in cho hóa đơn ${invoice.invoiceCode}...');
                     },
                   ),
                 ],
