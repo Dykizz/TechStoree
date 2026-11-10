@@ -61,8 +61,8 @@ mixin PurchaseOrderApiService on BaseApiService {
         body: jsonEncode(po.toCreateJson()),
       );
 
-      final body = jsonDecode(response.body);
       if (response.statusCode == 201 || response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         notifyListeners();
         return ApiResult(
           success: true,
@@ -70,7 +70,7 @@ mixin PurchaseOrderApiService on BaseApiService {
           data: body['data'] != null ? PurchaseOrder.fromJson(body['data']) : null,
         );
       }
-      return ApiResult(success: false, message: body['message'] ?? 'Tạo phiếu nhập hàng thất bại.');
+      return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
       return ApiResult(success: false, message: 'Lỗi kết nối khi tạo phiếu nhập hàng: $e');
     }
@@ -85,8 +85,8 @@ mixin PurchaseOrderApiService on BaseApiService {
         body: jsonEncode(po.toCreateJson()),
       );
 
-      final body = jsonDecode(response.body);
       if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         notifyListeners();
         return ApiResult(
           success: true,
@@ -94,7 +94,7 @@ mixin PurchaseOrderApiService on BaseApiService {
           data: body['data'] != null ? PurchaseOrder.fromJson(body['data']) : null,
         );
       }
-      return ApiResult(success: false, message: body['message'] ?? 'Cập nhật phiếu nhập hàng thất bại.');
+      return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
       return ApiResult(success: false, message: 'Lỗi kết nối khi cập nhật phiếu nhập hàng: $e');
     }
@@ -104,13 +104,13 @@ mixin PurchaseOrderApiService on BaseApiService {
     try {
       final uri = Uri.parse('$baseUrl/purchase-orders/$id');
       final response = await httpDelete(uri, token: token);
-      final body = jsonDecode(response.body);
 
       if (response.statusCode == 200) {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
         notifyListeners();
         return ApiResult(success: true, message: body['message'] ?? 'Xóa phiếu nhập hàng thành công.');
       }
-      return ApiResult(success: false, message: body['message'] ?? 'Xóa phiếu nhập hàng thất bại.');
+      return ApiResult(success: false, message: extractErrorMessage(response));
     } catch (e) {
       return ApiResult(success: false, message: 'Lỗi kết nối server: $e');
     }

@@ -161,9 +161,11 @@ mixin SurveyApiService on BaseApiService {
       );
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
+        lastErrorMessage = '';
         notifyListeners();
         return true;
       }
+      extractErrorMessage(response);
     } catch (e) {
       debugPrint('API Error toggleSurveyActive: $e');
     }

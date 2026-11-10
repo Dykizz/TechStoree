@@ -88,7 +88,7 @@ mixin UserApiService on BaseApiService {
           'email': user.email,
           'password': password,
           'fullName': user.fullName,
-          'phone': user.phone,
+          'phone': user.phone.isNotEmpty ? user.phone : null,
           'techInterest': user.techInterest,
           'dateOfBirth': user.dateOfBirth?.toIso8601String(),
           'address': user.address,
@@ -101,24 +101,8 @@ mixin UserApiService on BaseApiService {
         return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
       }
 
-      // Fallback sang /auth/register nếu cần
-      final fallback = await httpPost(
-        Uri.parse('$baseUrl/auth/register'),
-        token: token,
-        body: json.encode({
-          'username': user.userName.isNotEmpty ? user.userName : user.fullName.toLowerCase().replaceAll(' ', '_'),
-          'email': user.email,
-          'password': password,
-          'fullName': user.fullName,
-          'phone': user.phone,
-          'techInterest': user.techInterest,
-          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
-          'address': user.address,
-        }),
-      );
-      if (fallback.statusCode >= 200 && fallback.statusCode < 300) {
-        notifyListeners();
-        return ApiResult(success: true, message: 'Tạo tài khoản thành công!');
+      if (response.statusCode == 400 || response.statusCode == 409) {
+        return ApiResult(success: false, message: extractErrorMessage(response));
       }
 
       return ApiResult(success: false, message: extractErrorMessage(response));
@@ -130,35 +114,32 @@ mixin UserApiService on BaseApiService {
 
   Future<ApiResult> updateUser(AppUser user, {String? token}) async {
     final oldUser = _userCache[user.id];
-    _userCache[user.id] = user;
 
     try {
-      // 1. Cập nhật các roles qua backend API: PATCH /users/{id}/role
-      if (user.roles.isNotEmpty) {
-        await updateUserRoles(user.id, user.roles, token: token);
-      } else {
-        await updateUserRole(user.id, user.role, token: token);
+      final putResp = await httpPut(
+        Uri.parse('$baseUrl/users/${user.id}'),
+        token: token,
+        body: json.encode({
+          'fullName': user.fullName,
+          'email': user.email,
+          'phone': user.phone.isNotEmpty ? user.phone : null,
+          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+          'techInterest': user.techInterest,
+          'address': user.address,
+          'roles': user.roles.isNotEmpty ? user.roles : [user.role],
+        }),
+      );
+
+      if (putResp.statusCode < 200 || putResp.statusCode >= 300) {
+        return ApiResult(success: false, message: extractErrorMessage(putResp));
       }
 
-      // 2. Cập nhật trạng thái khóa nếu có thay đổi
+      // Cập nhật trạng thái khóa nếu có thay đổi
       if (oldUser != null && oldUser.isLocked != user.isLocked) {
         await toggleUserLock(user.id, isLocked: user.isLocked, token: token);
       }
 
-      // 3. Cập nhật profile qua API /users/profile nếu người sửa chính là tài khoản đang đăng nhập
-      if (authProvider != null && authProvider!.userEmail == user.email) {
-        await httpPut(
-          Uri.parse('$baseUrl/users/profile'),
-          token: token,
-          body: json.encode({
-            'fullName': user.fullName,
-            'phone': user.phone,
-            'dateOfBirth': user.dateOfBirth?.toIso8601String(),
-            'techInterest': user.techInterest,
-            'address': user.address,
-          }),
-        );
-      }
+      _userCache[user.id] = user;
       notifyListeners();
       return ApiResult(success: true, message: 'Cập nhật thông tin người dùng thành công!');
     } catch (e) {

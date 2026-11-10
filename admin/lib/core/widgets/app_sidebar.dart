@@ -52,7 +52,7 @@ class AppSidebar extends StatelessWidget {
         case 8: return authProvider.can('Vouchers.View');
         case 9: return authProvider.can('Surveys.View');
         case 14: return authProvider.can('Reviews.View');
-        case 15: return authProvider.can('Invoices.View') || authProvider.can('Orders.View');
+        case 15: return authProvider.isAdmin; // Thống kê (Chỉ Quản trị viên)
         case 10: return authProvider.can('Customers.View');
         case 11: return authProvider.can('Employees.View');
         case 12: return authProvider.can('Roles.View');
@@ -108,19 +108,23 @@ class AppSidebar extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: Text(
-                            authProvider.userRole,
-                            style: TextStyle(
-                              color: textSecondary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 9,
-                              letterSpacing: 0.5,
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              authProvider.userRole,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: textSecondary,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 9,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ),

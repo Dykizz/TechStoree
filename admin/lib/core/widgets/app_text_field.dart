@@ -118,6 +118,16 @@ class AppTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.danger, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: AppColors.danger, width: 1.5),
+        ),
+        errorStyle: const TextStyle(color: AppColors.danger, fontSize: 11),
+        errorMaxLines: 2,
       ),
     );
 

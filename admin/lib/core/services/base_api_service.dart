@@ -323,17 +323,21 @@ abstract class BaseApiService extends ChangeNotifier {
     return httpDelete(buildUri(path), body: body, token: token, timeout: timeout ?? const Duration(seconds: 10));
   }
 
+  String lastErrorMessage = '';
+
   String extractErrorMessage(http.Response response) {
     if (response.statusCode == 401) {
-      return 'Phiên làm việc hết hạn hoặc chưa được xác thực (HTTP 401). Vui lòng đăng nhập lại!';
+      lastErrorMessage = 'Phiên làm việc hết hạn hoặc chưa được xác thực (HTTP 401). Vui lòng đăng nhập lại!';
+      return lastErrorMessage;
+    }
+    if (response.statusCode == 403) {
+      lastErrorMessage = 'Bạn không có quyền thực hiện thao tác này (HTTP 403).';
+      return lastErrorMessage;
     }
     try {
       if (response.body.isNotEmpty) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic>) {
-          if (jsonRes['message'] != null && jsonRes['message'].toString().isNotEmpty) {
-            return jsonRes['message'].toString();
-          }
           if (jsonRes['errors'] != null) {
             final errs = jsonRes['errors'];
             if (errs is Map) {
@@ -345,23 +349,36 @@ abstract class BaseApiService extends ChangeNotifier {
                   messages.add(v.toString());
                 }
               });
-              if (messages.isNotEmpty) return messages.join('\n');
-            } else if (errs is List) {
-              return errs.join('\n');
+              if (messages.isNotEmpty) {
+                lastErrorMessage = messages.join('\n');
+                return lastErrorMessage;
+              }
+            } else if (errs is List && errs.isNotEmpty) {
+              lastErrorMessage = errs.join('\n');
+              return lastErrorMessage;
             }
-            return errs.toString();
           }
-          if (jsonRes['title'] != null) {
-            return jsonRes['title'].toString();
+          if (jsonRes['message'] != null && jsonRes['message'].toString().trim().isNotEmpty) {
+            lastErrorMessage = jsonRes['message'].toString().trim();
+            return lastErrorMessage;
+          }
+          if (jsonRes['title'] != null && jsonRes['title'].toString().trim().isNotEmpty) {
+            final title = jsonRes['title'].toString().trim();
+            if (title != 'One or more validation errors occurred.') {
+              lastErrorMessage = title;
+              return lastErrorMessage;
+            }
           }
         }
       }
     } catch (_) {}
-    return 'Lỗi yêu cầu HTTP ${response.statusCode}';
+    lastErrorMessage = 'Dữ liệu không hợp lệ hoặc lỗi máy chủ (HTTP ${response.statusCode})';
+    return lastErrorMessage;
   }
 
   dynamic parseApiResponse(http.Response response) {
     if (response.statusCode >= 200 && response.statusCode < 300) {
+      lastErrorMessage = '';
       if (response.body.isEmpty) return true;
       final jsonRes = json.decode(utf8.decode(response.bodyBytes));
       if (jsonRes is Map<String, dynamic> && jsonRes.containsKey('success')) {
@@ -371,12 +388,16 @@ abstract class BaseApiService extends ChangeNotifier {
             return data['items'];
           }
           return data ?? true;
+        } else {
+          extractErrorMessage(response);
+          return null;
         }
       } else if (jsonRes is List) {
         return jsonRes;
       }
       return jsonRes;
     }
+    extractErrorMessage(response);
     return null;
   }
 

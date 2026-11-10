@@ -476,8 +476,12 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
       if (mounted) {
         _loadDetail();
         widget.onSurveyChanged();
+        final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res ? 'Đã $action khảo sát thành công!' : 'Thao tác thất bại!')),
+          SnackBar(
+            content: Text(res ? 'Đã $action khảo sát thành công!' : errMsg),
+            backgroundColor: res ? AppColors.success : AppColors.danger,
+          ),
         );
       }
     }

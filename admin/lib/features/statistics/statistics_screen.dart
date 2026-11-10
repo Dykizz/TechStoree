@@ -48,6 +48,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    // Chốt chặn an toàn: Chỉ Quản trị viên (Admin) mới có quyền truy cập dữ liệu Thống kê
+    if (!authProvider.isAdmin) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Bạn không có quyền truy cập trang Thống kê (Chỉ dành cho Quản trị viên).';
+        });
+      }
+      return;
+    }
+
     final token = authProvider.token;
 
     try {
@@ -208,7 +220,27 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+
+    if (!authProvider.isAdmin) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_outline_rounded, size: 48, color: AppColors.warning),
+              SizedBox(height: 12),
+              Text(
+                'Truy cập bị từ chối: Chỉ Quản trị viên (Admin) mới có quyền xem Thống kê.',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
