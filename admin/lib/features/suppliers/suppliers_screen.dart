@@ -15,6 +15,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
+import '../../core/widgets/app_toast.dart';
 
 class SuppliersScreen extends StatefulWidget {
   const SuppliersScreen({super.key});
@@ -521,10 +522,13 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, Supplier? existing) {
     final isEditing = existing != null;
+    final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController(text: isEditing ? existing.name : '');
     final phoneCtrl = TextEditingController(text: isEditing ? existing.phone : '');
     final emailCtrl = TextEditingController(text: isEditing ? existing.email : '');
     final addressCtrl = TextEditingController(text: isEditing ? existing.address : '');
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    final phoneRegex = RegExp(r'^[0-9+\-\s()]{8,20}$');
 
     showDialog(
       context: context,
@@ -542,21 +546,70 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
           ),
           content: SizedBox(
             width: 500,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(controller: nameCtrl, labelText: 'Tên nhà cung cấp (*)'),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(child: AppTextField(controller: phoneCtrl, labelText: 'Số điện thoại')),
-                    const SizedBox(width: 8),
-                    Expanded(child: AppTextField(controller: emailCtrl, labelText: 'Email liên hệ')),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                AppTextField(controller: addressCtrl, maxLines: 2, labelText: 'Địa chỉ trụ sở / kho hàng'),
-              ],
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppTextField(
+                    controller: nameCtrl,
+                    labelText: 'Tên nhà cung cấp (*)',
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return 'Tên nhà cung cấp không được để trống.';
+                      if (v.length > 150) return 'Tên nhà cung cấp tối đa 150 ký tự.';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: AppTextField(
+                          controller: phoneCtrl,
+                          labelText: 'Số điện thoại (*)',
+                          keyboardType: TextInputType.phone,
+                          validator: (val) {
+                            final v = val?.trim() ?? '';
+                            if (v.isEmpty) return 'Số điện thoại không được để trống.';
+                            if (v.length > 20) return 'Số điện thoại tối đa 20 ký tự.';
+                            if (!phoneRegex.hasMatch(v)) return 'Số điện thoại không đúng định dạng.';
+                            return null;
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppTextField(
+                          controller: emailCtrl,
+                          labelText: 'Email liên hệ',
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (val) {
+                            final v = val?.trim() ?? '';
+                            if (v.isEmpty) return null;
+                            if (v.length > 100) return 'Email tối đa 100 ký tự.';
+                            if (!emailRegex.hasMatch(v)) return 'Email không đúng định dạng.';
+                            return null;
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  AppTextField(
+                    controller: addressCtrl,
+                    maxLines: 2,
+                    labelText: 'Địa chỉ trụ sở / kho hàng',
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.length > 255) return 'Địa chỉ tối đa 255 ký tự.';
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -564,7 +617,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
             AppButton(
               label: isEditing ? 'Cập Nhật' : 'Tạo Mới',
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
+                if (!formKey.currentState!.validate()) return;
 
                 final sup = Supplier(
                   id: isEditing ? existing.id : '0',
@@ -581,11 +634,16 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                     : await apiService.createSupplier(sup, token: token);
 
                 if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  setState(() => _loadSuppliers());
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(res ? 'Thao tác thành công!' : 'Thao tác thất bại!'), backgroundColor: res ? AppColors.success : AppColors.danger),
-                  );
+                  if (res) {
+                    Navigator.pop(ctx);
+                    setState(() => _loadSuppliers());
+                    AppToast.success(context, 'Thao tác thành công!');
+                  } else {
+                    final errMsg = apiService.lastErrorMessage.isNotEmpty
+                        ? apiService.lastErrorMessage
+                        : 'Thao tác thất bại!';
+                    AppToast.error(ctx, errMsg);
+                  }
                 }
               },
             ),
@@ -621,13 +679,10 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               if (context.mounted) {
                 if (res.success) {
                   setState(() => _loadSuppliers());
+                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                } else {
+                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Thao tác thành công!' : 'Thao tác thất bại!')),
-                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                  ),
-                );
               }
             },
           ),
@@ -654,13 +709,10 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
               if (context.mounted) {
                 if (res.success) {
                   setState(() => _loadSuppliers());
+                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa nhà cung cấp thành công!');
+                } else {
+                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
                 }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Xóa nhà cung cấp thành công!' : 'Thao tác thất bại!')),
-                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                  ),
-                );
               }
             },
           ),

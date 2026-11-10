@@ -12,6 +12,7 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
@@ -535,11 +536,14 @@ class _StaffScreenState extends State<StaffScreen> {
 
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, AppUser? existing) {
     final isEditing = existing != null;
+    final formKey = GlobalKey<FormState>();
     final fullNameCtrl = TextEditingController(text: isEditing ? existing.fullName : '');
     final userNameCtrl = TextEditingController(text: isEditing ? existing.userName : '');
     final emailCtrl = TextEditingController(text: isEditing ? existing.email : '');
     final phoneCtrl = TextEditingController(text: isEditing ? existing.phone : '');
     final passwordCtrl = TextEditingController();
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    final phoneRegex = RegExp(r'^[0-9+\-\s()]{8,15}$');
 
     final List<String> selectedRoles = isEditing
         ? (existing.roles.isNotEmpty ? List<String>.from(existing.roles) : [existing.role])
@@ -583,87 +587,150 @@ class _StaffScreenState extends State<StaffScreen> {
             content: SizedBox(
               width: 560,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: AppTextField(controller: fullNameCtrl, labelText: 'Họ và tên nhân viên (*)')),
-                        const SizedBox(width: 12),
-                        Expanded(child: AppTextField(controller: userNameCtrl, labelText: 'Tên đăng nhập / Username (*)')),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: AppTextField(controller: emailCtrl, labelText: 'Email công vụ (*)')),
-                        const SizedBox(width: 12),
-                        Expanded(child: AppTextField(controller: phoneCtrl, labelText: 'Số điện thoại liên lạc')),
-                      ],
-                    ),
-                    if (!isEditing) ...[
-                      const SizedBox(height: 12),
-                      AppTextField(controller: passwordCtrl, labelText: 'Mật khẩu khởi tạo (*)', obscureText: true),
-                    ],
-                    const SizedBox(height: 16),
-                    Text(
-                      'Phân Quyền Vai Trò (Được chọn nhiều vai trò):',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Column(
-                        children: availableStaffRoles.entries.map((e) {
-                          final isChecked = selectedRoles.contains(e.key);
-                          return CheckboxListTile(
-                            dense: true,
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              e.value,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: e.key == 'ADMIN' ? FontWeight.bold : FontWeight.normal,
-                                color: e.key == 'ADMIN' ? AppColors.danger : textPrimary,
-                              ),
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: fullNameCtrl,
+                              labelText: 'Họ và tên nhân viên (*)',
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Họ và tên không được để trống.';
+                                if (v.length > 100) return 'Họ và tên tối đa 100 ký tự.';
+                                return null;
+                              },
                             ),
-                            value: isChecked,
-                            activeColor: e.key == 'ADMIN' ? AppColors.danger : AppColors.primary,
-                            onChanged: (val) {
-                              setDialogState(() {
-                                if (val == true) {
-                                  selectedRoles.add(e.key);
-                                } else {
-                                  if (selectedRoles.length > 1) {
-                                    selectedRoles.remove(e.key);
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: userNameCtrl,
+                              labelText: 'Tên đăng nhập / Username (*)',
+                              readOnly: isEditing,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Tên đăng nhập không được để trống.';
+                                if (v.length < 3 || v.length > 50) return 'Tên đăng nhập từ 3 đến 50 ký tự.';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: emailCtrl,
+                              labelText: 'Email công vụ (*)',
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Email không được để trống.';
+                                if (v.length > 100) return 'Email tối đa 100 ký tự.';
+                                if (!emailRegex.hasMatch(v)) return 'Định dạng email không hợp lệ.';
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: phoneCtrl,
+                              labelText: 'Số điện thoại liên lạc',
+                              keyboardType: TextInputType.phone,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return null;
+                                if (v.length > 15) return 'Số điện thoại tối đa 15 ký tự.';
+                                if (!phoneRegex.hasMatch(v)) return 'Số điện thoại không đúng định dạng.';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!isEditing) ...[
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: passwordCtrl,
+                          labelText: 'Mật khẩu khởi tạo (*)',
+                          obscureText: true,
+                          validator: (val) {
+                            final v = val?.trim() ?? '';
+                            if (v.isEmpty) return 'Mật khẩu không được để trống.';
+                            if (v.length < 6) return 'Mật khẩu phải từ 6 ký tự trở lên.';
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Text(
+                        'Phân Quyền Vai Trò (Được chọn nhiều vai trò):',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Column(
+                          children: availableStaffRoles.entries.map((e) {
+                            final isChecked = selectedRoles.contains(e.key);
+                            return CheckboxListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                e.value,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: e.key == 'ADMIN' ? FontWeight.bold : FontWeight.normal,
+                                  color: e.key == 'ADMIN' ? AppColors.danger : textPrimary,
+                                ),
+                              ),
+                              value: isChecked,
+                              activeColor: e.key == 'ADMIN' ? AppColors.danger : AppColors.primary,
+                              onChanged: (val) {
+                                setDialogState(() {
+                                  if (val == true) {
+                                    selectedRoles.add(e.key);
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Nhân viên phải có ít nhất 1 vai trò')),
-                                    );
+                                    if (selectedRoles.length > 1) {
+                                      selectedRoles.remove(e.key);
+                                    } else {
+                                      AppToast.warning(context, 'Nhân viên phải có ít nhất 1 vai trò');
+                                    }
                                   }
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                    if (isEditing) ...[
-                      const SizedBox(height: 10),
-                      SwitchListTile(
-                        title: const Text('Khóa tài khoản này', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                        subtitle: const Text('Nhân viên bị khóa sẽ không thể đăng nhập trang quản trị', style: TextStyle(fontSize: 11)),
-                        value: isLocked,
-                        activeColor: AppColors.danger,
-                        onChanged: (val) => setDialogState(() => isLocked = val),
-                      ),
+                      if (isEditing) ...[
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          title: const Text('Khóa tài khoản này', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          subtitle: const Text('Nhân viên bị khóa sẽ không thể đăng nhập trang quản trị', style: TextStyle(fontSize: 11)),
+                          value: isLocked,
+                          activeColor: AppColors.danger,
+                          onChanged: (val) => setDialogState(() => isLocked = val),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -672,18 +739,7 @@ class _StaffScreenState extends State<StaffScreen> {
               AppButton(
                 label: isEditing ? 'Lưu phân quyền' : 'Thêm nhân viên',
                 onPressed: () async {
-                  if (fullNameCtrl.text.trim().isEmpty || userNameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vui lòng điền đầy đủ Họ tên, Username và Email (*)')),
-                    );
-                    return;
-                  }
-                  if (!isEditing && passwordCtrl.text.trim().length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mật khẩu khởi tạo phải từ 6 ký tự trở lên (*)')),
-                    );
-                    return;
-                  }
+                  if (!formKey.currentState!.validate()) return;
 
                   final user = AppUser(
                     id: isEditing ? existing.id : DateTime.now().millisecondsSinceEpoch.toString(),
@@ -698,18 +754,24 @@ class _StaffScreenState extends State<StaffScreen> {
                     createdAt: isEditing ? existing.createdAt : DateTime.now(),
                   );
 
-                  Navigator.pop(ctx);
-                  if (isEditing) {
-                    final res = await apiService.updateUser(user, token: token);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
-                      setState(() => _loadStaff());
-                    }
-                  } else {
-                    final res = await apiService.createUser(user, passwordCtrl.text.trim(), token: token);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
-                      setState(() => _loadStaff());
+                  final res = isEditing
+                      ? await apiService.updateUser(user, token: token)
+                      : await apiService.createUser(user, passwordCtrl.text.trim(), token: token);
+
+                  if (ctx.mounted) {
+                    if (res.success) {
+                      Navigator.pop(ctx);
+                      if (mounted) {
+                        setState(() => _loadStaff());
+                        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                      }
+                    } else {
+                      final errMsg = res.message.isNotEmpty
+                          ? res.message
+                          : (apiService.lastErrorMessage.isNotEmpty
+                              ? apiService.lastErrorMessage
+                              : 'Thao tác thất bại!');
+                      AppToast.error(ctx, errMsg);
                     }
                   }
                 },
@@ -736,11 +798,14 @@ class _StaffScreenState extends State<StaffScreen> {
               Navigator.pop(ctx);
               final willLock = !user.isLocked;
               final success = await apiService.toggleUserLock(user.id, isLocked: willLock, token: token);
-              if (mounted) {
+              if (context.mounted) {
                 final msg = willLock ? 'Đã khóa tài khoản nhân viên thành công!' : 'Đã mở khóa tài khoản nhân viên thành công!';
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? msg : 'Thao tác thất bại!')),
-                );
+                final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';
+                if (success) {
+                  AppToast.success(context, msg);
+                } else {
+                  AppToast.error(context, errMsg);
+                }
                 setState(() => _loadStaff());
               }
             },

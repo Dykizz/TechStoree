@@ -919,8 +919,10 @@ class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
 
     if (mounted) {
       setState(() => _isSaving = false);
-      Navigator.pop(context);
-      widget.onSaved();
+      if (result.success) {
+        Navigator.pop(context);
+        widget.onSaved();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(result.message),

@@ -11,6 +11,7 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
@@ -544,12 +545,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, AppUser? existing) {
     final isEditing = existing != null;
+    final formKey = GlobalKey<FormState>();
     final fullNameCtrl = TextEditingController(text: isEditing ? existing.fullName : '');
     final userNameCtrl = TextEditingController(text: isEditing ? existing.userName : '');
     final emailCtrl = TextEditingController(text: isEditing ? existing.email : '');
     final phoneCtrl = TextEditingController(text: isEditing ? existing.phone : '');
     final addressCtrl = TextEditingController(text: isEditing ? (existing.address ?? '') : '');
     final passwordCtrl = TextEditingController();
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    final phoneRegex = RegExp(r'^[0-9+\-\s()]{8,15}$');
 
     DateTime? selectedDob = isEditing ? existing.dateOfBirth : null;
     String selectedTechInterest = isEditing && existing.techInterest != null && existing.techInterest!.isNotEmpty
@@ -576,89 +580,162 @@ class _CustomersScreenState extends State<CustomersScreen> {
             content: SizedBox(
               width: 540,
               child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: AppTextField(controller: fullNameCtrl, labelText: 'Họ và tên (*)')),
-                        const SizedBox(width: 12),
-                        Expanded(child: AppTextField(controller: userNameCtrl, labelText: 'Tên đăng nhập (*)')),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: AppTextField(controller: emailCtrl, labelText: 'Địa chỉ Email (*)')),
-                        const SizedBox(width: 12),
-                        Expanded(child: AppTextField(controller: phoneCtrl, labelText: 'Số điện thoại')),
-                      ],
-                    ),
-                    if (!isEditing) ...[
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: fullNameCtrl,
+                              labelText: 'Họ và tên (*)',
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Họ và tên không được để trống.';
+                                if (v.length > 100) return 'Họ và tên tối đa 100 ký tự.';
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: userNameCtrl,
+                              labelText: 'Tên đăng nhập (*)',
+                              readOnly: isEditing,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Tên đăng nhập không được để trống.';
+                                if (v.length < 3 || v.length > 50) return 'Tên đăng nhập từ 3 đến 50 ký tự.';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 12),
-                      AppTextField(controller: passwordCtrl, labelText: 'Mật khẩu khởi tạo (*)', obscureText: true),
-                    ],
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: selectedDob ?? DateTime(2000, 1, 1),
-                                firstDate: DateTime(1940),
-                                lastDate: DateTime.now(),
-                              );
-                              if (picked != null) {
-                                setDialogState(() => selectedDob = picked);
-                              }
-                            },
-                            child: InputDecorator(
-                              decoration: InputDecoration(
-                                labelText: 'Ngày sinh',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                suffixIcon: const Icon(Icons.calendar_month_outlined, size: 18),
-                              ),
-                              child: Text(
-                                selectedDob != null ? '${selectedDob!.day}/${selectedDob!.month}/${selectedDob!.year}' : 'Chọn ngày sinh',
-                                style: const TextStyle(fontSize: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: AppTextField(
+                              controller: emailCtrl,
+                              labelText: 'Địa chỉ Email (*)',
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return 'Email không được để trống.';
+                                if (v.length > 100) return 'Email tối đa 100 ký tự.';
+                                if (!emailRegex.hasMatch(v)) return 'Định dạng email không hợp lệ.';
+                                return null;
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppTextField(
+                              controller: phoneCtrl,
+                              labelText: 'Số điện thoại',
+                              keyboardType: TextInputType.phone,
+                              validator: (val) {
+                                final v = val?.trim() ?? '';
+                                if (v.isEmpty) return null;
+                                if (v.length > 15) return 'Số điện thoại tối đa 15 ký tự.';
+                                if (!phoneRegex.hasMatch(v)) return 'Số điện thoại không đúng định dạng.';
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (!isEditing) ...[
+                        const SizedBox(height: 12),
+                        AppTextField(
+                          controller: passwordCtrl,
+                          labelText: 'Mật khẩu khởi tạo (*)',
+                          obscureText: true,
+                          validator: (val) {
+                            final v = val?.trim() ?? '';
+                            if (v.isEmpty) return 'Mật khẩu không được để trống.';
+                            if (v.length < 6) return 'Mật khẩu phải từ 6 ký tự trở lên.';
+                            return null;
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDob ?? DateTime(2000, 1, 1),
+                                  firstDate: DateTime(1940),
+                                  lastDate: DateTime.now(),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() => selectedDob = picked);
+                                }
+                              },
+                              child: InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: 'Ngày sinh',
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  suffixIcon: const Icon(Icons.calendar_month_outlined, size: 18),
+                                ),
+                                child: Text(
+                                  selectedDob != null ? '${selectedDob!.day}/${selectedDob!.month}/${selectedDob!.year}' : 'Chọn ngày sinh',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppDropdown<String>(
-                            value: selectedTechInterest,
-                            labelText: 'Sở thích công nghệ',
-                            items: [
-                              const DropdownMenuItem(value: 'Chưa chọn', child: Text('Chưa chọn')),
-                              ...techInterestOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedTechInterest = val);
-                              }
-                            },
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppDropdown<String>(
+                              value: selectedTechInterest,
+                              labelText: 'Sở thích công nghệ',
+                              items: [
+                                const DropdownMenuItem(value: 'Chưa chọn', child: Text('Chưa chọn')),
+                                ...techInterestOptions.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setDialogState(() => selectedTechInterest = val);
+                                }
+                              },
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      AppTextField(
+                        controller: addressCtrl,
+                        labelText: 'Địa chỉ cư trú / giao hàng',
+                        validator: (val) {
+                          final v = val?.trim() ?? '';
+                          if (v.length > 255) return 'Địa chỉ tối đa 255 ký tự.';
+                          return null;
+                        },
+                      ),
+                      if (isEditing) ...[
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          title: const Text('Khóa tài khoản này', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          subtitle: const Text('Khách hàng bị khóa sẽ không thể đăng nhập đặt hàng', style: TextStyle(fontSize: 11)),
+                          value: isLocked,
+                          activeColor: AppColors.danger,
+                          onChanged: (val) => setDialogState(() => isLocked = val),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 12),
-                    AppTextField(controller: addressCtrl, labelText: 'Địa chỉ cư trú / giao hàng'),
-                    if (isEditing) ...[
-                      const SizedBox(height: 10),
-                      SwitchListTile(
-                        title: const Text('Khóa tài khoản này', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                        subtitle: const Text('Khách hàng bị khóa sẽ không thể đăng nhập đặt hàng', style: TextStyle(fontSize: 11)),
-                        value: isLocked,
-                        activeColor: AppColors.danger,
-                        onChanged: (val) => setDialogState(() => isLocked = val),
-                      ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -667,18 +744,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               AppButton(
                 label: isEditing ? 'Lưu thay đổi' : 'Tạo khách hàng',
                 onPressed: () async {
-                  if (fullNameCtrl.text.trim().isEmpty || userNameCtrl.text.trim().isEmpty || emailCtrl.text.trim().isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vui lòng điền đầy đủ Họ tên, Username và Email (*)')),
-                    );
-                    return;
-                  }
-                  if (!isEditing && passwordCtrl.text.trim().length < 6) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Mật khẩu khởi tạo phải từ 6 ký tự trở lên (*)')),
-                    );
-                    return;
-                  }
+                  if (!formKey.currentState!.validate()) return;
 
                   final user = AppUser(
                     id: isEditing ? existing.id : DateTime.now().millisecondsSinceEpoch.toString(),
@@ -696,18 +762,24 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     createdAt: isEditing ? existing.createdAt : DateTime.now(),
                   );
 
-                  Navigator.pop(ctx);
-                  if (isEditing) {
-                    final res = await apiService.updateUser(user, token: token);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
-                      setState(() => _loadCustomers());
-                    }
-                  } else {
-                    final res = await apiService.createUser(user, passwordCtrl.text.trim(), token: token);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res.message)));
-                      setState(() => _loadCustomers());
+                  final res = isEditing
+                      ? await apiService.updateUser(user, token: token)
+                      : await apiService.createUser(user, passwordCtrl.text.trim(), token: token);
+
+                  if (ctx.mounted) {
+                    if (res.success) {
+                      Navigator.pop(ctx);
+                      if (mounted) {
+                        setState(() => _loadCustomers());
+                        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                      }
+                    } else {
+                      final errMsg = res.message.isNotEmpty
+                          ? res.message
+                          : (apiService.lastErrorMessage.isNotEmpty
+                              ? apiService.lastErrorMessage
+                              : 'Thao tác thất bại!');
+                      AppToast.error(ctx, errMsg);
                     }
                   }
                 },
@@ -734,11 +806,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
               Navigator.pop(ctx);
               final willLock = !user.isLocked;
               final success = await apiService.toggleUserLock(user.id, isLocked: willLock, token: token);
-              if (mounted) {
+              if (context.mounted) {
                 final msg = willLock ? 'Đã khóa tài khoản thành công!' : 'Đã mở khóa tài khoản thành công!';
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(success ? msg : 'Thao tác thất bại!')),
-                );
+                final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';
+                if (success) {
+                  AppToast.success(context, msg);
+                } else {
+                  AppToast.error(context, errMsg);
+                }
                 setState(() => _loadCustomers());
               }
             },

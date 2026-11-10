@@ -10,6 +10,7 @@ import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
@@ -219,6 +220,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, Category? existing) {
     final isEditing = existing != null;
+    final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController(text: isEditing ? existing.name : '');
 
     showDialog(
@@ -237,11 +239,24 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
           content: SizedBox(
             width: 420,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppTextField(controller: nameCtrl, labelText: 'Tên loại sản phẩm (*)'),
-              ],
+            child: Form(
+              key: formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppTextField(
+                    controller: nameCtrl,
+                    labelText: 'Tên loại sản phẩm (*)',
+                    validator: (val) {
+                      final v = val?.trim() ?? '';
+                      if (v.isEmpty) return 'Tên loại sản phẩm không được để trống.';
+                      if (v.length > 100) return 'Tên loại sản phẩm tối đa 100 ký tự.';
+                      return null;
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -249,7 +264,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
             AppButton(
               label: isEditing ? 'Cập nhật' : 'Tạo mới',
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty) return;
+                if (!formKey.currentState!.validate()) return;
 
                 final cat = Category(
                   id: isEditing ? existing.id : '0',
@@ -265,11 +280,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     : await apiService.createCategory(cat, token: token);
 
                 if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                  setState(() => _loadCategories());
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(res ? 'Thao tác thành công!' : 'Thao tác thất bại!'), backgroundColor: res ? AppColors.success : AppColors.danger),
-                  );
+                  if (res) {
+                    Navigator.pop(ctx);
+                    setState(() => _loadCategories());
+                    AppToast.success(context, 'Thao tác thành công!');
+                  } else {
+                    final errMsg = apiService.lastErrorMessage.isNotEmpty
+                        ? apiService.lastErrorMessage
+                        : 'Thao tác thất bại!';
+                    AppToast.error(ctx, errMsg);
+                  }
                 }
               },
             ),
@@ -372,12 +392,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               final res = await apiService.deleteCategory(cat.id, token: token);
               if (context.mounted) {
                 setState(() => _loadCategories());
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Xóa thành công!' : 'Xóa thất bại!')),
-                    backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                  ),
-                );
+                final msg = res.message.isNotEmpty ? res.message : (res.success ? 'Xóa thành công!' : 'Xóa thất bại!');
+                if (res.success) {
+                  AppToast.success(context, msg);
+                } else {
+                  AppToast.error(context, msg);
+                }
               }
             },
           ),
