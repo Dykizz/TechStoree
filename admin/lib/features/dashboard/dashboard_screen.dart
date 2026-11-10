@@ -199,7 +199,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           formattedValue: currencyFormat.format(data.importCost.current),
           kpi: data.importCost,
           icon: Icons.inventory_2_outlined,
-          iconColor: AppColors.info,
+          iconColor: AppColors.chartCost,
           isNeutralTrend: true,
           isDark: isDark,
           cardBg: backgroundColor,

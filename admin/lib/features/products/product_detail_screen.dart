@@ -16,6 +16,7 @@ import '../../core/services/cloudinary_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/product_price_range.dart';
@@ -124,9 +125,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     final token = Provider.of<AuthProvider>(context, listen: false).token;
 
     if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tên sản phẩm'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng nhập tên sản phẩm');
       return;
     }
 
@@ -163,15 +162,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     final res = await apiService.updateProduct(updatedProduct, token: token);
     if (mounted) {
       setState(() => _isSaving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
       if (res.success) {
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Lưu thông tin sản phẩm thành công!');
         widget.onProductUpdated();
         _loadFullDetails();
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Lưu thông tin sản phẩm thất bại!');
       }
     }
   }
@@ -368,12 +364,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                                 Navigator.pop(dialogCtx);
                                 widget.onBack();
                                 Provider.of<NavigationProvider>(context, listen: false).setIndex(6);
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Đã chuyển sang "Phiếu nhập hàng". Hãy tạo đơn nhập bổ sung cho "${existingVariant.variantName}".'),
-                                    backgroundColor: AppColors.primary,
-                                  ),
-                                );
+                                AppToast.info(context, 'Đã chuyển sang "Phiếu nhập hàng". Hãy tạo đơn nhập bổ sung cho "${existingVariant.variantName}".');
                               },
                               borderRadius: BorderRadius.circular(4),
                               child: Container(
@@ -980,9 +971,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   final rawPrice = priceCtrl.text.replaceAll(RegExp(r'[^\d]'), '');
                   final priceVal = double.tryParse(rawPrice) ?? 0;
                   if (priceVal <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Vui lòng nhập giá bán hợp lệ cho biến thể!'), backgroundColor: AppColors.danger),
-                    );
+                    AppToast.warning(context, 'Vui lòng nhập giá bán hợp lệ cho biến thể!');
                     return;
                   }
 
@@ -990,9 +979,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   for (var attr in attributeNames) {
                     final val = attrControllers[attr]?.text.trim() ?? '';
                     if (val.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Vui lòng nhập thông số "$attr"!'), backgroundColor: AppColors.danger),
-                      );
+                      AppToast.warning(context, 'Vui lòng nhập thông số "$attr"!');
                       return;
                     }
                     finalAttrs[attr] = val;
@@ -1004,12 +991,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     if (isEditing && v.variantId == existingVariant.variantId) continue;
                     final otherSig = attributeNames.map((n) => '$n:${v.attributes[n] ?? ''}').join('|');
                     if (currentSig == otherSig) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Bộ thông số này đã trùng với một biến thể khác của sản phẩm!'),
-                          backgroundColor: AppColors.danger,
-                        ),
-                      );
+                      AppToast.warning(context, 'Bộ thông số này đã trùng với một biến thể khác của sản phẩm!');
                       return;
                     }
                   }
@@ -1166,12 +1148,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
 
                   if (mounted) {
                     setState(() => _isSaving = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
-                    );
                     if (res.success) {
+                      AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
                       widget.onProductUpdated();
                       _loadFullDetails();
+                    } else {
+                      AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
                     }
                   }
                 },
@@ -1231,12 +1213,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
       final res = await apiService.updateProduct(productToSave, token: token);
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
-        );
         if (res.success) {
+          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa biến thể thành công!');
           widget.onProductUpdated();
           _loadFullDetails();
+        } else {
+          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa biến thể thất bại!');
         }
       }
     }
@@ -1722,13 +1704,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                                                 onTap: () {
                                                   widget.onBack();
                                                   Provider.of<NavigationProvider>(context, listen: false).setIndex(6);
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text('Đã chuyển sang "Phiếu nhập hàng". Hãy tạo đơn nhập bổ sung cho "${v.variantName}".'),
-                                                      backgroundColor: AppColors.primary,
-                                                      duration: const Duration(seconds: 4),
-                                                    ),
-                                                  );
+                                                  AppToast.info(context, 'Đã chuyển sang "Phiếu nhập hàng". Hãy tạo đơn nhập bổ sung cho "${v.variantName}".');
                                                 },
                                                 borderRadius: BorderRadius.circular(4),
                                                 child: Container(

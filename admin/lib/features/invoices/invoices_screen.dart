@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -7,8 +8,8 @@ import '../../core/models/invoice.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
-import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
@@ -19,6 +20,7 @@ import '../../core/widgets/page_header.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 import 'widgets/invoice_detail_dialog.dart';
+import 'widgets/invoice_quick_view_panel.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -55,6 +57,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   List<Invoice> _invoices = [];
   bool _isLoading = true;
+  Invoice? _selectedInvoice;
 
   @override
   void initState() {
@@ -109,7 +112,29 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         _pageSize = result.pageSize;
         if (stats != null) _stats = stats;
         _isLoading = false;
+
+        // Giữ lại hoặc làm mới hóa đơn đang chọn nếu vẫn tồn tại trên trang
+        if (_selectedInvoice != null) {
+          final found = _invoices.where((i) => i.invoiceId == _selectedInvoice!.invoiceId).toList();
+          _selectedInvoice = found.isNotEmpty ? found.first : null;
+        }
       });
+    }
+  }
+
+  void _toggleQuickView(Invoice inv) {
+    setState(() {
+      if (_selectedInvoice?.invoiceId == inv.invoiceId) {
+        _selectedInvoice = null; // Bỏ chọn / đóng khung xem nhanh
+      } else {
+        _selectedInvoice = inv; // Chọn hoặc đổi sang hóa đơn khác
+      }
+    });
+  }
+
+  void _closeQuickView() {
+    if (_selectedInvoice != null) {
+      setState(() => _selectedInvoice = null);
     }
   }
 
@@ -239,21 +264,21 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     final paidAmount = paidInvoices.fold<double>(0, (sum, i) => sum + i.totalAmount);
     final unpaidAmount = unpaidInvoices.fold<double>(0, (sum, i) => sum + i.totalAmount);
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTokens.space16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Tiêu đề trang & Nút hành động
-          PageHeader(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): _closeQuickView,
+      },
+      child: Focus(
+        autofocus: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppTokens.space16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+          // Tiêu đề trang
+          const PageHeader(
             title: 'Quản lý hóa đơn',
             subtitle: 'Tra cứu, theo dõi trạng thái thanh toán và in chứng từ hóa đơn bán hàng',
-            action: AppButton(
-              label: 'Làm mới',
-              icon: Icons.refresh_rounded,
-              variant: AppButtonVariant.outline,
-              onPressed: _isLoading ? null : _loadInvoices,
-            ),
           ),
 
           const SizedBox(height: 12),
@@ -514,197 +539,238 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                         icon: Icons.receipt_long_outlined,
                       ),
                     )
-                  : DataTableContainer(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          ScrollableTableWrapper(
-                            child: DataTable(
-                              showCheckboxColumn: false,
-                              headingRowHeight: 40,
-                              dataRowMinHeight: 48,
-                              dataRowMaxHeight: 56,
-                              horizontalMargin: 16,
-                              columnSpacing: 18,
-                              headingRowColor: WidgetStateProperty.all(
-                                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final table = _buildInvoicesTable(isDark, textPrimary, textSecondary, borderColor);
+                        if (_selectedInvoice == null) {
+                          return table;
+                        }
+
+                        final isCompact = constraints.maxWidth < 680;
+                        final panelWidth = constraints.maxWidth > 1400
+                            ? 430.0
+                            : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
+
+                        if (isCompact) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              table,
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 580,
+                                child: InvoiceQuickViewPanel(
+                                  invoice: _selectedInvoice!,
+                                  onClose: _closeQuickView,
+                                  onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
+                                ),
                               ),
-                              dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                                if (states.contains(WidgetState.hovered)) {
-                                  return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9);
-                                }
-                                return null;
-                              }),
-                              columns: [
-                                DataColumn(label: Text('Mã HĐ / Đơn hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Thanh toán', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Ngày lập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                              ],
-                              rows: _invoices.map((inv) {
-                                return DataRow(
-                                  onSelectChanged: (_) => _showInvoiceDetail(inv),
-                                  cells: [
-                                    // Mã HĐ gộp Đơn hàng
-                                    DataCell(
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            inv.invoiceCode,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 12.5,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Đơn: ${inv.orderCode}',
-                                            style: TextStyle(
-                                              fontSize: 10.5,
-                                              color: textSecondary,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Khách hàng
-                                    DataCell(
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            inv.customerName.isNotEmpty ? inv.customerName : 'Khách vãng lai',
-                                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: textPrimary),
-                                          ),
-                                          Text(
-                                            'ID: #${inv.userId}',
-                                            style: TextStyle(fontSize: 10.5, color: textSecondary),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Tổng tiền
-                                    DataCell(
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            currencyFormat.format(inv.totalAmount),
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary),
-                                          ),
-                                          if (inv.voucherDiscountAmount > 0) ...[
-                                            const SizedBox(height: 1),
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.confirmation_number_outlined, size: 10, color: AppColors.success),
-                                                const SizedBox(width: 2),
-                                                Text(
-                                                  '-${currencyFormat.format(inv.voucherDiscountAmount)}',
-                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    // Hình thức thanh toán
-                                    DataCell(
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                        decoration: BoxDecoration(
-                                          color: isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: borderColor, width: 0.8),
-                                        ),
-                                        child: Text(
-                                          inv.paymentMethod == 'BANK_TRANSFER' ? 'Chuyển khoản' : (inv.paymentMethod == 'VNPAY' ? 'VNPay' : inv.paymentMethod),
-                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textPrimary),
-                                        ),
-                                      ),
-                                    ),
-                                    // Trạng thái hóa đơn
-                                    DataCell(
-                                      StatusBadge(
-                                        label: inv.statusLabel,
-                                        color: inv.statusColor,
-                                      ),
-                                    ),
-                                    // Ngày lập
-                                    DataCell(
-                                      Text(
-                                        dateFormat.format(inv.createdAt),
-                                        style: TextStyle(fontSize: 11.5, color: textSecondary),
-                                      ),
-                                    ),
-                                    // Thao tác
-                                    DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            tooltip: 'Xem chi tiết hóa đơn',
-                                            icon: const Icon(Icons.visibility_outlined, size: 18),
-                                            color: AppColors.primary,
-                                            onPressed: () => _showInvoiceDetail(inv),
-                                            splashRadius: 18,
-                                          ),
-                                          IconButton(
-                                            tooltip: 'In hóa đơn',
-                                            icon: const Icon(Icons.print_outlined, size: 18),
-                                            color: textSecondary,
-                                            onPressed: () {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                SnackBar(
-                                                  content: Text('Đang chuẩn bị lệnh in cho ${inv.invoiceCode}...'),
-                                                  backgroundColor: AppColors.success,
-                                                  behavior: SnackBarBehavior.floating,
-                                                  duration: const Duration(seconds: 2),
-                                                ),
-                                              );
-                                            },
-                                            splashRadius: 18,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: table,
+                            ),
+                            const SizedBox(width: 14),
+                            SizedBox(
+                              width: panelWidth,
+                              height: 640,
+                              child: InvoiceQuickViewPanel(
+                                invoice: _selectedInvoice!,
+                                onClose: _closeQuickView,
+                                onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+        ],
+      ),
+    ),
+  ),
+);
+  }
+
+  Widget _buildInvoicesTable(
+    bool isDark,
+    Color textPrimary,
+    Color textSecondary,
+    Color borderColor,
+  ) {
+    return DataTableContainer(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ScrollableTableWrapper(
+            child: DataTable(
+              showCheckboxColumn: false,
+              headingRowHeight: 40,
+              dataRowMinHeight: 48,
+              dataRowMaxHeight: 56,
+              horizontalMargin: 16,
+              columnSpacing: 18,
+              headingRowColor: WidgetStateProperty.all(
+                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+              ),
+              dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                if (states.contains(WidgetState.hovered)) {
+                  return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9);
+                }
+                return null;
+              }),
+              columns: [
+                DataColumn(label: Text('Mã HĐ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                DataColumn(label: Text('Ngày lập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
+              ],
+              rows: _invoices.map((inv) {
+                final isSelected = _selectedInvoice?.invoiceId == inv.invoiceId;
+                return DataRow(
+                  selected: false,
+                  onSelectChanged: (_) => _toggleQuickView(inv),
+                  color: WidgetStateProperty.resolveWith<Color?>((states) {
+                    if (isSelected) {
+                      return isDark
+                          ? AppColors.primary.withValues(alpha: 0.16)
+                          : const Color(0xFFEFF6FF);
+                    }
+                    if (states.contains(WidgetState.hovered)) {
+                      return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
+                    }
+                    if (states.contains(WidgetState.pressed)) {
+                      return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                    }
+                    return null;
+                  }),
+                  cells: [
+                    // Mã HĐ (kèm indicator khi chọn, giữ cố định layout không giật chữ)
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 3.5,
+                            height: 18,
+                            margin: const EdgeInsets.only(right: 8),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppColors.primary : Colors.transparent,
+                              borderRadius: BorderRadius.circular(2),
                             ),
                           ),
-                          // Phân trang
-                          AppPagination(
-                            currentPage: _currentPage,
-                            totalPages: _totalPages,
-                            totalItems: _totalItems,
-                            itemsPerPage: _pageSize,
-                            onPageChanged: (page) {
-                              setState(() => _currentPage = page);
-                              _loadInvoices();
-                            },
-                            onItemsPerPageChanged: (newSize) {
-                              setState(() {
-                                _pageSize = newSize;
-                                _currentPage = 1;
-                              });
-                              _loadInvoices();
-                            },
+                          Text(
+                            inv.invoiceCode,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    // Khách hàng
+                    DataCell(
+                      Text(
+                        inv.customerName.isNotEmpty ? inv.customerName : 'Khách vãng lai',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: textPrimary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Tổng tiền
+                    DataCell(
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            currencyFormat.format(inv.totalAmount),
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary),
+                          ),
+                          if (inv.voucherDiscountAmount > 0) ...[
+                            const SizedBox(height: 1),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.confirmation_number_outlined, size: 10, color: AppColors.success),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '-${currencyFormat.format(inv.voucherDiscountAmount)}',
+                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    // Trạng thái hóa đơn
+                    DataCell(
+                      StatusBadge(
+                        label: inv.statusLabel,
+                        color: inv.statusColor,
+                      ),
+                    ),
+                    // Ngày lập (2 dòng: Ngày ở trên, Giờ ở dưới)
+                    DataCell(
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            dateFormatDate.format(inv.createdAt),
+                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary),
+                          ),
+                          Text(
+                            DateFormat('HH:mm').format(inv.createdAt),
+                            style: TextStyle(fontSize: 10, color: textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Thao tác in nhanh
+                    DataCell(
+                      IconButton(
+                        tooltip: 'In hóa đơn',
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        color: textSecondary,
+                        onPressed: () {
+                          AppToast.info(context, 'Đang chuẩn bị lệnh in cho ${inv.invoiceCode}...');
+                        },
+                        splashRadius: 18,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+          // Phân trang
+          AppPagination(
+            currentPage: _currentPage,
+            totalPages: _totalPages,
+            totalItems: _totalItems,
+            itemsPerPage: _pageSize,
+            onPageChanged: (page) {
+              setState(() => _currentPage = page);
+              _loadInvoices();
+            },
+            onItemsPerPageChanged: (newSize) {
+              setState(() {
+                _pageSize = newSize;
+                _currentPage = 1;
+              });
+              _loadInvoices();
+            },
+          ),
         ],
       ),
     );

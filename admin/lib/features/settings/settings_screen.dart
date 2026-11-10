@@ -5,6 +5,7 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
 
@@ -101,12 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         final url = _urlCtrl.text.trim();
                         if (url.isNotEmpty) {
                           apiService.setBaseUrl(url);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Đã cập nhật Base URL API. Đang kiểm tra kết nối...'),
-                              backgroundColor: AppColors.primary,
-                            ),
-                          );
+                          AppToast.info(context, 'Đã cập nhật Base URL API. Đang kiểm tra kết nối...');
                         }
                       },
                     ),

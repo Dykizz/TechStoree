@@ -13,6 +13,7 @@ import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
@@ -305,8 +306,11 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                         return DataRow(
                                           onSelectChanged: (_) => _showPromotionDetailsDialog(context, apiService, authProvider.token, promo.promotionId),
                                           color: WidgetStateProperty.resolveWith<Color?>((states) {
+                                            if (states.contains(WidgetState.pressed)) {
+                                              return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                            }
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                             }
                                             return null;
                                           }),
@@ -377,12 +381,11 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                                                                   try {
                                                                     final res = await apiService.togglePromotionActive(promo.promotionId, token: authProvider.token);
                                                                     if (context.mounted) {
-                                                                      ScaffoldMessenger.of(context).showSnackBar(
-                                                                        SnackBar(
-                                                                          content: Text(res.message),
-                                                                          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-                                                                        ),
-                                                                      );
+                                                                      if (res.success) {
+                                                                        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+                                                                      } else {
+                                                                        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
+                                                                      }
                                                                     }
                                                                   } finally {
                                                                     if (mounted) {
@@ -534,12 +537,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
     final promo = await apiService.getPromotionById(promoId, token: token);
     if (!context.mounted) return;
     if (promo == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không thể tải chi tiết khuyến mãi.'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Không thể tải chi tiết khuyến mãi.');
       return;
     }
 
@@ -662,12 +660,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
       existingPromo = await apiService.getPromotionById(existingPromoId, token: token);
       if (existingPromo == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Không thể tải thông tin khuyến mãi cần sửa.'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          AppToast.error(context, 'Không thể tải thông tin khuyến mãi cần sửa.');
         }
         return;
       }
@@ -707,9 +700,11 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
               Navigator.pop(ctx);
               final res = await apiService.deletePromotion(promo.promotionId, token: token);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(res.message), backgroundColor: res.success ? AppColors.success : AppColors.danger),
-                );
+                if (res.success) {
+                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khuyến mãi thành công!');
+                } else {
+                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khuyến mãi thất bại!');
+                }
               }
             },
           ),
@@ -928,38 +923,28 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
   Future<void> _handleSave() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tên chương trình khuyến mãi'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng nhập tên chương trình khuyến mãi');
       return;
     }
 
     if (_endDate.isBefore(_startDate) || _endDate.isAtSameMomentAs(_startDate)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Thời gian kết thúc phải diễn ra sau thời gian bắt đầu!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Thời gian kết thúc phải diễn ra sau thời gian bắt đầu!');
       return;
     }
 
     final dVal = _parseDiscountValue();
     if (dVal <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mức giảm giá phải lớn hơn 0'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Mức giảm giá phải lớn hơn 0');
       return;
     }
 
     if (_discountType == 'PERCENTAGE' && dVal > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mức giảm giá theo phần trăm không được vượt quá 100%'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Mức giảm giá theo phần trăm không được vượt quá 100%');
       return;
     }
 
     if (_selectedVariantIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ít nhất một sản phẩm để áp dụng khuyến mãi'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng chọn ít nhất một sản phẩm để áp dụng khuyến mãi');
       return;
     }
 
@@ -988,13 +973,10 @@ class _PromotionFormDialogState extends State<_PromotionFormDialog> {
       if (res.success) {
         Navigator.pop(context);
         widget.onSaved();
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Lưu khuyến mãi thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Lưu khuyến mãi thất bại!');
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
     }
   }
 

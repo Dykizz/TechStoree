@@ -10,6 +10,7 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_pagination.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
@@ -170,14 +171,10 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
     if (res.success) {
       _refreshList(reloadStats: true);
+      AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
+    } else {
+      AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Thao tác thành công!' : 'Thất bại!')),
-        backgroundColor: res.success ? AppColors.success : AppColors.danger,
-      ),
-    );
   }
 
   @override
@@ -200,23 +197,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
           PageHeader(
             title: 'Quản lý đánh giá sản phẩm',
             subtitle: 'Theo dõi phản hồi khách hàng, kiểm soát chất lượng sản phẩm và chăm sóc khách hàng',
-            action: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppButton(
-                  label: _showRankings ? 'Ẩn Top xếp hạng' : 'Xem Top xếp hạng',
-                  icon: _showRankings ? Icons.expand_less_rounded : Icons.leaderboard_rounded,
-                  variant: _showRankings ? AppButtonVariant.primary : AppButtonVariant.secondary,
-                  onPressed: () => setState(() => _showRankings = !_showRankings),
-                ),
-                const SizedBox(width: 8),
-                AppButton(
-                  label: 'Làm mới',
-                  icon: Icons.refresh_rounded,
-                  variant: AppButtonVariant.outline,
-                  onPressed: () => _refreshList(reloadStats: true),
-                ),
-              ],
+            action: AppButton(
+              label: _showRankings ? 'Ẩn Top xếp hạng' : 'Xem Top xếp hạng',
+              icon: _showRankings ? Icons.expand_less_rounded : Icons.leaderboard_rounded,
+              variant: _showRankings ? AppButtonVariant.primary : AppButtonVariant.secondary,
+              onPressed: () => setState(() => _showRankings = !_showRankings),
             ),
           ),
 
@@ -806,11 +791,14 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
         DataRow(
           onSelectChanged: (_) => _openReplyDialog(review),
           color: WidgetStateProperty.resolveWith<Color?>((states) {
+            if (states.contains(WidgetState.pressed)) {
+              return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+            }
             if (review.isHidden) {
               return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFFEF2F2);
             }
             if (states.contains(WidgetState.hovered)) {
-              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC);
+              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
             }
             return null;
           }),
@@ -1019,9 +1007,7 @@ class _ReviewReplyDialogState extends State<_ReviewReplyDialog> {
   Future<void> _submitReply(ApiService apiService, String? token) async {
     final text = _replyCtrl.text.trim();
     if (text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập nội dung phản hồi!'), backgroundColor: AppColors.warning),
-      );
+      AppToast.warning(context, 'Vui lòng nhập nội dung phản hồi!');
       return;
     }
 
@@ -1033,14 +1019,10 @@ class _ReviewReplyDialogState extends State<_ReviewReplyDialog> {
     if (res.success) {
       widget.onReplySubmitted();
       Navigator.pop(context);
+      AppToast.success(context, res.message.isNotEmpty ? res.message : 'Đã lưu phản hồi thành công!');
+    } else {
+      AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Đã lưu phản hồi thành công!' : 'Thất bại!')),
-        backgroundColor: res.success ? AppColors.success : AppColors.danger,
-      ),
-    );
   }
 
   Future<void> _deleteReply(ApiService apiService, String? token) async {
@@ -1067,14 +1049,10 @@ class _ReviewReplyDialogState extends State<_ReviewReplyDialog> {
     if (res.success) {
       widget.onReplySubmitted();
       Navigator.pop(context);
+      AppToast.success(context, res.message.isNotEmpty ? res.message : 'Đã xóa phản hồi!');
+    } else {
+      AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
     }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(res.message.isNotEmpty ? res.message : (res.success ? 'Đã xóa phản hồi!' : 'Thất bại!')),
-        backgroundColor: res.success ? AppColors.success : AppColors.danger,
-      ),
-    );
   }
 
   @override

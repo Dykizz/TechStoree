@@ -9,6 +9,7 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 
 class SurveyFormView extends StatefulWidget {
   final SurveyAdminDetail? existingSurvey;
@@ -943,16 +944,12 @@ class _SurveyFormViewState extends State<SurveyFormView> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng điền đầy đủ các thông tin bắt buộc!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng điền đầy đủ các thông tin bắt buộc!');
       return;
     }
 
     if (_questionDrafts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bài khảo sát phải có ít nhất 1 câu hỏi!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Bài khảo sát phải có ít nhất 1 câu hỏi!');
       return;
     }
 
@@ -965,12 +962,7 @@ class _SurveyFormViewState extends State<SurveyFormView> {
           final typeName = q.type == SurveyQuestionType.MULTI_CHOICE
               ? 'Trắc nghiệm nhiều đáp án'
               : 'Trắc nghiệm';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Câu ${i + 1} ($typeName) phải có ít nhất 2 đáp án!'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          AppToast.warning(context, 'Câu ${i + 1} ($typeName) phải có ít nhất 2 đáp án!');
           return;
         }
       }
@@ -1033,13 +1025,10 @@ class _SurveyFormViewState extends State<SurveyFormView> {
       setState(() => _isSubmitting = false);
       if (res.success) {
         widget.onSuccess();
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Lưu khảo sát thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Lưu khảo sát thất bại!');
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
     }
   }
 }

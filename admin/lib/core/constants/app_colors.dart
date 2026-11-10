@@ -39,6 +39,10 @@ class AppColors {
   static const Color darkTextPrimary = Color(0xFFF8FAFC);
   static const Color darkTextSecondary = Color(0xFF94A3B8);
 
+  // Chart & Metric Visualization Accents
+  static const Color chartRevenue = Color(0xFF2563EB); // Enterprise Royal Blue
+  static const Color chartCost = Color(0xFFF97316);    // Enterprise Warm Orange
+
   // Backward compatibility
   static const Color secondary = Color(0xFF475569);
   static const Color accent = Color(0xFF2563EB);

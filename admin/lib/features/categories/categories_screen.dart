@@ -149,8 +149,11 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                           onSelectChanged: (_) => _showFormDialog(context, apiService, authProvider.token, cat),
                                           mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+                                            if (states.contains(WidgetState.pressed)) {
+                                              return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                            }
                                             if (states.contains(WidgetState.hovered)) {
-                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF1F5F9);
+                                              return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                             }
                                             return null;
                                           }),

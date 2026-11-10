@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import '../constants/app_colors.dart';
 
 class ScrollableTableWrapper extends StatefulWidget {
   final Widget child;
@@ -65,7 +66,24 @@ class _ScrollableTableWrapperState extends State<ScrollableTableWrapper> {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                  child: widget.child,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      splashFactory: NoSplash.splashFactory,
+                      highlightColor: Colors.transparent,
+                      dataTableTheme: DataTableThemeData(
+                        dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                          if (states.contains(WidgetState.pressed)) {
+                            return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                          }
+                          if (states.contains(WidgetState.hovered)) {
+                            return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
+                          }
+                          return null;
+                        }),
+                      ),
+                    ),
+                    child: widget.child,
+                  ),
                 ),
               ),
             ),

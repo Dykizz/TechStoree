@@ -13,6 +13,7 @@ import '../../../core/services/cloudinary_service.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class _VariantItem {
   final Map<String, TextEditingController> attrControllers;
@@ -131,9 +132,7 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
 
   void _removeAttributeName(String name) {
     if (_attributeNames.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cần giữ ít nhất 1 thông số thuộc tính!'), backgroundColor: AppColors.warning),
-      );
+      AppToast.warning(context, 'Cần giữ ít nhất 1 thông số thuộc tính!');
       return;
     }
     setState(() {
@@ -171,9 +170,7 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
 
   void _removeVariant(int idx) {
     if (_variants.length <= 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cần có ít nhất 1 biến thể cho sản phẩm!'), backgroundColor: AppColors.warning),
-      );
+      AppToast.warning(context, 'Cần có ít nhất 1 biến thể cho sản phẩm!');
       return;
     }
     setState(() {
@@ -209,16 +206,12 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
   Future<void> _submit() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập tên sản phẩm!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng nhập tên sản phẩm!');
       return;
     }
 
     if (_variants.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng tạo ít nhất 1 biến thể!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Vui lòng tạo ít nhất 1 biến thể!');
       return;
     }
 
@@ -233,12 +226,7 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
       // Kiểm tra xem đã điền đủ các thông số chưa
       for (var attrName in _attributeNames) {
         if (!attrs.containsKey(attrName) || attrs[attrName]!.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Biến thể số ${i + 1} chưa nhập thông số "$attrName"!'),
-              backgroundColor: AppColors.danger,
-            ),
-          );
+          AppToast.warning(context, 'Biến thể số ${i + 1} chưa nhập thông số "$attrName"!');
           return;
         }
       }
@@ -246,23 +234,13 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
       // Kiểm tra trùng lặp tổ hợp thuộc tính
       final sig = _attributeNames.map((n) => '$n:${attrs[n]}').join('|');
       if (signatures.contains(sig)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Biến thể số ${i + 1} có bộ thông số trùng lặp với biến thể khác! Vui lòng thay đổi giá trị.'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.warning(context, 'Biến thể số ${i + 1} có bộ thông số trùng lặp với biến thể khác! Vui lòng thay đổi giá trị.');
         return;
       }
       signatures.add(sig);
 
       if (v.price <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Biến thể số ${i + 1} chưa nhập giá bán hợp lệ!'),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.warning(context, 'Biến thể số ${i + 1} chưa nhập giá bán hợp lệ!');
         return;
       }
 
@@ -314,16 +292,9 @@ class _CreateProductDialogState extends State<CreateProductDialog> {
       if (res.success) {
         Navigator.pop(context);
         widget.onCreated();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${res.message} (Đã khởi tạo ${finalVariants.length} biến thể thành công)'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, '${res.message} (Đã khởi tạo ${finalVariants.length} biến thể thành công)');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res.message), backgroundColor: AppColors.danger),
-        );
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Tạo sản phẩm thất bại!');
       }
     }
   }

@@ -9,6 +9,7 @@ import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -97,26 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showWarning(String message) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.danger,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    AppToast.warning(context, message);
   }
 
   void _quickFillAndLogin(String email, String password) {
@@ -159,26 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
       navProvider.reset();
     } else if (mounted) {
       final msg = authProvider.errorMessage ?? 'Email hoặc mật khẩu không chính xác!';
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  msg,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: AppColors.danger,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.error(context, msg);
     }
   }
 

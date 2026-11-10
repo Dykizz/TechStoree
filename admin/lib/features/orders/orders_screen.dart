@@ -9,6 +9,7 @@ import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
@@ -283,14 +284,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     final res = await apiService.updateOrderStatus(order.orderId, status: 'CONFIRMED', token: token);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
       if (res.success) {
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Duyệt đơn hàng thành công!');
         _loadOrders();
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Duyệt đơn hàng thất bại!');
       }
     }
   }
@@ -326,14 +324,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     final res = await apiService.updateOrderStatus(order.orderId, status: 'SHIPPING', token: token);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
       if (res.success) {
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Chuyển trạng thái giao hàng thành công!');
         _loadOrders();
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
       }
     }
   }
@@ -369,14 +364,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
     final res = await apiService.updateOrderStatus(order.orderId, status: 'DELIVERED', token: token);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(res.message),
-          backgroundColor: res.success ? AppColors.success : AppColors.danger,
-        ),
-      );
       if (res.success) {
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xác nhận giao hàng thành công!');
         _loadOrders();
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
       }
     }
   }
@@ -620,8 +612,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                 ),
                                 dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
+                                  if (states.contains(WidgetState.pressed)) {
+                                    return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
+                                  }
                                   if (states.contains(WidgetState.hovered)) {
-                                    return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9);
+                                    return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
                                   }
                                   return null;
                                 }),

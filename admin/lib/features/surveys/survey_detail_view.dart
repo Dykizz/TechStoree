@@ -11,6 +11,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
@@ -147,7 +148,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                       label: _isExporting ? 'Đang xuất...' : 'Xuất báo cáo',
                       icon: Icons.file_download_outlined,
                       variant: AppButtonVariant.outline,
-                      onPressed: _isExporting ? null : () => _exportReport(context, apiService, token, survey.surveyId),
+                      onPressed: _isExporting ? null : () => _exportReport(apiService, token, survey.surveyId),
                     ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
@@ -161,7 +162,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                         label: 'Nhân bản',
                         icon: Icons.copy_rounded,
                         variant: AppButtonVariant.outline,
-                        onPressed: () => _confirmClone(context, apiService, token, survey),
+                        onPressed: () => _confirmClone(apiService, token, survey),
                       ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
@@ -177,7 +178,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                           label: 'Xóa',
                           icon: Icons.delete_outline_rounded,
                           variant: AppButtonVariant.danger,
-                          onPressed: survey.hasResponses ? null : () => _confirmDelete(context, apiService, token, survey),
+                          onPressed: survey.hasResponses ? null : () => _confirmDelete(apiService, token, survey),
                         ),
                       ),
                   ],
@@ -477,17 +478,16 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
         _loadDetail();
         widget.onSurveyChanged();
         final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res ? 'Đã $action khảo sát thành công!' : errMsg),
-            backgroundColor: res ? AppColors.success : AppColors.danger,
-          ),
-        );
+        if (res) {
+          AppToast.success(context, 'Đã $action khảo sát thành công!');
+        } else {
+          AppToast.error(context, errMsg);
+        }
       }
     }
   }
 
-  Future<void> _confirmClone(BuildContext context, ApiService apiService, String? token, SurveyAdminDetail survey) async {
+  Future<void> _confirmClone(ApiService apiService, String? token, SurveyAdminDetail survey) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -507,21 +507,18 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
       final res = await apiService.cloneSurvey(survey.surveyId, token: token);
       if (mounted) {
         widget.onSurveyChanged();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.message),
-            backgroundColor: res.success ? AppColors.success : AppColors.danger,
-          ),
-        );
+        if (res.success) {
+          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
+        } else {
+          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
+        }
       }
     }
   }
 
-  Future<void> _confirmDelete(BuildContext context, ApiService apiService, String? token, SurveyAdminDetail survey) async {
+  Future<void> _confirmDelete(ApiService apiService, String? token, SurveyAdminDetail survey) async {
     if (survey.hasResponses) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Không thể xóa khảo sát đã có phản hồi!'), backgroundColor: AppColors.danger),
-      );
+      AppToast.warning(context, 'Không thể xóa khảo sát đã có phản hồi!');
       return;
     }
 
@@ -547,18 +544,15 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
         widget.onSurveyChanged();
         if (res.success) {
           widget.onBack();
+          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
+        } else {
+          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(res.message),
-            backgroundColor: res.success ? AppColors.success : AppColors.danger,
-          ),
-        );
       }
     }
   }
 
-  Future<void> _exportReport(BuildContext context, ApiService apiService, String? token, int surveyId) async {
+  Future<void> _exportReport(ApiService apiService, String? token, int surveyId) async {
     setState(() => _isExporting = true);
     try {
       final (bytes, filename) = await apiService.exportSurveyCsv(surveyId, token: token);
@@ -594,24 +588,14 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
         }
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)'),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+        AppToast.success(context, 'Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)');
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể tải báo cáo khảo sát.'), backgroundColor: AppColors.danger),
-        );
+        AppToast.error(context, 'Không thể tải báo cáo khảo sát.');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi xuất file báo cáo: $e'), backgroundColor: AppColors.danger),
-      );
+      AppToast.error(context, 'Lỗi khi xuất file báo cáo: $e');
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
