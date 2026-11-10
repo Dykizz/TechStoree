@@ -6,6 +6,7 @@ import '../../core/models/role.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_toast.dart';
 import 'role_form_dialog.dart';
 
 class RolesScreen extends StatefulWidget {
@@ -307,12 +308,7 @@ class _RolesScreenState extends State<RolesScreen> {
       _selectedPermissions.clear();
       _selectedPermissions.addAll(_originalPermissions);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã hoàn tác các thay đổi phân quyền!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    AppToast.info(context, 'Đã hoàn tác các thay đổi phân quyền!');
   }
 
   /// Lưu thay đổi quyền hạn xuống backend: PUT /roles/{id}/permissions
@@ -321,12 +317,7 @@ class _RolesScreenState extends State<RolesScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.isOfflineMode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đang ở chế độ Offline — không thể quản lý phân quyền!'),
-          backgroundColor: AppColors.danger,
-        ),
-      );
+      AppToast.error(context, 'Đang ở chế độ Offline — không thể quản lý phân quyền!');
       return;
     }
 
@@ -361,23 +352,12 @@ class _RolesScreenState extends State<RolesScreen> {
         authProvider.reloadCurrentPermissions();
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message.isNotEmpty ? result.message : 'Lưu phân quyền thành công!'),
-          backgroundColor: AppColors.success,
-        ),
-      );
+      AppToast.success(context, result.message.isNotEmpty ? result.message : 'Lưu phân quyền thành công!');
 
       // Cập nhật lại danh sách role bên trái để đồng bộ số quyền hiển thị
       _refreshRoles(selectRoleId: _selectedRoleId);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.message),
-          backgroundColor: AppColors.danger,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      AppToast.error(context, result.message.isNotEmpty ? result.message : 'Lưu phân quyền thất bại!');
     }
   }
 
@@ -395,12 +375,7 @@ class _RolesScreenState extends State<RolesScreen> {
         token: authProvider.token,
         permissionModules: _permissionModules,
         onSuccess: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Tạo vai trò mới thành công!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppToast.success(context, 'Tạo vai trò mới thành công!');
           _refreshRoles();
         },
       ),
@@ -425,12 +400,7 @@ class _RolesScreenState extends State<RolesScreen> {
         existingRole: role,
         permissionModules: _permissionModules,
         onSuccess: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Cập nhật thông tin vai trò thành công!'),
-              backgroundColor: AppColors.success,
-            ),
-          );
+          AppToast.success(context, 'Cập nhật thông tin vai trò thành công!');
           _refreshRoles(selectRoleId: role.roleId);
         },
       ),
@@ -528,20 +498,10 @@ class _RolesScreenState extends State<RolesScreen> {
 
       if (!mounted) return;
       if (result.success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã xóa vai trò thành công!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppToast.success(context, 'Đã xóa vai trò thành công!');
         _refreshRoles();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result.message),
-            backgroundColor: AppColors.danger,
-          ),
-        );
+        AppToast.error(context, result.message.isNotEmpty ? result.message : 'Xóa vai trò thất bại!');
       }
     }
   }
