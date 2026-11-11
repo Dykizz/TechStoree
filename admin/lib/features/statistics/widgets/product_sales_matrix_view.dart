@@ -5,19 +5,26 @@ import '../../../core/constants/app_tokens.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/app_pagination.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
 import '../models/statistics_models.dart';
 
+enum ProductMatrixMode { quarterly, threeYears }
+
 class ProductSalesMatrixView extends StatefulWidget {
+  final int selectedYear;
   final List<int> years;
+  final List<ProductQuarterlySalesMatrixRow> quarterlyProducts;
   final List<ProductSalesMatrixRow> productList;
   final ValueChanged<List<int>> onPeriodChanged;
   final bool isLoading;
 
   const ProductSalesMatrixView({
     super.key,
+    required this.selectedYear,
     required this.years,
+    required this.quarterlyProducts,
     required this.productList,
     required this.onPeriodChanged,
     this.isLoading = false,
@@ -28,6 +35,7 @@ class ProductSalesMatrixView extends StatefulWidget {
 }
 
 class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
+  ProductMatrixMode _mode = ProductMatrixMode.quarterly;
   late String _selectedPeriodLabel;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _minAmountController = TextEditingController();
@@ -36,14 +44,11 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
   String _searchQuery = '';
   bool _isAdvancedFilterOpen = false;
   String _selectedCategory = 'ALL';
-  String _amountOperator = 'ALL'; // ALL, GT (>), GTE (>=), LT (<), BETWEEN
-  String _targetPeriod = 'TOTAL'; // TOTAL, Y1, Y2, Y3
+  String _amountOperator = 'ALL';
 
-  
   int _sortColumnIndex = 5;
-  bool _sortAscending = false; 
+  bool _sortAscending = false;
 
-  // Phân trang & PageSize đồng nhất với toàn bộ hệ thống
   int _currentPage = 1;
   int _itemsPerPage = 10;
 
@@ -89,7 +94,6 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
       _searchQuery = '';
       _selectedCategory = 'ALL';
       _amountOperator = 'ALL';
-      _targetPeriod = 'TOTAL';
       _currentPage = 1;
     });
   }
@@ -123,150 +127,261 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     final filterPanelBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.8) : const Color(0xFFF8FAFC);
+    final tabBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
 
     final y1 = widget.years.isNotEmpty ? widget.years[0] : 2024;
     final y2 = widget.years.length > 1 ? widget.years[1] : 2025;
     final y3 = widget.years.length > 2 ? widget.years[2] : 2026;
 
-    final categories = <String>['ALL', ...widget.productList.map((p) => p.categoryName).toSet()];
+    // Thu thập danh sách Loại sản phẩm duy nhất (Loại bỏ 100% trùng lặp giữa 2 danh sách)
+    final Set<String> categorySet = {};
+    for (final p in widget.quarterlyProducts) {
+      final name = p.categoryName.trim();
+      if (name.isNotEmpty && name != 'ALL') {
+        categorySet.add(name);
+      }
+    }
+    for (final p in widget.productList) {
+      final name = p.categoryName.trim();
+      if (name.isNotEmpty && name != 'ALL') {
+        categorySet.add(name);
+      }
+    }
+    final sortedCategories = categorySet.toList()..sort((a, b) => a.compareTo(b));
+    final categories = ['ALL', ...sortedCategories];
+    final effectiveCategory = categories.contains(_selectedCategory) ? _selectedCategory : 'ALL';
     final minAmt = _parseAmount(_minAmountController.text);
     final maxAmt = _parseAmount(_maxAmountController.text);
 
-    // 1. Lọc theo từ khóa, danh mục và toán tử so sánh số tiền (Đề xuất 3)
-    final filtered = widget.productList.where((p) {
-      // Lọc từ khóa
-      if (_searchQuery.trim().isNotEmpty) {
-        final q = _searchQuery.toLowerCase();
-        final matchSearch = p.productName.toLowerCase().contains(q) ||
-            p.sku.toLowerCase().contains(q) ||
-            p.productCode.toLowerCase().contains(q) ||
-            p.categoryName.toLowerCase().contains(q);
-        if (!matchSearch) return false;
-      }
+    // Filter logic depending on current Mode
+    List<dynamic> filteredItems = [];
 
-      // Lọc theo danh mục
-      if (_selectedCategory != 'ALL' && p.categoryName != _selectedCategory) {
-        return false;
-      }
+    if (_mode == ProductMatrixMode.quarterly) {
+      filteredItems = widget.quarterlyProducts.where((p) {
+        if (_searchQuery.trim().isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          final match = p.productName.toLowerCase().contains(q) ||
+              p.sku.toLowerCase().contains(q) ||
+              p.productCode.toLowerCase().contains(q);
+          if (!match) return false;
+        }
 
-      // Lọc theo điều kiện số tiền
-      if (_amountOperator != 'ALL') {
-        double val = p.total;
-        if (_targetPeriod == 'Y1') val = p.y2024;
-        if (_targetPeriod == 'Y2') val = p.y2025;
-        if (_targetPeriod == 'Y3') val = p.y2026;
+        if (effectiveCategory != 'ALL' &&
+            p.categoryName.trim().toLowerCase() != effectiveCategory.toLowerCase()) {
+          return false;
+        }
 
-        switch (_amountOperator) {
-          case 'GT':
-            if (minAmt != null && val <= minAmt) return false;
+        if (_amountOperator != 'ALL') {
+          final val = p.total;
+
+          switch (_amountOperator) {
+            case 'GT':
+              if (minAmt != null && val <= minAmt) return false;
+              break;
+            case 'GTE':
+              if (minAmt != null && val < minAmt) return false;
+              break;
+            case 'LT':
+              if (maxAmt != null && val >= maxAmt) return false;
+              break;
+            case 'BETWEEN':
+              if (minAmt != null && val < minAmt) return false;
+              if (maxAmt != null && val > maxAmt) return false;
+              break;
+          }
+        }
+        return true;
+      }).toList();
+
+      // Sort quarterly
+      filteredItems.sort((a, b) {
+        final pA = a as ProductQuarterlySalesMatrixRow;
+        final pB = b as ProductQuarterlySalesMatrixRow;
+        int cmp = 0;
+        switch (_sortColumnIndex) {
+          case 0:
+            cmp = pA.productName.compareTo(pB.productName);
             break;
-          case 'GTE':
-            if (minAmt != null && val < minAmt) return false;
+          case 1:
+            cmp = pA.q1.compareTo(pB.q1);
             break;
-          case 'LT':
-            if (maxAmt != null && val >= maxAmt) return false;
+          case 2:
+            cmp = pA.q2.compareTo(pB.q2);
             break;
-          case 'BETWEEN':
-            if (minAmt != null && val < minAmt) return false;
-            if (maxAmt != null && val > maxAmt) return false;
+          case 3:
+            cmp = pA.q3.compareTo(pB.q3);
+            break;
+          case 4:
+            cmp = pA.q4.compareTo(pB.q4);
+            break;
+          case 5:
+          default:
+            cmp = pA.total.compareTo(pB.total);
             break;
         }
-      }
+        return _sortAscending ? cmp : -cmp;
+      });
+    } else {
+      // 3-Year mode
+      filteredItems = widget.productList.where((p) {
+        if (_searchQuery.trim().isNotEmpty) {
+          final q = _searchQuery.toLowerCase();
+          final match = p.productName.toLowerCase().contains(q) ||
+              p.sku.toLowerCase().contains(q) ||
+              p.productCode.toLowerCase().contains(q);
+          if (!match) return false;
+        }
 
-      return true;
-    }).toList();
+        if (effectiveCategory != 'ALL' &&
+            p.categoryName.trim().toLowerCase() != effectiveCategory.toLowerCase()) {
+          return false;
+        }
 
-    // 2. Sắp xếp động theo cột được chọn (Đề xuất 4)
-    filtered.sort((a, b) {
-      int cmp = 0;
-      switch (_sortColumnIndex) {
-        case 0:
-          cmp = a.productName.compareTo(b.productName);
-          break;
-        case 1:
-          cmp = a.categoryName.compareTo(b.categoryName);
-          break;
-        case 2:
-          cmp = a.y2024.compareTo(b.y2024);
-          break;
-        case 3:
-          cmp = a.y2025.compareTo(b.y2025);
-          break;
-        case 4:
-          cmp = a.y2026.compareTo(b.y2026);
-          break;
-        case 5:
-        default:
-          cmp = a.total.compareTo(b.total);
-          break;
-      }
-      return _sortAscending ? cmp : -cmp;
-    });
+        if (_amountOperator != 'ALL') {
+          final val = p.total;
 
-    // 3. Tính tổng lũy kế các năm từ toàn bộ danh sách đã lọc
-    double totalY1 = 0;
-    double totalY2 = 0;
-    double totalY3 = 0;
-    for (final p in filtered) {
-      totalY1 += p.y2024;
-      totalY2 += p.y2025;
-      totalY3 += p.y2026;
+          switch (_amountOperator) {
+            case 'GT':
+              if (minAmt != null && val <= minAmt) return false;
+              break;
+            case 'GTE':
+              if (minAmt != null && val < minAmt) return false;
+              break;
+            case 'LT':
+              if (maxAmt != null && val >= maxAmt) return false;
+              break;
+            case 'BETWEEN':
+              if (minAmt != null && val < minAmt) return false;
+              if (maxAmt != null && val > maxAmt) return false;
+              break;
+          }
+        }
+        return true;
+      }).toList();
+
+      filteredItems.sort((a, b) {
+        final pA = a as ProductSalesMatrixRow;
+        final pB = b as ProductSalesMatrixRow;
+        int cmp = 0;
+        switch (_sortColumnIndex) {
+          case 0:
+            cmp = pA.productName.compareTo(pB.productName);
+            break;
+          case 1:
+            cmp = pA.y2024.compareTo(pB.y2024);
+            break;
+          case 2:
+            cmp = pA.y2025.compareTo(pB.y2025);
+            break;
+          case 3:
+            cmp = pA.y2026.compareTo(pB.y2026);
+            break;
+          case 4:
+          default:
+            cmp = pA.total.compareTo(pB.total);
+            break;
+        }
+        return _sortAscending ? cmp : -cmp;
+      });
     }
-    final grandTotal = totalY1 + totalY2 + totalY3;
 
-    // 4. Phân trang dữ liệu (Pagination Slice)
-    final totalItems = filtered.length;
+    // Pagination
+    final totalItems = filteredItems.length;
     final totalPages = (totalItems / _itemsPerPage).ceil().clamp(1, 99999);
     final safePage = _currentPage.clamp(1, totalPages);
-    final paginatedList = filtered.skip((safePage - 1) * _itemsPerPage).take(_itemsPerPage).toList();
+    final paginatedList = filteredItems.skip((safePage - 1) * _itemsPerPage).take(_itemsPerPage).toList();
+
+    // Calculate Grand Totals
+    double totalQ1 = 0, totalQ2 = 0, totalQ3 = 0, totalQ4 = 0, grandTotalQ = 0;
+    double totalY1 = 0, totalY2 = 0, totalY3 = 0, grandTotal3Y = 0;
+
+    if (_mode == ProductMatrixMode.quarterly) {
+      for (final item in filteredItems) {
+        final p = item as ProductQuarterlySalesMatrixRow;
+        totalQ1 += p.q1;
+        totalQ2 += p.q2;
+        totalQ3 += p.q3;
+        totalQ4 += p.q4;
+        grandTotalQ += p.total;
+      }
+    } else {
+      for (final item in filteredItems) {
+        final p = item as ProductSalesMatrixRow;
+        totalY1 += p.y2024;
+        totalY2 += p.y2025;
+        totalY3 += p.y2026;
+        grandTotal3Y += p.total;
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Toolbar ngữ cảnh của Tab 3 (Bộ lọc giai đoạn, Tìm kiếm & Nút mở Bộ lọc nâng cao)
+        // Toolbar: Mode Toggle, Year/Period Dropdown, Search, Advanced Filter Button
         Wrap(
           spacing: AppTokens.space16,
           runSpacing: AppTokens.space12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SizedBox(
-              width: 180,
-              child: AppDropdown<String>(
-                value: _selectedPeriodLabel,
-                labelText: 'Giai đoạn so sánh',
-                items: const [
-                  DropdownMenuItem(value: '2024 - 2026', child: Text('Năm 2024 - 2026')),
-                  DropdownMenuItem(value: '2023 - 2025', child: Text('Năm 2023 - 2025')),
+            // Mode Toggle (Theo Quý vs So sánh 3 năm)
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: tabBg,
+                borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+                border: Border.all(color: cardBorder, width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildToggleBtn('Theo 4 Quý (${widget.selectedYear})', ProductMatrixMode.quarterly, isDark, textPrimary, textSecondary),
+                  _buildToggleBtn('So sánh 3 năm', ProductMatrixMode.threeYears, isDark, textPrimary, textSecondary),
                 ],
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedPeriodLabel = val;
-                      _currentPage = 1;
-                    });
-                    if (val == '2024 - 2026') {
-                      widget.onPeriodChanged([2024, 2025, 2026]);
-                    } else {
-                      widget.onPeriodChanged([2023, 2024, 2025]);
-                    }
-                  }
-                },
               ),
             ),
+
+            // Khi ở chế độ So sánh 3 năm, hiển thị Dropdown chọn giai đoạn so sánh
+            if (_mode == ProductMatrixMode.threeYears)
+              SizedBox(
+                width: 180,
+                child: AppDropdown<String>(
+                  value: _selectedPeriodLabel,
+                  labelText: 'Giai đoạn so sánh',
+                  items: const [
+                    DropdownMenuItem(value: '2024 - 2026', child: Text('Năm 2024 - 2026')),
+                    DropdownMenuItem(value: '2023 - 2025', child: Text('Năm 2023 - 2025')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedPeriodLabel = val;
+                        _currentPage = 1;
+                      });
+                      if (val == '2024 - 2026') {
+                        widget.onPeriodChanged([2024, 2025, 2026]);
+                      } else {
+                        widget.onPeriodChanged([2023, 2024, 2025]);
+                      }
+                    }
+                  },
+                ),
+              ),
+
+            // Ô tìm kiếm sản phẩm
             SizedBox(
-              width: 320,
+              width: 240,
               height: 44,
               child: TextField(
                 controller: _searchController,
                 style: TextStyle(color: textPrimary, fontSize: 13),
                 decoration: InputDecoration(
                   isDense: true,
-                  hintText: 'Tìm theo tên, mã SKU hoặc loại...',
-                  hintStyle: TextStyle(color: textSecondary, fontSize: 13),
+                  hintText: 'Tìm theo tên, SKU...',
+                  hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.7), fontSize: 13),
                   prefixIcon: Icon(Icons.search_rounded, size: 18, color: textSecondary),
-                  suffixIcon: _searchController.text.isNotEmpty
+                  suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 16),
+                          icon: const Icon(Icons.clear, size: 16),
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
@@ -276,33 +391,25 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                           },
                         )
                       : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   filled: true,
-                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                    borderSide: BorderSide(color: cardBorder),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                    borderSide: BorderSide(color: cardBorder),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-                    borderSide: const BorderSide(color: AppColors.primary),
-                  ),
+                  fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFFFF),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: const BorderSide(color: AppColors.primary)),
                 ),
-                onChanged: (val) => setState(() {
-                  _searchQuery = val;
-                  _currentPage = 1;
-                }),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                    _currentPage = 1;
+                  });
+                },
               ),
             ),
-            // Nút "Bộ lọc nâng cao" (Đề xuất 3)
+
+            // Nút Bộ lọc
             OutlinedButton.icon(
-              onPressed: () {
-                setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
-              },
+              onPressed: () => setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen),
               icon: Icon(
                 Icons.tune_rounded,
                 size: 16,
@@ -312,7 +419,7 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Bộ lọc nâng cao',
+                    _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Bộ lọc',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -336,6 +443,7 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
               ),
             ),
+
             if (_hasActiveFilters)
               IconButton(
                 tooltip: 'Đặt lại toàn bộ lọc',
@@ -349,180 +457,175 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
           ],
         ),
 
-        // Panel Lọc Nâng Cao (Đề xuất 3: Lọc theo Danh mục & Toán tử so sánh doanh số)
+        // Khối Bộ lọc (nếu mở)
         if (_isAdvancedFilterOpen) ...[
           const SizedBox(height: AppTokens.space12),
           Container(
-            padding: const EdgeInsets.all(AppTokens.space16),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: filterPanelBg,
               borderRadius: BorderRadius.circular(AppTokens.radiusMd),
               border: Border.all(color: cardBorder, width: 0.8),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.filter_alt_rounded, size: 16, color: AppColors.primary),
+                        const Icon(Icons.tune_rounded, size: 16, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
-                          'Tìm kiếm nâng cao (Danh mục & Điều kiện doanh số)',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: textPrimary,
+                          'Bộ lọc',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
+                        ),
+                        if (_activeFilterCount > 0) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$_activeFilterCount điều kiện đang áp dụng',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            ),
                           ),
+                        ],
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Hiển thị $totalItems / ${_mode == ProductMatrixMode.quarterly ? widget.quarterlyProducts.length : widget.productList.length} sản phẩm',
+                          style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 16),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: 'Đóng',
+                          onPressed: () => setState(() => _isAdvancedFilterOpen = false),
                         ),
                       ],
                     ),
-                    Text(
-                      'Hiển thị $totalItems / ${widget.productList.length} sản phẩm',
-                      style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
-                    ),
                   ],
                 ),
-                const SizedBox(height: AppTokens.space12),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    // Lọc theo Danh mục
-                    SizedBox(
-                      width: 190,
-                      child: AppDropdown<String>(
-                        value: _selectedCategory,
-                        labelText: 'Loại sản phẩm',
-                        items: categories.map((cat) {
-                          return DropdownMenuItem<String>(
-                            value: cat,
-                            child: Text(cat == 'ALL' ? 'Tất cả danh mục' : cat),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _selectedCategory = val;
-                              _currentPage = 1;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    // Phạm vi áp dụng (Năm)
-                    SizedBox(
-                      width: 170,
-                      child: AppDropdown<String>(
-                        value: _targetPeriod,
-                        labelText: 'Chỉ tiêu so sánh',
-                        items: [
-                          const DropdownMenuItem(value: 'TOTAL', child: Text('Cả giai đoạn (TC)')),
-                          DropdownMenuItem(value: 'Y1', child: Text('Năm $y1')),
-                          DropdownMenuItem(value: 'Y2', child: Text('Năm $y2')),
-                          DropdownMenuItem(value: 'Y3', child: Text('Năm $y3')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _targetPeriod = val;
-                              _currentPage = 1;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    // Toán tử so sánh
-                    SizedBox(
-                      width: 190,
-                      child: AppDropdown<String>(
-                        value: _amountOperator,
-                        labelText: 'Toán tử so sánh',
-                        items: const [
-                          DropdownMenuItem(value: 'ALL', child: Text('Tất cả mức tiền')),
-                          DropdownMenuItem(value: 'GT', child: Text('Lớn hơn ( > )')),
-                          DropdownMenuItem(value: 'GTE', child: Text('Từ mức ( >= )')),
-                          DropdownMenuItem(value: 'LT', child: Text('Nhỏ hơn ( < )')),
-                          DropdownMenuItem(value: 'BETWEEN', child: Text('Trong khoảng [Min - Max]')),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() {
-                              _amountOperator = val;
-                              _currentPage = 1;
-                            });
-                          }
-                        },
-                      ),
-                    ),
-                    // Ô nhập số tiền Min / Giá trị lọc
-                    if (_amountOperator != 'ALL') ...[
+                const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 10,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
                       SizedBox(
-                        width: 180,
-                        height: 44,
-                        child: TextField(
-                          controller: _minAmountController,
-                          keyboardType: TextInputType.number,
-                          style: TextStyle(color: textPrimary, fontSize: 13),
-                          decoration: InputDecoration(
-                            isDense: true,
-                            labelText: _amountOperator == 'LT' ? 'Mức trần (VNĐ)' : 'Mức sàn (VNĐ)',
-                            labelStyle: TextStyle(color: textSecondary, fontSize: 12),
-                            hintText: 'VD: 50.000.000',
-                            hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.5), fontSize: 12),
-                            filled: true,
-                            fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: const BorderSide(color: AppColors.primary)),
-                          ),
-                          onChanged: (_) => setState(() => _currentPage = 1),
+                        width: 200,
+                        child: AppDropdown<String>(
+                          value: effectiveCategory,
+                          labelText: 'Loại sản phẩm',
+                          items: categories.map((cat) {
+                            return DropdownMenuItem<String>(
+                              value: cat,
+                              child: Text(cat == 'ALL' ? 'Tất cả loại sản phẩm' : cat),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _selectedCategory = val;
+                                _currentPage = 1;
+                              });
+                            }
+                          },
                         ),
                       ),
-                      if (_amountOperator == 'BETWEEN')
+                      SizedBox(
+                        width: 190,
+                        child: AppDropdown<String>(
+                          value: _amountOperator,
+                          labelText: 'Toán tử so sánh',
+                          items: const [
+                            DropdownMenuItem(value: 'ALL', child: Text('Tất cả mức tiền')),
+                            DropdownMenuItem(value: 'GT', child: Text('Lớn hơn ( > )')),
+                            DropdownMenuItem(value: 'GTE', child: Text('Từ mức ( >= )')),
+                            DropdownMenuItem(value: 'LT', child: Text('Nhỏ hơn ( < )')),
+                            DropdownMenuItem(value: 'BETWEEN', child: Text('Trong khoảng [Min - Max]')),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _amountOperator = val;
+                                _currentPage = 1;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      if (_amountOperator != 'ALL') ...[
                         SizedBox(
-                          width: 180,
+                          width: 160,
                           height: 44,
                           child: TextField(
-                            controller: _maxAmountController,
+                            controller: _minAmountController,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [CurrencyInputFormatter()],
                             style: TextStyle(color: textPrimary, fontSize: 13),
                             decoration: InputDecoration(
                               isDense: true,
-                              labelText: 'Đến mức (VNĐ)',
-                              labelStyle: TextStyle(color: textSecondary, fontSize: 12),
-                              hintText: 'VD: 300.000.000',
-                              hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.5), fontSize: 12),
+                              labelText: _amountOperator == 'LT' ? 'Mức trần' : 'Mức sàn',
+                              hintText: '50,000,000',
                               filled: true,
-                              fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
+                              fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
                               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: const BorderSide(color: AppColors.primary)),
                             ),
                             onChanged: (_) => setState(() => _currentPage = 1),
                           ),
                         ),
+                        if (_amountOperator == 'BETWEEN')
+                          SizedBox(
+                            width: 160,
+                            height: 44,
+                            child: TextField(
+                              controller: _maxAmountController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
+                              style: TextStyle(color: textPrimary, fontSize: 13),
+                              decoration: InputDecoration(
+                                isDense: true,
+                                labelText: 'Đến mức',
+                                hintText: '300,000,000',
+                                filled: true,
+                                fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd), borderSide: BorderSide(color: cardBorder)),
+                              ),
+                              onChanged: (_) => setState(() => _currentPage = 1),
+                            ),
+                          ),
+                      ],
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
         const SizedBox(height: AppTokens.space16),
 
-        // Bảng Ma trận Doanh số Sản phẩm (Bảng c - Có Quick Sort & Phân trang AppPagination)
+        // DataTable (Không có cột Loại sản phẩm như người dùng yêu cầu!)
         if (widget.isLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 40),
             child: Center(child: CircularProgressIndicator()),
           )
-        else if (filtered.isEmpty)
+        else if (filteredItems.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 40),
             child: Center(
@@ -531,10 +634,7 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                 children: [
                   Icon(Icons.inventory_2_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
                   const SizedBox(height: 8),
-                  Text(
-                    'Không tìm thấy sản phẩm phù hợp với điều kiện tìm kiếm/lọc hiện tại.',
-                    style: TextStyle(color: textSecondary, fontSize: 13),
-                  ),
+                  Text('Không tìm thấy sản phẩm phù hợp.', style: TextStyle(color: textSecondary, fontSize: 13)),
                 ],
               ),
             ),
@@ -549,53 +649,53 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                   child: DataTable(
                     showCheckboxColumn: false,
                     headingRowHeight: 46,
-                    dataRowMinHeight: 54,
-                    dataRowMaxHeight: 54,
+                    dataRowMinHeight: 52,
+                    dataRowMaxHeight: 52,
                     columnSpacing: 28,
                     sortColumnIndex: _sortColumnIndex,
                     sortAscending: _sortAscending,
                     headingRowColor: WidgetStateProperty.all(
                       isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
                     ),
-                    columns: [
-                      DataColumn(
-                        label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
-                        onSort: _onSort,
-                      ),
-                      DataColumn(
-                        label: Text('Loại sản phẩm', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
-                        onSort: _onSort,
-                      ),
-                      DataColumn(
-                        numeric: true,
-                        label: Text('Năm $y1', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
-                        onSort: _onSort,
-                      ),
-                      DataColumn(
-                        numeric: true,
-                        label: Text('Năm $y2', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
-                        onSort: _onSort,
-                      ),
-                      DataColumn(
-                        numeric: true,
-                        label: Text('Năm $y3', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
-                        onSort: _onSort,
-                      ),
-                      DataColumn(
-                        numeric: true,
-                        label: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text('TỔNG CỘNG (TC)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 12)),
-                        ),
-                        onSort: _onSort,
-                      ),
-                    ],
+                    columns: _mode == ProductMatrixMode.quarterly
+                        ? [
+                            DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Quý 1', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Quý 2', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Quý 3', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Quý 4', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(
+                              numeric: true,
+                              label: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)),
+                                child: Text('Tổng cộng', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 12)),
+                              ),
+                              onSort: _onSort,
+                            ),
+                          ]
+                        : [
+                            DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Năm $y1', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Năm $y2', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(numeric: true, label: Text('Năm $y3', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)), onSort: _onSort),
+                            DataColumn(
+                              numeric: true,
+                              label: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(4)),
+                                child: Text('Tổng cộng', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 12)),
+                              ),
+                              onSort: _onSort,
+                            ),
+                          ],
                     rows: [
-                      ...paginatedList.map((p) {
+                      ...paginatedList.map((item) {
+                        final isQuarterly = _mode == ProductMatrixMode.quarterly;
+                        final String pName = isQuarterly ? (item as ProductQuarterlySalesMatrixRow).productName : (item as ProductSalesMatrixRow).productName;
+                        final String pSku = isQuarterly ? (item as ProductQuarterlySalesMatrixRow).sku : (item as ProductSalesMatrixRow).sku;
+                        final String pImg = isQuarterly ? (item as ProductQuarterlySalesMatrixRow).imageUrl : (item as ProductSalesMatrixRow).imageUrl;
+
                         return DataRow(
                           color: WidgetStateProperty.resolveWith<Color?>((states) {
                             if (states.contains(WidgetState.hovered)) {
@@ -603,233 +703,171 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
                             }
                             return null;
                           }),
-                          cells: [
-                            // Cột lồng ghép Ảnh sản phẩm + Tên + Mã SKU bên dưới
-                            DataCell(
-                              SizedBox(
-                                width: 260,
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                                      child: Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                                          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                                          border: Border.all(color: cardBorder, width: 0.5),
-                                        ),
-                                        child: p.imageUrl.isNotEmpty
-                                            ? Image.network(
-                                                p.imageUrl,
-                                                width: 36,
-                                                height: 36,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (ctx, err, stack) => Container(
-                                                  width: 36,
-                                                  height: 36,
-                                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                                  child: const Icon(Icons.devices, size: 16, color: AppColors.primary),
-                                                ),
-                                              )
-                                            : Container(
-                                                width: 36,
-                                                height: 36,
-                                                color: AppColors.primary.withValues(alpha: 0.1),
-                                                child: const Icon(Icons.devices, size: 16, color: AppColors.primary),
-                                              ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppTokens.space10),
-                                    Expanded(
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                          cells: isQuarterly
+                              ? [
+                                  // Cột Sản phẩm (Ảnh + Tên + SKU)
+                                  DataCell(
+                                    SizedBox(
+                                      width: 280,
+                                      child: Row(
                                         children: [
-                                          Text(
-                                            p.productName,
-                                            style: TextStyle(
-                                              color: textPrimary,
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 13,
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                                            child: Container(
+                                              width: 36,
+                                              height: 36,
+                                              decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                                              child: pImg.isNotEmpty
+                                                  ? Image.network(pImg, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported_outlined, size: 18))
+                                                  : const Icon(Icons.inventory_2_outlined, size: 18),
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'SKU: ${p.sku.isNotEmpty ? p.sku : p.productCode}',
-                                            style: TextStyle(
-                                              color: textSecondary,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w400,
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(pName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                const SizedBox(height: 2),
+                                                Text(pSku, style: TextStyle(fontSize: 11, color: textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              ],
                                             ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                                ),
-                                child: Text(
-                                  p.categoryName,
-                                  style: const TextStyle(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                NumberDisplayFormatter.format(p.y2024),
-                                style: TextStyle(fontSize: 13, color: textPrimary),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                NumberDisplayFormatter.format(p.y2025),
-                                style: TextStyle(fontSize: 13, color: textPrimary),
-                              ),
-                            ),
-                            DataCell(
-                              Text(
-                                NumberDisplayFormatter.format(p.y2026),
-                                style: TextStyle(fontSize: 13, color: textPrimary),
-                              ),
-                            ),
-                            DataCell(
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: cardBorder, width: 0.8),
-                                ),
-                                child: Text(
-                                  NumberDisplayFormatter.format(p.total),
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: textPrimary,
                                   ),
-                                ),
-                              ),
-                            ),
-                          ],
+                                  DataCell(Text(NumberDisplayFormatter.format((item as ProductQuarterlySalesMatrixRow).q1), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.q2), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.q3), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.q4), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.total), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                ]
+                              : [
+                                  DataCell(
+                                    SizedBox(
+                                      width: 280,
+                                      child: Row(
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(AppTokens.radiusSm),
+                                            child: Container(
+                                              width: 36,
+                                              height: 36,
+                                              decoration: BoxDecoration(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                                              child: pImg.isNotEmpty
+                                                  ? Image.network(pImg, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported_outlined, size: 18))
+                                                  : const Icon(Icons.inventory_2_outlined, size: 18),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(pName, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                                const SizedBox(height: 2),
+                                                Text(pSku, style: TextStyle(fontSize: 11, color: textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(Text(NumberDisplayFormatter.format((item as ProductSalesMatrixRow).y2024), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.y2025), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.y2026), style: TextStyle(fontSize: 13, color: textPrimary))),
+                                  DataCell(Text(NumberDisplayFormatter.format(item.total), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                ],
                         );
                       }),
-                      // Dòng TỔNG CỘNG TOÀN BỘ SẢN PHẨM (Grand Total Row - Expanded chống tràn)
+
+                      // Dòng Tổng cộng chân bảng
                       DataRow(
                         color: WidgetStateProperty.all(
                           isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                         ),
-                        cells: [
-                          DataCell(
-                            SizedBox(
-                              width: 260,
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.functions_rounded, size: 18, color: AppColors.primary),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'TỔNG DOANH SỐ SẢN PHẨM',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: textPrimary,
-                                        fontSize: 13,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              '—',
-                              style: TextStyle(color: textSecondary, fontSize: 13, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              NumberDisplayFormatter.format(totalY1),
-                              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              NumberDisplayFormatter.format(totalY2),
-                              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              NumberDisplayFormatter.format(totalY3),
-                              style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13),
-                            ),
-                          ),
-                          DataCell(
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.primary, width: 1),
-                              ),
-                              child: Text(
-                                NumberDisplayFormatter.format(grandTotal),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                        cells: _mode == ProductMatrixMode.quarterly
+                            ? [
+                                DataCell(Text('Tổng cộng (${filteredItems.length} sản phẩm)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalQ1), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalQ2), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalQ3), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalQ4), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(grandTotalQ), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary))),
+                              ]
+                            : [
+                                DataCell(Text('Tổng cộng (${filteredItems.length} sản phẩm)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalY1), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalY2), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(totalY3), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary))),
+                                DataCell(Text(NumberDisplayFormatter.format(grandTotal3Y), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary))),
+                              ],
                       ),
                     ],
                   ),
                 ),
-                // Thanh phân trang AppPagination chuẩn hệ thống
-                if (totalItems > 0)
-                  AppPagination(
+
+                // Phân trang
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: AppPagination(
                     currentPage: safePage,
                     totalPages: totalPages,
                     totalItems: totalItems,
                     itemsPerPage: _itemsPerPage,
-                    itemsPerPageOptions: const [10, 20, 50, 100],
-                    onPageChanged: (page) => setState(() => _currentPage = page),
-                    onItemsPerPageChanged: (items) {
-                      setState(() {
-                        _itemsPerPage = items;
-                        _currentPage = 1;
-                      });
-                    },
+                    onPageChanged: (p) => setState(() => _currentPage = p),
+                    onItemsPerPageChanged: (n) => setState(() {
+                      _itemsPerPage = n;
+                      _currentPage = 1;
+                    }),
                   ),
+                ),
               ],
             ),
           ),
-        const SizedBox(height: AppTokens.space16),
-        // Chú thích phương pháp thống kê
-        Text(
-          '* Ghi chú: Dữ liệu được tính toán 100% từ Database thực tế. Doanh số tính theo giá trị thực thu của từng mặt hàng qua các năm. Đơn vị tiền tệ: VNĐ (đ). Click tiêu đề cột để sắp xếp nhanh.',
-          style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: textSecondary),
-        ),
       ],
+    );
+  }
+
+  Widget _buildToggleBtn(String label, ProductMatrixMode mode, bool isDark, Color textPrimary, Color textSecondary) {
+    final isSelected = _mode == mode;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _mode = mode;
+          _sortColumnIndex = mode == ProductMatrixMode.quarterly ? 5 : 4;
+          _sortAscending = false;
+          _currentPage = 1;
+        });
+      },
+      borderRadius: BorderRadius.circular(AppTokens.radiusMd - 2),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+        decoration: BoxDecoration(
+          color: isSelected ? (isDark ? const Color(0xFF0F172A) : Colors.white) : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd - 2),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4, offset: const Offset(0, 1)),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : textSecondary,
+          ),
+        ),
+      ),
     );
   }
 }

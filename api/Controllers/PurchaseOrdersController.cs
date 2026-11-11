@@ -13,7 +13,7 @@ namespace WebBanHang.Api.Controllers;
 public class PurchaseOrdersController(IPurchaseOrderService purchaseOrderService) : BaseApiController
 {
     /// <summary>
-    /// Lấy danh sách phiếu nhập hàng có phân trang và bộ lọc nâng cao
+    /// Lấy danh sách phiếu nhập hàng có phân trang và Bộ lọc
     /// </summary>
     /// <param name="filter">Bộ lọc theo ngày, trạng thái, nhà cung cấp, tìm kiếm và phân trang</param>
     [HttpGet]

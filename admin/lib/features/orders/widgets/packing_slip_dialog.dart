@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_tokens.dart';
 import '../../../core/models/order.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_toast.dart';
 
@@ -25,16 +27,53 @@ class PackingSlipDialog extends StatefulWidget {
 
 class _PackingSlipDialogState extends State<PackingSlipDialog> {
   late int _currentIndex;
+  late List<Order> _loadedOrders;
+  final Set<int> _loadingOrderIds = {};
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
 
   @override
   void initState() {
     super.initState();
+    _loadedOrders = List<Order>.from(widget.orders);
     _currentIndex = widget.initialIndex.clamp(0, widget.orders.isEmpty ? 0 : widget.orders.length - 1);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAndFetchItemsForCurrent();
+    });
   }
 
-  Order get _currentOrder => widget.orders[_currentIndex];
+  Order get _currentOrder => _loadedOrders[_currentIndex];
+
+  Future<void> _checkAndFetchItemsForCurrent() async {
+    if (_loadedOrders.isEmpty) return;
+    final order = _currentOrder;
+    if (order.items.isNotEmpty || _loadingOrderIds.contains(order.orderId)) return;
+
+    if (mounted) {
+      setState(() {
+        _loadingOrderIds.add(order.orderId);
+      });
+    }
+
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final token = Provider.of<AuthProvider>(context, listen: false).token;
+      final fullOrder = await apiService.getOrderById(order.orderId, token: token);
+      if (fullOrder != null && mounted) {
+        setState(() {
+          _loadedOrders[_currentIndex] = fullOrder;
+        });
+      }
+    } catch (e) {
+      debugPrint('[PackingSlipDialog] Lỗi nạp chi tiết mặt hàng: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingOrderIds.remove(order.orderId);
+        });
+      }
+    }
+  }
 
   void _copySlipText(Order order) {
     final buffer = StringBuffer();
@@ -164,7 +203,12 @@ class _PackingSlipDialogState extends State<PackingSlipDialog> {
                     IconButton(
                       icon: const Icon(Icons.chevron_left_rounded),
                       tooltip: 'Đơn trước',
-                      onPressed: _currentIndex > 0 ? () => setState(() => _currentIndex--) : null,
+                      onPressed: _currentIndex > 0
+                          ? () {
+                              setState(() => _currentIndex--);
+                              _checkAndFetchItemsForCurrent();
+                            }
+                          : null,
                     ),
                     Text(
                       '${_currentIndex + 1}/${widget.orders.length}',
@@ -173,7 +217,12 @@ class _PackingSlipDialogState extends State<PackingSlipDialog> {
                     IconButton(
                       icon: const Icon(Icons.chevron_right_rounded),
                       tooltip: 'Đơn tiếp theo',
-                      onPressed: _currentIndex < widget.orders.length - 1 ? () => setState(() => _currentIndex++) : null,
+                      onPressed: _currentIndex < widget.orders.length - 1
+                          ? () {
+                              setState(() => _currentIndex++);
+                              _checkAndFetchItemsForCurrent();
+                            }
+                          : null,
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -470,7 +519,28 @@ class _PackingSlipDialogState extends State<PackingSlipDialog> {
                         ),
                         const SizedBox(height: 6),
 
-                        Table(
+                        if (_loadingOrderIds.contains(order.orderId))
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            alignment: Alignment.center,
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Đang nạp chi tiết danh sách mặt hàng...',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Table(
                           border: TableBorder.all(color: const Color(0xFFCBD5E1), width: 1),
                           columnWidths: const {
                             0: FixedColumnWidth(36),

@@ -31,7 +31,7 @@ public interface IReviewService
     Task<PagedResult<PendingReviewItemDto>> GetPendingReviewItemsAsync(int userId, PaginationParams filter);
 
     /// <summary>
-    /// Dành cho Quản trị viên: Lấy danh sách đánh giá toàn hệ thống có phân trang và bộ lọc nâng cao
+    /// Dành cho Quản trị viên: Lấy danh sách đánh giá toàn hệ thống có phân trang và Bộ lọc
     /// </summary>
     Task<PagedResult<ReviewDto>> GetAdminReviewsAsync(AdminReviewQueryFilter filter);
 
