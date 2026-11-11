@@ -459,7 +459,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
                 const SizedBox(width: 8),
 
-                // Nút "Bộ lọc nâng cao"
+                // Nút "Bộ lọc"
                 OutlinedButton.icon(
                   onPressed: () {
                     setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
@@ -817,7 +817,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Bộ lọc nâng cao',
+                    'Bộ lọc',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

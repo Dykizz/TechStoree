@@ -5,23 +5,20 @@ import '../../../core/constants/app_tokens.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/app_pagination.dart';
+import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
 import '../models/statistics_models.dart';
 
 class StaffSalesMatrixView extends StatefulWidget {
   final int selectedYear;
-  final List<int> availableYears;
   final List<StaffSalesMatrixRow> staffList;
-  final ValueChanged<int> onYearChanged;
   final bool isLoading;
 
   const StaffSalesMatrixView({
     super.key,
     required this.selectedYear,
-    required this.availableYears,
     required this.staffList,
-    required this.onYearChanged,
     this.isLoading = false,
   });
 
@@ -40,7 +37,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
   String _targetPeriod = 'TOTAL'; // TOTAL, Q1, Q2, Q3, Q4
 
   // Đề xuất 4: Sắp xếp theo cột (Mặc định: Top doanh số cao nhất lên đầu)
-  int _sortColumnIndex = 5; // Cột 5 là TỔNG CỘNG (TC)
+  int _sortColumnIndex = 5; // Cột 5 là Tổng cộng (TC)
   bool _sortAscending = false; // false = Giảm dần
 
   // Phân trang & PageSize đồng nhất với toàn bộ hệ thống
@@ -101,10 +98,6 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final cardBorder = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     final filterPanelBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.8) : const Color(0xFFF8FAFC);
-
-    final yearsList = widget.availableYears.contains(widget.selectedYear)
-        ? widget.availableYears
-        : [widget.selectedYear, ...widget.availableYears];
 
     final minAmt = _parseAmount(_minAmountController.text);
     final maxAmt = _parseAmount(_maxAmountController.text);
@@ -173,7 +166,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
       return _sortAscending ? cmp : -cmp;
     });
 
-    // 3. Tính tổng lũy kế toàn công ty từ toàn bộ danh sách đã lọc
+    // 3. Tính tổng lũy kế từ toàn bộ danh sách đã lọc
     double totalQ1 = 0;
     double totalQ2 = 0;
     double totalQ3 = 0;
@@ -195,28 +188,12 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Toolbar ngữ cảnh của Tab 2 (Chọn năm, Tìm kiếm & Nút mở Bộ lọc nâng cao)
+        // Toolbar ngữ cảnh của Tab 2 (Tìm kiếm & Nút mở Bộ lọc)
         Wrap(
           spacing: AppTokens.space16,
           runSpacing: AppTokens.space12,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SizedBox(
-              width: 160,
-              child: AppDropdown<int>(
-                value: widget.selectedYear,
-                labelText: 'Năm thống kê',
-                items: yearsList.map((y) {
-                  return DropdownMenuItem<int>(
-                    value: y,
-                    child: Text('Năm $y'),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) widget.onYearChanged(val);
-                },
-              ),
-            ),
             SizedBox(
               width: 320,
               height: 44,
@@ -262,7 +239,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                 }),
               ),
             ),
-            // Nút "Bộ lọc nâng cao" (Đề xuất 3)
+            // Nút "Bộ lọc"
             OutlinedButton.icon(
               onPressed: () {
                 setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
@@ -276,7 +253,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Bộ lọc nâng cao',
+                    _activeFilterCount > 0 ? 'Lọc ($_activeFilterCount)' : 'Bộ lọc',
                     style: TextStyle(
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
@@ -317,39 +294,69 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
         if (_isAdvancedFilterOpen) ...[
           const SizedBox(height: AppTokens.space12),
           Container(
-            padding: const EdgeInsets.all(AppTokens.space16),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: filterPanelBg,
               borderRadius: BorderRadius.circular(AppTokens.radiusMd),
               border: Border.all(color: cardBorder, width: 0.8),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.filter_alt_rounded, size: 16, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Tìm kiếm nâng cao',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: textPrimary,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.tune_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Bộ lọc',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: textPrimary,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      'Hiển thị $totalItems / ${widget.staffList.length} nhân viên',
-                      style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppTokens.space12),
+                          if (_activeFilterCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '$_activeFilterCount điều kiện đang áp dụng',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Hiển thị $totalItems / ${widget.staffList.length} nhân viên',
+                            style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Đóng',
+                            onPressed: () => setState(() => _isAdvancedFilterOpen = false),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppTokens.space12),
                 Wrap(
                   spacing: 12,
                   runSpacing: 10,
@@ -362,11 +369,11 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                         value: _targetPeriod,
                         labelText: 'Chỉ tiêu so sánh',
                         items: const [
-                          DropdownMenuItem(value: 'TOTAL', child: Text('Cả năm (TC)')),
-                          DropdownMenuItem(value: 'Q1', child: Text('Quý 1 (Q1)')),
-                          DropdownMenuItem(value: 'Q2', child: Text('Quý 2 (Q2)')),
-                          DropdownMenuItem(value: 'Q3', child: Text('Quý 3 (Q3)')),
-                          DropdownMenuItem(value: 'Q4', child: Text('Quý 4 (Q4)')),
+                          DropdownMenuItem(value: 'TOTAL', child: Text('Cả năm')),
+                          DropdownMenuItem(value: 'Q1', child: Text('Quý 1')),
+                          DropdownMenuItem(value: 'Q2', child: Text('Quý 2')),
+                          DropdownMenuItem(value: 'Q3', child: Text('Quý 3')),
+                          DropdownMenuItem(value: 'Q4', child: Text('Quý 4')),
                         ],
                         onChanged: (val) {
                           if (val != null) {
@@ -409,12 +416,13 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                         child: TextField(
                           controller: _minAmountController,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [CurrencyInputFormatter()],
                           style: TextStyle(color: textPrimary, fontSize: 13),
                           decoration: InputDecoration(
                             isDense: true,
                             labelText: _amountOperator == 'LT' ? 'Mức trần (VNĐ)' : 'Mức sàn (VNĐ)',
                             labelStyle: TextStyle(color: textSecondary, fontSize: 12),
-                            hintText: 'VD: 50.000.000',
+                            hintText: 'VD: 50,000,000',
                             hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.5), fontSize: 12),
                             filled: true,
                             fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
@@ -433,12 +441,13 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                           child: TextField(
                             controller: _maxAmountController,
                             keyboardType: TextInputType.number,
+                            inputFormatters: [CurrencyInputFormatter()],
                             style: TextStyle(color: textPrimary, fontSize: 13),
                             decoration: InputDecoration(
                               isDense: true,
                               labelText: 'Đến mức (VNĐ)',
                               labelStyle: TextStyle(color: textSecondary, fontSize: 12),
-                              hintText: 'VD: 200.000.000',
+                              hintText: 'VD: 200,000,000',
                               hintStyle: TextStyle(color: textSecondary.withValues(alpha: 0.5), fontSize: 12),
                               filled: true,
                               fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
@@ -507,22 +516,22 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                       ),
                       DataColumn(
                         numeric: true,
-                        label: Text('Quý 1 (Q1)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
+                        label: Text('Quý 1', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
                         onSort: _onSort,
                       ),
                       DataColumn(
                         numeric: true,
-                        label: Text('Quý 2 (Q2)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
+                        label: Text('Quý 2', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
                         onSort: _onSort,
                       ),
                       DataColumn(
                         numeric: true,
-                        label: Text('Quý 3 (Q3)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
+                        label: Text('Quý 3', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
                         onSort: _onSort,
                       ),
                       DataColumn(
                         numeric: true,
-                        label: Text('Quý 4 (Q4)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
+                        label: Text('Quý 4', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 13)),
                         onSort: _onSort,
                       ),
                       DataColumn(
@@ -533,7 +542,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                             color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text('TỔNG CỘNG (TC)', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 12)),
+                          child: Text('Tổng cộng', style: TextStyle(fontWeight: FontWeight.bold, color: textPrimary, fontSize: 12)),
                         ),
                         onSort: _onSort,
                       ),
@@ -627,7 +636,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                           ],
                         );
                       }),
-                      // Dòng TỔNG CỘNG TOÀN CÔNG TY (Grand Total Row - Expanded chống tràn)
+                      // Dòng Tổng cộng (Grand Total Row - Expanded chống tràn)
                       DataRow(
                         color: WidgetStateProperty.all(
                           isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
@@ -642,7 +651,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'TỔNG CỘNG TOÀN CÔNG TY',
+                                      'Tổng cộng',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: textPrimary,

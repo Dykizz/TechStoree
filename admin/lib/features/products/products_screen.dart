@@ -194,7 +194,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Bộ lọc nâng cao sản phẩm',
+                    'Bộ lọc sản phẩm',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
@@ -749,7 +749,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       _currentPage = 1;
                     }),
                   ),
-                  // Nút Bộ lọc nâng cao
+                  // Nút Bộ lọc
                   OutlinedButton.icon(
                     onPressed: () {
                       setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);

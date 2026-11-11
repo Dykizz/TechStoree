@@ -918,7 +918,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'Bộ lọc nâng cao đơn hàng',
+                    'Bộ lọc đơn hàng',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
