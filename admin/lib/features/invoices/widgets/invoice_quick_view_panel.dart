@@ -355,7 +355,6 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           icon: Icons.account_circle_outlined,
                           label: 'Khách hàng',
                           value: invoice.customerName.isNotEmpty ? invoice.customerName : 'Khách vãng lai',
-                          badge: '#${invoice.userId}',
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
                           borderColor: borderColor,

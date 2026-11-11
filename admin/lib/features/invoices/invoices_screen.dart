@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -38,6 +39,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _minAmountCtrl = TextEditingController();
   final TextEditingController _maxAmountCtrl = TextEditingController();
+  Timer? _amountDebounceTimer;
 
   String _searchQuery = '';
   String _selectedStatus = 'ALL';
@@ -67,6 +69,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   @override
   void dispose() {
+    _amountDebounceTimer?.cancel();
     _searchCtrl.dispose();
     _minAmountCtrl.dispose();
     _maxAmountCtrl.dispose();
@@ -178,7 +181,39 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
     _loadInvoices();
   }
 
+  double? _parseAmount(String text) {
+    final clean = text.replaceAll(RegExp(r'[^0-9]'), '').trim();
+    return clean.isNotEmpty ? double.tryParse(clean) : null;
+  }
+
+  void _onAmountChanged() {
+    _amountDebounceTimer?.cancel();
+    _amountDebounceTimer = Timer(const Duration(milliseconds: 500), () {
+      _applyCustomAmount();
+    });
+  }
+
+  void _applyCustomAmount() {
+    final min = _parseAmount(_minAmountCtrl.text);
+    final max = _parseAmount(_maxAmountCtrl.text);
+
+    // Không kích hoạt nếu khoảng giá không hợp lệ (min > max)
+    if (min != null && max != null && min > max) {
+      return;
+    }
+
+    if (min != _minAmount || max != _maxAmount) {
+      setState(() {
+        _minAmount = min;
+        _maxAmount = max;
+        _currentPage = 1;
+      });
+      _loadInvoices();
+    }
+  }
+
   void _applyPricePreset(double? min, double? max) {
+    _amountDebounceTimer?.cancel();
     setState(() {
       _minAmount = min;
       _maxAmount = max;
@@ -223,6 +258,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   void _resetFilters() {
+    _amountDebounceTimer?.cancel();
     setState(() {
       _searchCtrl.clear();
       _searchQuery = '';
@@ -460,54 +496,62 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                 const SizedBox(width: 8),
 
                 // Nút "Bộ lọc"
-                OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
-                  },
-                  icon: Icon(
-                    Icons.tune_rounded,
-                    size: 16,
-                    color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
-                  ),
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _advancedFilterCount > 0 ? 'Lọc ($_advancedFilterCount)' : 'Bộ lọc',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                          color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        _isAdvancedFilterOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                        size: 16,
-                        color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textSecondary,
-                      ),
-                    ],
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : null,
-                    side: BorderSide(
-                      color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : borderColor,
+                SizedBox(
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
+                    },
+                    icon: Icon(
+                      Icons.tune_rounded,
+                      size: 16,
+                      color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _advancedFilterCount > 0 ? 'Lọc ($_advancedFilterCount)' : 'Bộ lọc',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          _isAdvancedFilterOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textSecondary,
+                        ),
+                      ],
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : null,
+                      side: BorderSide(
+                        color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : borderColor,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
+                    ),
                   ),
                 ),
 
                 // Nút Đặt lại bộ lọc (nếu có active filter)
                 if (_hasActiveFilters) ...[
                   const SizedBox(width: 8),
-                  IconButton(
-                    tooltip: 'Đặt lại toàn bộ lọc',
-                    onPressed: _resetFilters,
-                    icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppColors.danger),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.danger.withValues(alpha: 0.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: IconButton(
+                      tooltip: 'Đặt lại toàn bộ lọc',
+                      onPressed: _resetFilters,
+                      icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppColors.danger),
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.danger.withValues(alpha: 0.1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
+                        padding: EdgeInsets.zero,
+                      ),
                     ),
                   ),
                 ],
@@ -523,7 +567,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
           const SizedBox(height: 12),
 
-          // Bảng dữ liệu hóa đơn (Co giãn tự nhiên trong SingleChildScrollView)
+          // Bảng dữ liệu hóa đơn (Cấu trúc 2 cột cố định: Bảng danh sách + Khung xem nhanh)
           _isLoading
               ? const Center(
                   child: Padding(
@@ -531,69 +575,134 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
                 )
-              : _invoices.isEmpty
-                  ? const DataTableContainer(
-                      child: EmptyState(
-                        title: 'Không tìm thấy hóa đơn nào',
-                        message: 'Không có hóa đơn nào khớp với điều kiện lọc hiện tại.',
-                        icon: Icons.receipt_long_outlined,
-                      ),
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final table = _buildInvoicesTable(isDark, textPrimary, textSecondary, borderColor);
-                        if (_selectedInvoice == null) {
-                          return table;
-                        }
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isCompact = constraints.maxWidth < 680;
+                    final panelWidth = constraints.maxWidth > 1400
+                        ? 430.0
+                        : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
 
-                        final isCompact = constraints.maxWidth < 680;
-                        final panelWidth = constraints.maxWidth > 1400
-                            ? 430.0
-                            : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
-
-                        if (isCompact) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              table,
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                height: 580,
-                                child: InvoiceQuickViewPanel(
-                                  invoice: _selectedInvoice!,
-                                  onClose: _closeQuickView,
-                                  onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: table,
+                    final tableContent = _invoices.isEmpty
+                        ? const DataTableContainer(
+                            child: EmptyState(
+                              title: 'Không tìm thấy hóa đơn nào',
+                              message: 'Không có hóa đơn nào khớp với điều kiện lọc hiện tại.',
+                              icon: Icons.receipt_long_outlined,
                             ),
-                            const SizedBox(width: 14),
+                          )
+                        : _buildInvoicesTable(isDark, textPrimary, textSecondary, borderColor);
+
+                    final rightPanel = _selectedInvoice != null
+                        ? InvoiceQuickViewPanel(
+                            key: ValueKey('invoice_panel_${_selectedInvoice!.invoiceId}'),
+                            invoice: _selectedInvoice!,
+                            onClose: _closeQuickView,
+                            onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
+                          )
+                        : _buildQuickViewPlaceholder(isDark, cardBg, borderColor, textSecondary);
+
+                    if (isCompact) {
+                      if (_selectedInvoice != null) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            tableContent,
+                            const SizedBox(height: 16),
                             SizedBox(
-                              width: panelWidth,
-                              height: 640,
-                              child: InvoiceQuickViewPanel(
-                                invoice: _selectedInvoice!,
-                                onClose: _closeQuickView,
-                                onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
-                              ),
+                              height: 580,
+                              child: rightPanel,
                             ),
                           ],
                         );
-                      },
-                    ),
+                      }
+                      return tableContent;
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: tableContent,
+                        ),
+                        const SizedBox(width: 14),
+                        SizedBox(
+                          width: panelWidth,
+                          height: 640,
+                          child: rightPanel,
+                        ),
+                      ],
+                    );
+                  },
+                ),
         ],
       ),
     ),
   ),
 );
+  }
+
+  Widget _buildQuickViewPlaceholder(
+    bool isDark,
+    Color cardBg,
+    Color borderColor,
+    Color textSecondary,
+  ) {
+    return Container(
+      key: const ValueKey('invoice_quick_view_placeholder'),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(-2, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : AppColors.primary).withValues(alpha: 0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  size: 38,
+                  color: textSecondary.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Chưa chọn hóa đơn',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Nhấp vào một hóa đơn trong danh sách\nđể xem nhanh chi tiết tại đây',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: textSecondary.withValues(alpha: 0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildInvoicesTable(
@@ -626,7 +735,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               }),
               columns: [
                 DataColumn(label: Text('Mã HĐ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Khách hàng', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                 DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                 DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
                 DataColumn(label: Text('Ngày lập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
@@ -675,14 +783,6 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                    // Khách hàng
-                    DataCell(
-                      Text(
-                        inv.customerName.isNotEmpty ? inv.customerName : 'Khách vãng lai',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: textPrimary),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     // Tổng tiền
@@ -888,6 +988,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
                               ),
+                              onChanged: (_) => _onAmountChanged(),
+                              onSubmitted: (_) => _applyCustomAmount(),
                             ),
                           ),
                         ),
@@ -910,6 +1012,8 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
                                 enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
                               ),
+                              onChanged: (_) => _onAmountChanged(),
+                              onSubmitted: (_) => _applyCustomAmount(),
                             ),
                           ),
                         ),
@@ -921,11 +1025,11 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        _buildPriceChip('Tất cả giá', () => _applyPricePreset(null, null)),
-                        _buildPriceChip('< 1 triệu', () => _applyPricePreset(null, 1000000)),
-                        _buildPriceChip('1tr - 5tr', () => _applyPricePreset(1000000, 5000000)),
-                        _buildPriceChip('5tr - 20tr', () => _applyPricePreset(5000000, 20000000)),
-                        _buildPriceChip('> 20 triệu', () => _applyPricePreset(20000000, null)),
+                        _buildPriceChip('Tất cả giá', null, null),
+                        _buildPriceChip('< 1 triệu', null, 1000000),
+                        _buildPriceChip('1tr - 5tr', 1000000, 5000000),
+                        _buildPriceChip('5tr - 20tr', 5000000, 20000000),
+                        _buildPriceChip('> 20 triệu', 20000000, null),
                       ],
                     ),
                   ],
@@ -985,75 +1089,33 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
               ),
             ],
           ),
-
-          const SizedBox(height: 16),
-          Divider(color: borderColor, height: 1),
-          const SizedBox(height: 12),
-
-          // Footer Action Buttons
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _minAmount = null;
-                    _maxAmount = null;
-                    _minAmountCtrl.clear();
-                    _maxAmountCtrl.clear();
-                    _selectedPaymentMethod = 'ALL';
-                    _selectedDateRange = null;
-                    _selectedDatePreset = 'ALL';
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                child: Text('Xóa điều kiện lọc', style: TextStyle(color: textSecondary, fontSize: 12)),
-              ),
-              const SizedBox(width: 10),
-              ElevatedButton.icon(
-                onPressed: () {
-                  final cleanMin = _minAmountCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
-                  final cleanMax = _maxAmountCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
-                  final min = cleanMin.isNotEmpty ? double.tryParse(cleanMin) : null;
-                  final max = cleanMax.isNotEmpty ? double.tryParse(cleanMax) : null;
-                  setState(() {
-                    _minAmount = min;
-                    _maxAmount = max;
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                icon: const Icon(Icons.check_rounded, size: 16),
-                label: const Text('Áp dụng bộ lọc', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceChip(String label, VoidCallback onTap) {
+  Widget _buildPriceChip(String label, double? min, double? max) {
+    final isSelected = _minAmount == min && _maxAmount == max;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
     return InkWell(
-      onTap: onTap,
+      onTap: () => _applyPricePreset(min, max),
       borderRadius: BorderRadius.circular(4),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9),
+          color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9)),
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: borderColor),
+          border: Border.all(color: isSelected ? AppColors.primary : borderColor),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
+          ),
+        ),
       ),
     );
   }
