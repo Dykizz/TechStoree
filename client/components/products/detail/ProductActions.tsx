@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/products-client";
 import type {
   ProductDetailDto,
@@ -20,6 +21,7 @@ interface ProductActionsProps {
   onQuantityChange: (qty: number) => void;
   onAddToCart: () => void;
   onBuyNow: () => void;
+  onContinueShopping?: () => void;
 }
 
 export default function ProductActions({
@@ -32,7 +34,45 @@ export default function ProductActions({
   onQuantityChange,
   onAddToCart,
   onBuyNow,
+  onContinueShopping,
 }: ProductActionsProps) {
+  const router = useRouter();
+
+  // Xử lý quay về trang trước đó và đúng vị trí sản phẩm vừa xem
+  const handleContinueShopping = () => {
+    if (onContinueShopping) {
+      onContinueShopping();
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "techstoree_scroll_target",
+        String(product.productId)
+      );
+
+      const lastPage = sessionStorage.getItem("techstoree_last_product_page");
+      if (lastPage) {
+        try {
+          const parsedUrl = new URL(lastPage, window.location.origin);
+          // Đảm bảo không điều hướng về một trang chi tiết sản phẩm /products/:id khác
+          if (!/^\/products\/\d+/.test(parsedUrl.pathname)) {
+            router.push(lastPage);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (window.history.length > 1) {
+        router.back();
+        return;
+      }
+    }
+
+    router.push("/products");
+  };
   const variantPromo =
     selectedVariant?.promotion && selectedVariant.promotion.hasPromotion
       ? selectedVariant.promotion
@@ -276,6 +316,32 @@ export default function ProductActions({
           {!selectedVariant ? "Chọn biến thể để mua" : "Mua ngay"}
         </button>
       </div>
+
+      {/* Nút Tiếp tục mua sắm - Quay lại trang trước đó và đúng vị trí sản phẩm */}
+      <button
+        type="button"
+        onClick={handleContinueShopping}
+        className="w-full -mt-5 mb-8 py-3.5 px-5 rounded-lg border-2 border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-50 hover:border-neutral-900 hover:text-neutral-950 font-semibold text-[0.95rem] flex items-center justify-center gap-2.5 transition-all duration-200 shadow-sm cursor-pointer group/back active:scale-[0.99]"
+        title="Quay lại trang trước và vị trí sản phẩm vừa xem"
+      >
+        <svg
+          className="text-neutral-600 group-hover/back:text-brand transition-colors duration-200"
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="8" cy="21" r="1" />
+          <circle cx="19" cy="21" r="1" />
+          <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+        </svg>
+        <span>Tiếp tục mua sắm</span>
+      </button>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 bg-[#f9f9f9] rounded-lg mb-8">
         <div className="flex items-center gap-2.5 text-[0.85rem] text-[#444444]">

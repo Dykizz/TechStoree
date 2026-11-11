@@ -13,6 +13,7 @@ import ProductBreadcrumbs from "@/components/products/detail/ProductBreadcrumbs"
 import ProductGallery from "@/components/products/detail/ProductGallery";
 import ProductActions from "@/components/products/detail/ProductActions";
 import ProductLightbox from "@/components/products/detail/ProductLightbox";
+import RelatedProducts from "@/components/products/detail/RelatedProducts";
 
 export default function ProductDetailPage({
   params,
@@ -33,9 +34,20 @@ export default function ProductDetailPage({
   } = useProductDetail(productId);
   const loadError = queryError ? "Không thể tải sản phẩm từ máy chủ. Vui lòng thử lại." : "";
 
+  // Tìm biến thể mặc định: ưu tiên biến thể còn hàng đầu tiên, hoặc biến thể đầu tiên
+  const defaultVariant = useMemo(() => {
+    if (!product?.variants?.length) return null;
+    return (
+      product.variants.find((v) => v.isActive && v.stockQuantity > 0) ||
+      product.variants[0]
+    );
+  }, [product]);
+
   const [selectedVariant, setSelectedVariant] =
-    useState<ProductVariantDto | null>(null);
-  const [, setSelectedAttrs] = useState<Record<string, string>>({});
+    useState<ProductVariantDto | null>(() => defaultVariant);
+  const [, setSelectedAttrs] = useState<Record<string, string>>(() =>
+    defaultVariant?.attributes ? { ...defaultVariant.attributes } : {}
+  );
   const [quantity, setQuantity] = useState(1);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
@@ -43,16 +55,14 @@ export default function ProductDetailPage({
   const [prevProduct, setPrevProduct] = useState(product);
   if (prevProduct !== product) {
     setPrevProduct(product);
-    if (
-      product &&
-      product.variants &&
-      product.variants.length === 1 &&
-      (!product.variantAttributes || product.variantAttributes.length === 0)
-    ) {
-      setSelectedVariant(product.variants[0]);
+    if (defaultVariant) {
+      setSelectedVariant(defaultVariant);
+      setSelectedAttrs(defaultVariant.attributes || {});
+      setQuantity(1);
     } else {
       setSelectedVariant(null);
       setSelectedAttrs({});
+      setQuantity(1);
     }
   }
 
@@ -262,6 +272,13 @@ export default function ProductDetailPage({
             onBuyNow={() => void handleBuyNow()}
           />
         </div>
+
+        {/* Danh sách các sản phẩm tương tự */}
+        <RelatedProducts
+          productId={product.productId}
+          categoryId={product.categoryId}
+          categoryName={product.categoryName}
+        />
       </div>
 
       <ProductLightbox

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import PriceFilterDropdown from "@/components/products/PriceFilterDropdown";
 import ProductCard from "@/components/products/ProductCard";
@@ -27,6 +27,10 @@ function ProductsContent() {
   const query = useSearchParams();
   const initialCategory = Number(query.get("category"));
   const initialSearch = query.get("search") || "";
+  const rawPage = Number(query.get("page"));
+  const initialPage = Number.isSafeInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+  const initialMinPrice = query.get("minPrice") ? Number(query.get("minPrice")) : undefined;
+  const initialMaxPrice = query.get("maxPrice") ? Number(query.get("maxPrice")) : undefined;
 
   const [products, setProducts] = useState<ProductBaseDto[]>([]);
   const { data: categories = [] } = useCategories();
@@ -44,9 +48,9 @@ function ProductsContent() {
   const [onSaleOnly, setOnSaleOnly] = useState(query.get("onSale") === "true");
   const [search, setSearch] = useState(initialSearch);
   const [sortBy, setSortBy] = useState(initialSearch ? "relevance" : "newest");
-  const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
-  const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
-  const [page, setPage] = useState(1);
+  const [minPrice, setMinPrice] = useState<number | undefined>(initialMinPrice);
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(initialMaxPrice);
+  const [page, setPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -54,6 +58,70 @@ function ProductsContent() {
 
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+
+  // Đồng bộ URL ngay lập tức khi người dùng thay đổi danh mục, tìm kiếm, số trang hoặc bộ lọc giá
+  const syncUrl = useCallback(
+    (
+      newCategory: number | null,
+      newOnSale: boolean,
+      newSearch: string,
+      newPage: number = 1,
+      newMinPrice?: number,
+      newMaxPrice?: number
+    ) => {
+      if (typeof window === "undefined") return;
+      const params = new URLSearchParams();
+      if (newCategory) params.set("category", String(newCategory));
+      if (newOnSale) params.set("onSale", "true");
+      if (newSearch && newSearch.trim()) params.set("search", newSearch.trim());
+      if (newPage && newPage > 1) params.set("page", String(newPage));
+      if (newMinPrice !== undefined) params.set("minPrice", String(newMinPrice));
+      if (newMaxPrice !== undefined) params.set("maxPrice", String(newMaxPrice));
+
+      const qs = params.toString();
+      const newUrl = qs ? `/products?${qs}` : "/products";
+      window.history.replaceState(null, "", newUrl);
+    },
+    []
+  );
+
+  // Đồng bộ khi URL thay đổi (Next.js navigation hoặc Browser back/forward)
+  useEffect(() => {
+    const rawCat = query.get("category");
+    const catId = Number(rawCat);
+    if (rawCat && Number.isSafeInteger(catId) && catId > 0) {
+      setSelectedCategory(catId);
+    } else {
+      setSelectedCategory(null);
+    }
+
+    const s = query.get("search") || "";
+    setSearch(s);
+
+    const onSale = query.get("onSale") === "true";
+    setOnSaleOnly(onSale);
+
+    const p = Number(query.get("page"));
+    if (Number.isSafeInteger(p) && p > 0) {
+      setPage(p);
+    } else {
+      setPage(1);
+    }
+
+    const minP = query.get("minPrice");
+    if (minP && !isNaN(Number(minP))) {
+      setMinPrice(Number(minP));
+    } else {
+      setMinPrice(undefined);
+    }
+
+    const maxP = query.get("maxPrice");
+    if (maxP && !isNaN(Number(maxP))) {
+      setMaxPrice(Number(maxP));
+    } else {
+      setMaxPrice(undefined);
+    }
+  }, [query]);
 
   // 2. Lọc và xếp hạng sản phẩm (Kết hợp Okapi BM25 + Faceted Search)
   useEffect(() => {
@@ -204,6 +272,15 @@ function ProductsContent() {
     setMinPrice(min);
     setMaxPrice(max);
     setPage(1);
+    syncUrl(selectedCategory, onSaleOnly, search, 1, min, max);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    syncUrl(selectedCategory, onSaleOnly, search, newPage, minPrice, maxPrice);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   const handleResetFilters = () => {
@@ -214,6 +291,7 @@ function ProductsContent() {
     setMaxPrice(undefined);
     setSortBy("newest");
     setPage(1);
+    syncUrl(null, false, "");
   };
 
   return (
@@ -232,6 +310,7 @@ function ProductsContent() {
                 if (val && sortBy !== "price-asc" && sortBy !== "price-desc") {
                   setSortBy("relevance");
                 }
+                syncUrl(selectedCategory, onSaleOnly, val);
               }}
               onSearch={(val) => {
                 setSearch(val);
@@ -239,6 +318,7 @@ function ProductsContent() {
                 if (val && sortBy !== "price-asc" && sortBy !== "price-desc") {
                   setSortBy("relevance");
                 }
+                syncUrl(selectedCategory, onSaleOnly, val);
               }}
               allProducts={catalogProducts}
             />
@@ -280,8 +360,10 @@ function ProductsContent() {
                   : "border-[#ffd0d0] bg-[#fff5f5] text-brand hover:bg-[#ffe6e6] hover:border-[#ffb3b3]"
               )}
               onClick={() => {
-                setOnSaleOnly((prev) => !prev);
+                const nextOnSale = !onSaleOnly;
+                setOnSaleOnly(nextOnSale);
                 setPage(1);
+                syncUrl(selectedCategory, nextOnSale, search);
               }}
               title="Chỉ hiển thị các sản phẩm đang có chương trình giảm giá"
             >
@@ -299,6 +381,7 @@ function ProductsContent() {
                 setSelectedCategory(null);
                 setOnSaleOnly(false);
                 setPage(1);
+                syncUrl(null, false, search);
               }}
             >
               Tất cả danh mục ({totalItems})
@@ -316,6 +399,7 @@ function ProductsContent() {
                 onClick={() => {
                   setSelectedCategory(cat.categoryId);
                   setPage(1);
+                  syncUrl(cat.categoryId, onSaleOnly, search);
                 }}
               >
                 {cat.categoryName}
@@ -436,6 +520,7 @@ function ProductsContent() {
                       setSelectedCategory(cat.categoryId);
                       setSearch("");
                       setPage(1);
+                      syncUrl(cat.categoryId, false, "");
                     }}
                   >
                     {cat.categoryName}
@@ -469,7 +554,7 @@ function ProductsContent() {
             <Pagination
               currentPage={page}
               totalPages={totalPages}
-              onPageChange={setPage}
+              onPageChange={handlePageChange}
             />
           </>
         )}
