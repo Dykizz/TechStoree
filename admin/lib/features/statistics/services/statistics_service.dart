@@ -321,6 +321,232 @@ class StatisticsService {
     return result;
   }
 
+  /// Tính toán Tóm lược chỉ số tài chính (KPI điều hành Tab 1)
+  static FinancialSummaryKpi calculateFinancialSummaryKpi({
+    required StatisticsDataset dataset,
+    required int year,
+  }) {
+    final rows = calculateFinancialMatrix(dataset: dataset, year: year);
+    final revRow = rows.firstWhere((r) => r.metricName == 'Tổng thu');
+    final expRow = rows.firstWhere((r) => r.metricName == 'Tổng chi');
+    final profitRow = rows.firstWhere((r) => r.isProfit);
+
+    final totalRev = revRow.total;
+    final totalExp = expRow.total;
+    final netProfit = profitRow.total;
+    final margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0.0;
+
+    // Xác định quý có doanh thu cao nhất
+    final quarters = {'Q1': revRow.q1, 'Q2': revRow.q2, 'Q3': revRow.q3, 'Q4': revRow.q4};
+    var peakQ = 'Q1';
+    var peakVal = revRow.q1;
+    quarters.forEach((q, val) {
+      if (val > peakVal) {
+        peakVal = val;
+        peakQ = q;
+      }
+    });
+
+    // So sánh với năm trước đó (YoY)
+    double? prevYearRev;
+    double? growthRate;
+    final prevYear = year - 1;
+    if (dataset.availableYears.contains(prevYear)) {
+      final prevRows = calculateFinancialMatrix(dataset: dataset, year: prevYear);
+      prevYearRev = prevRows.firstWhere((r) => r.metricName == 'Tổng thu').total;
+      if (prevYearRev > 0) {
+        growthRate = ((totalRev - prevYearRev) / prevYearRev) * 100;
+      }
+    }
+
+    return FinancialSummaryKpi(
+      totalRevenue: totalRev,
+      totalExpense: totalExp,
+      netProfit: netProfit,
+      profitMargin: margin,
+      prevYearRevenue: prevYearRev,
+      revenueGrowthRate: growthRate,
+      peakQuarter: peakQ,
+      peakQuarterRevenue: peakVal,
+    );
+  }
+
+  /// Tính toán Bảng c (Mới): Doanh số theo Sản phẩm theo 4 Quý trong năm
+  static List<ProductQuarterlySalesMatrixRow> calculateProductQuarterlySalesMatrix({
+    required StatisticsDataset dataset,
+    required int year,
+  }) {
+    final validOrders = dataset.orders.where((o) =>
+        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        o.createdAt != null &&
+        o.createdAt!.year == year).toList();
+
+    final q1Start = DateTime(year, 1, 1);
+    final q1End = DateTime(year, 3, 31, 23, 59, 59);
+    final q2Start = DateTime(year, 4, 1);
+    final q2End = DateTime(year, 6, 30, 23, 59, 59);
+    final q3Start = DateTime(year, 7, 1);
+    final q3End = DateTime(year, 9, 30, 23, 59, 59);
+    final q4Start = DateTime(year, 10, 1);
+    final q4End = DateTime(year, 12, 31, 23, 59, 59);
+
+    List<ProductQuarterlySalesMatrixRow> result = [];
+
+    for (final product in dataset.products) {
+      final pNameLower = product.name.toLowerCase();
+      final pIdStr = product.id.toString();
+
+      double sumQuarter(DateTime start, DateTime end) {
+        double total = 0.0;
+        final ordersInQ = validOrders.where((o) =>
+            !o.createdAt!.isBefore(start) && !o.createdAt!.isAfter(end));
+
+        for (final o in ordersInQ) {
+          for (final item in o.items) {
+            final matchId = item.productId == pIdStr;
+            final matchName = item.productName.toLowerCase().contains(pNameLower) ||
+                pNameLower.contains(item.productName.toLowerCase());
+            if (matchId || matchName) {
+              total += item.totalPrice;
+            }
+          }
+        }
+        return total;
+      }
+
+      final q1 = sumQuarter(q1Start, q1End);
+      final q2 = sumQuarter(q2Start, q2End);
+      final q3 = sumQuarter(q3Start, q3End);
+      final q4 = sumQuarter(q4Start, q4End);
+
+      result.add(ProductQuarterlySalesMatrixRow(
+        productCode: product.sku.isNotEmpty ? product.sku : 'SP${product.id.padLeft(2, '0')}',
+        sku: product.sku.isNotEmpty ? product.sku : 'TS-PROD-${product.id}',
+        productName: product.name,
+        categoryName: product.category.isNotEmpty ? product.category : 'Sản phẩm công nghệ',
+        imageUrl: product.imageUrl,
+        q1: q1,
+        q2: q2,
+        q3: q3,
+        q4: q4,
+      ));
+    }
+
+    return result;
+  }
+
+  /// Tính toán Bảng d: Doanh số theo Loại sản phẩm (Danh mục) qua 4 Quý và 3 năm
+  static List<CategorySalesMatrixRow> calculateCategorySalesMatrix({
+    required StatisticsDataset dataset,
+    required int year,
+    required List<int> years,
+  }) {
+    // 1. Gom nhóm sản phẩm theo Loại sản phẩm (Danh mục)
+    final Map<String, List<Product>> categoryProductsMap = {};
+    for (final p in dataset.products) {
+      final cat = p.category.trim().isNotEmpty ? p.category.trim() : 'Sản phẩm công nghệ';
+      categoryProductsMap.putIfAbsent(cat, () => []).add(p);
+    }
+
+    final validOrders = dataset.orders.where((o) =>
+        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        o.createdAt != null).toList();
+
+    final q1Start = DateTime(year, 1, 1);
+    final q1End = DateTime(year, 3, 31, 23, 59, 59);
+    final q2Start = DateTime(year, 4, 1);
+    final q2End = DateTime(year, 6, 30, 23, 59, 59);
+    final q3Start = DateTime(year, 7, 1);
+    final q3End = DateTime(year, 9, 30, 23, 59, 59);
+    final q4Start = DateTime(year, 10, 1);
+    final q4End = DateTime(year, 12, 31, 23, 59, 59);
+
+    final y1 = years.isNotEmpty ? years[0] : 2024;
+    final y2 = years.length > 1 ? years[1] : 2025;
+    final y3 = years.length > 2 ? years[2] : 2026;
+
+    // Tổng doanh thu toàn hệ thống trong năm được chọn để tính % thị phần
+    double totalSystemYearRevenue = 0.0;
+    for (final o in validOrders.where((o) => o.createdAt!.year == year)) {
+      totalSystemYearRevenue += o.totalAmount;
+    }
+
+    List<CategorySalesMatrixRow> result = [];
+    int catIndex = 1;
+
+    categoryProductsMap.forEach((categoryName, productsInCat) {
+      final productIds = productsInCat.map((p) => p.id.toString()).toSet();
+      final productNames = productsInCat.map((p) => p.name.toLowerCase()).toList();
+
+      bool isItemInCategory(dynamic item) {
+        if (productIds.contains(item.productId)) return true;
+        final name = item.productName.toLowerCase();
+        return productNames.any((pn) => name.contains(pn) || pn.contains(name));
+      }
+
+      double sumOrdersForCat(Iterable<Order> orderList) {
+        double sum = 0.0;
+        for (final o in orderList) {
+          for (final item in o.items) {
+            if (isItemInCategory(item)) {
+              sum += item.totalPrice;
+            }
+          }
+        }
+        return sum;
+      }
+
+      // 4 Quý của năm được chọn
+      final q1Orders = validOrders.where((o) => o.createdAt!.year == year && !o.createdAt!.isBefore(q1Start) && !o.createdAt!.isAfter(q1End));
+      final q2Orders = validOrders.where((o) => o.createdAt!.year == year && !o.createdAt!.isBefore(q2Start) && !o.createdAt!.isAfter(q2End));
+      final q3Orders = validOrders.where((o) => o.createdAt!.year == year && !o.createdAt!.isBefore(q3Start) && !o.createdAt!.isAfter(q3End));
+      final q4Orders = validOrders.where((o) => o.createdAt!.year == year && !o.createdAt!.isBefore(q4Start) && !o.createdAt!.isAfter(q4End));
+
+      final q1Val = sumOrdersForCat(q1Orders);
+      final q2Val = sumOrdersForCat(q2Orders);
+      final q3Val = sumOrdersForCat(q3Orders);
+      final q4Val = sumOrdersForCat(q4Orders);
+      final totalQ = q1Val + q2Val + q3Val + q4Val;
+
+      // 3 năm so sánh
+      final y1Orders = validOrders.where((o) => o.createdAt!.year == y1);
+      final y2Orders = validOrders.where((o) => o.createdAt!.year == y2);
+      final y3Orders = validOrders.where((o) => o.createdAt!.year == y3);
+
+      final y1Val = sumOrdersForCat(y1Orders);
+      final y2Val = sumOrdersForCat(y2Orders);
+      final y3Val = sumOrdersForCat(y3Orders);
+      final total3Y = y1Val + y2Val + y3Val;
+
+      final share = totalSystemYearRevenue > 0 ? (totalQ / totalSystemYearRevenue) * 100 : 0.0;
+
+      final firstProd = productsInCat.first;
+      final categoryId = firstProd.categoryId > 0 ? firstProd.categoryId : catIndex;
+
+      result.add(CategorySalesMatrixRow(
+        categoryId: categoryId,
+        categoryCode: 'DM${categoryId.toString().padLeft(2, '0')}',
+        categoryName: categoryName,
+        productCount: productsInCat.length,
+        q1: q1Val,
+        q2: q2Val,
+        q3: q3Val,
+        q4: q4Val,
+        y2024: y1Val,
+        y2025: y2Val,
+        y2026: y3Val,
+        totalQuarterly: totalQ,
+        total3Years: total3Y,
+        sharePercentage: share,
+      ));
+      catIndex++;
+    });
+
+    // Sắp xếp mặc định theo Doanh thu giảm dần
+    result.sort((a, b) => b.totalQuarterly.compareTo(a.totalQuarterly));
+    return result;
+  }
+
   /// Trích xuất bảng số liệu ra file CSV / Excel thuần UTF-8 BOM
   static Future<String?> exportCsvFile({
     required String fileName,

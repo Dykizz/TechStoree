@@ -6,9 +6,12 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
+import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/page_header.dart';
+import 'models/statistics_models.dart';
 import 'services/statistics_service.dart';
+import 'widgets/category_sales_matrix_view.dart';
 import 'widgets/financial_matrix_view.dart';
 import 'widgets/product_sales_matrix_view.dart';
 import 'widgets/staff_sales_matrix_view.dart';
@@ -37,7 +40,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedTabIndex = widget.initialTabIndex.clamp(0, 2);
+    _selectedTabIndex = widget.initialTabIndex.clamp(0, 3);
     _loadData();
   }
 
@@ -92,15 +95,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       await _exportFinancialCsv();
     } else if (_selectedTabIndex == 1) {
       await _exportStaffCsv();
-    } else {
+    } else if (_selectedTabIndex == 2) {
       await _exportProductCsv();
+    } else {
+      await _exportCategoryCsv();
     }
   }
 
   // Xuất file CSV cho Tab 1
   Future<void> _exportFinancialCsv() async {
     final rows = StatisticsService.calculateFinancialMatrix(dataset: _dataset, year: _selectedYear);
-    final headers = ['Chỉ tiêu ($_selectedYear)', 'Quý 1 (Q1)', 'Quý 2 (Q2)', 'Quý 3 (Q3)', 'Quý 4 (Q4)', 'TỔNG CỘNG (TC)'];
+    final headers = ['Chỉ tiêu ($_selectedYear)', 'Quý 1', 'Quý 2', 'Quý 3', 'Quý 4', 'Tổng cộng'];
     final dataRows = rows.map((r) => [r.metricName, r.q1, r.q2, r.q3, r.q4, r.total]).toList();
 
     final path = await StatisticsService.exportCsvFile(
@@ -117,7 +122,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   // Xuất file CSV cho Tab 2
   Future<void> _exportStaffCsv() async {
     final rows = StatisticsService.calculateStaffSalesMatrix(dataset: _dataset, year: _selectedYear);
-    final headers = ['Mã NV', 'Họ và tên nhân viên', 'Chức vụ', 'Quý 1 (Q1)', 'Quý 2 (Q2)', 'Quý 3 (Q3)', 'Quý 4 (Q4)', 'TỔNG CỘNG (TC)'];
+    final headers = ['Mã NV', 'Họ và tên nhân viên', 'Chức vụ', 'Quý 1', 'Quý 2', 'Quý 3', 'Quý 4', 'Tổng cộng'];
     final dataRows = rows.map((r) => [r.staffCode, r.staffName, r.roleTitle, r.q1, r.q2, r.q3, r.q4, r.total]).toList();
 
     final path = await StatisticsService.exportCsvFile(
@@ -133,12 +138,42 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   // Xuất file CSV cho Tab 3
   Future<void> _exportProductCsv() async {
-    final rows = StatisticsService.calculateProductSalesMatrix(dataset: _dataset, years: _selectedProductYears);
-    final headers = ['Mã SP', 'Tên sản phẩm', 'Loại sản phẩm', 'Năm ${_selectedProductYears[0]}', 'Năm ${_selectedProductYears[1]}', 'Năm ${_selectedProductYears[2]}', 'TỔNG CỘNG (TC)'];
-    final dataRows = rows.map((r) => [r.productCode, r.productName, r.categoryName, r.y2024, r.y2025, r.y2026, r.total]).toList();
+    final quarterlyRows = StatisticsService.calculateProductQuarterlySalesMatrix(dataset: _dataset, year: _selectedYear);
+    final headers = ['Mã SP', 'Tên sản phẩm', 'Quý 1', 'Quý 2', 'Quý 3', 'Quý 4', 'Tổng cộng'];
+    final dataRows = quarterlyRows.map((r) => [r.productCode, r.productName, r.q1, r.q2, r.q3, r.q4, r.total]).toList();
 
     final path = await StatisticsService.exportCsvFile(
-      fileName: 'BaoCao_DoanhSo_SanPham.csv',
+      fileName: 'BaoCao_DoanhSo_SanPham_$_selectedYear.csv',
+      headers: headers,
+      rows: dataRows,
+    );
+
+    if (mounted && path != null) {
+      AppToast.success(context, 'Đã xuất thành công: $path');
+    }
+  }
+
+  // Xuất file CSV cho Tab 4
+  Future<void> _exportCategoryCsv() async {
+    final rows = StatisticsService.calculateCategorySalesMatrix(
+      dataset: _dataset,
+      year: _selectedYear,
+      years: _selectedProductYears,
+    );
+    final headers = ['Mã loại', 'Tên loại sản phẩm', 'Quý 1', 'Quý 2', 'Quý 3', 'Quý 4', 'Tổng cộng', 'Tỷ trọng (%)'];
+    final dataRows = rows.map((r) => [
+      r.categoryCode,
+      r.categoryName,
+      r.q1,
+      r.q2,
+      r.q3,
+      r.q4,
+      r.totalQuarterly,
+      '${r.sharePercentage.toStringAsFixed(1)}%',
+    ]).toList();
+
+    final path = await StatisticsService.exportCsvFile(
+      fileName: 'BaoCao_DoanhSo_LoaiSanPham_$_selectedYear.csv',
       headers: headers,
       rows: dataRows,
     );
@@ -201,6 +236,105 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
+  Widget _buildExecutiveKpiSection({
+    required FinancialSummaryKpi kpi,
+    required int selectedYear,
+    required bool isDark,
+    required Color cardBg,
+    required Color borderColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final isMedium = constraints.maxWidth >= 550;
+
+        final cards = [
+          _StatisticsKpiCard(
+            title: 'Tổng thu ($selectedYear)',
+            value: NumberDisplayFormatter.format(kpi.totalRevenue),
+            icon: Icons.payments_outlined,
+            iconColor: AppColors.success,
+            isDark: isDark,
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          ),
+          _StatisticsKpiCard(
+            title: 'Tổng chi ($selectedYear)',
+            value: NumberDisplayFormatter.format(kpi.totalExpense),
+            icon: Icons.inventory_2_outlined,
+            iconColor: AppColors.chartCost,
+            isDark: isDark,
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          ),
+          _StatisticsKpiCard(
+            title: 'Lợi nhuận ròng ($selectedYear)',
+            value: NumberDisplayFormatter.format(kpi.netProfit),
+            icon: Icons.account_balance_wallet_outlined,
+            iconColor: kpi.netProfit >= 0 ? const Color(0xFF2563EB) : AppColors.danger,
+            isDark: isDark,
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          ),
+          _StatisticsKpiCard(
+            title: 'Biên lợi nhuận ròng',
+            value: '${kpi.profitMargin.toStringAsFixed(1)}%',
+            icon: Icons.pie_chart_outline_rounded,
+            iconColor: const Color(0xFF6366F1),
+            isDark: isDark,
+            cardBg: cardBg,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          ),
+        ];
+
+        if (isWide) {
+          return Row(
+            children: cards.map((c) => Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: c,
+              ),
+            )).toList(),
+          );
+        } else if (isMedium) {
+          return Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Padding(padding: const EdgeInsets.only(right: 4, bottom: 8), child: cards[0])),
+                  Expanded(child: Padding(padding: const EdgeInsets.only(left: 4, bottom: 8), child: cards[1])),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(child: Padding(padding: const EdgeInsets.only(right: 4), child: cards[2])),
+                  Expanded(child: Padding(padding: const EdgeInsets.only(left: 4), child: cards[3])),
+                ],
+              ),
+            ],
+          );
+        } else {
+          return Column(
+            children: cards.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: c,
+            )).toList(),
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -257,13 +391,29 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       year: _selectedYear,
     );
 
+    final financialKpi = StatisticsService.calculateFinancialSummaryKpi(
+      dataset: _dataset,
+      year: _selectedYear,
+    );
+
     final staffRows = StatisticsService.calculateStaffSalesMatrix(
+      dataset: _dataset,
+      year: _selectedYear,
+    );
+
+    final productQuarterlyRows = StatisticsService.calculateProductQuarterlySalesMatrix(
       dataset: _dataset,
       year: _selectedYear,
     );
 
     final productRows = StatisticsService.calculateProductSalesMatrix(
       dataset: _dataset,
+      years: _selectedProductYears,
+    );
+
+    final categoryRows = StatisticsService.calculateCategorySalesMatrix(
+      dataset: _dataset,
+      year: _selectedYear,
       years: _selectedProductYears,
     );
 
@@ -275,17 +425,53 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           // Tiêu đề trang đồng nhất hoàn toàn với toàn bộ hệ thống (PageHeader)
           PageHeader(
             title: 'Quản lý thống kê',
-            subtitle: 'Theo dõi, phân tích báo cáo ma trận kinh doanh, doanh số nhân viên và sản phẩm',
-            action: AppButton(
-              label: 'Xuất Excel',
-              icon: Icons.file_download_outlined,
-              variant: AppButtonVariant.outline,
-              onPressed: _isLoading ? null : _exportActiveTabCsv,
+            subtitle: 'Theo dõi, phân tích báo cáo ma trận kinh doanh, nhân viên, sản phẩm và ngành hàng',
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: AppDropdown<int>(
+                    value: _selectedYear,
+                    labelText: 'Năm thống kê',
+                    items: (_dataset.availableYears.contains(_selectedYear)
+                            ? _dataset.availableYears
+                            : [_selectedYear, ..._dataset.availableYears])
+                        .map((y) => DropdownMenuItem<int>(
+                              value: y,
+                              child: Text('Năm $y'),
+                            ))
+                        .toList(),
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedYear = val);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                AppButton(
+                  label: 'Xuất Excel',
+                  icon: Icons.file_download_outlined,
+                  variant: AppButtonVariant.outline,
+                  onPressed: _isLoading ? null : _exportActiveTabCsv,
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: AppTokens.space12),
+          const SizedBox(height: AppTokens.space16),
 
-          // Thanh chuyển Tab phân hệ thống kê (Segmented Navigation)
+          // 4 Thẻ KPI điều hành luôn nằm phía trên các Tab thống kê
+          _buildExecutiveKpiSection(
+            kpi: financialKpi,
+            selectedYear: _selectedYear,
+            isDark: isDark,
+            cardBg: isDark ? AppColors.darkCard : Colors.white,
+            borderColor: borderColor,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
+          ),
+          const SizedBox(height: AppTokens.space16),
+
+          // Thanh chuyển 4 Tab phân hệ thống kê (Segmented Navigation)
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
@@ -322,6 +508,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     textPrimary: textPrimary,
                     textSecondary: textSecondary,
                   ),
+                  _buildTabButton(
+                    index: 3,
+                    label: 'Doanh số loại sản phẩm',
+                    icon: Icons.category_rounded,
+                    isDark: isDark,
+                    textPrimary: textPrimary,
+                    textSecondary: textSecondary,
+                  ),
                 ],
               ),
             ),
@@ -332,27 +526,176 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           if (_selectedTabIndex == 0)
             FinancialMatrixView(
               selectedYear: _selectedYear,
-              availableYears: _dataset.availableYears,
               rows: financialRows,
               isLoading: _isLoading,
-              onYearChanged: (y) => setState(() => _selectedYear = y),
             )
           else if (_selectedTabIndex == 1)
             StaffSalesMatrixView(
               selectedYear: _selectedYear,
-              availableYears: _dataset.availableYears,
               staffList: staffRows,
               isLoading: _isLoading,
-              onYearChanged: (y) => setState(() => _selectedYear = y),
+            )
+          else if (_selectedTabIndex == 2)
+            ProductSalesMatrixView(
+              selectedYear: _selectedYear,
+              years: _selectedProductYears,
+              quarterlyProducts: productQuarterlyRows,
+              productList: productRows,
+              isLoading: _isLoading,
+              onPeriodChanged: (yrs) => setState(() => _selectedProductYears = yrs),
             )
           else
-            ProductSalesMatrixView(
-              years: _selectedProductYears,
-              productList: productRows,
+            CategorySalesMatrixView(
+              selectedYear: _selectedYear,
+              threeYears: _selectedProductYears,
+              categoryList: categoryRows,
               isLoading: _isLoading,
               onPeriodChanged: (yrs) => setState(() => _selectedProductYears = yrs),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Thẻ KPI điều hành tài chính trang Thống kê
+/// Đồng nhất 100% hiệu ứng hover, border glow, shadow và watermark icon với DashboardKpiCard (Trang tổng quan)
+class _StatisticsKpiCard extends StatefulWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Color iconColor;
+  final bool isDark;
+  final Color cardBg;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _StatisticsKpiCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.iconColor,
+    required this.isDark,
+    required this.cardBg,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  State<_StatisticsKpiCard> createState() => _StatisticsKpiCardState();
+}
+
+class _StatisticsKpiCardState extends State<_StatisticsKpiCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: widget.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isHovered
+                ? widget.iconColor.withValues(alpha: 0.55)
+                : widget.borderColor.withValues(alpha: widget.isDark ? 0.6 : 0.8),
+            width: _isHovered ? 1.4 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _isHovered
+                  ? widget.iconColor.withValues(alpha: widget.isDark ? 0.20 : 0.12)
+                  : (widget.isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0xFF64748B).withValues(alpha: 0.05)),
+              blurRadius: _isHovered ? 14 : 7,
+              offset: _isHovered ? const Offset(0, 4) : const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.antiAlias,
+          children: [
+            // Faint decorative watermark icon in bottom-right corner (đồng nhất 100% với Dashboard)
+            Positioned(
+              right: -6,
+              bottom: -8,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: widget.isDark ? 0.06 : 0.045,
+                  child: Icon(
+                    widget.icon,
+                    size: 58,
+                    color: widget.iconColor,
+                  ),
+                ),
+              ),
+            ),
+
+            // Card Content
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Top Row: Icon badge + Title
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: widget.iconColor.withValues(alpha: widget.isDark ? 0.18 : 0.10),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: widget.iconColor.withValues(alpha: 0.25),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(widget.icon, size: 14, color: widget.iconColor),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.title.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: widget.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Formatted Value
+                Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Text(
+                    widget.value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: widget.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
