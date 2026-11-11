@@ -187,7 +187,7 @@ class _RevenueTrendChartState extends State<RevenueTrendChart> {
                           child: Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: Text(
-                              '${val.toInt()}M',
+                              '${val.toInt()}',
                               style: TextStyle(fontSize: 10, color: widget.textSecondary),
                             ),
                           ),
