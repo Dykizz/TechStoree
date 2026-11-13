@@ -43,15 +43,13 @@ public class VoucherService(AppDbContext dbContext) : IVoucherService
 
             if (filter.FromDate.HasValue)
             {
-                var fromUtc = DateTime.SpecifyKind(filter.FromDate.Value, DateTimeKind.Utc);
+                var fromUtc = DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value);
                 query = query.Where(v => v.EndDate >= fromUtc);
             }
 
             if (filter.ToDate.HasValue)
             {
-                var rawTo = filter.ToDate.Value;
-                var toDateAdjusted = rawTo.TimeOfDay == TimeSpan.Zero ? rawTo.Date.AddDays(1).AddTicks(-1) : rawTo;
-                var toUtc = DateTime.SpecifyKind(toDateAdjusted, DateTimeKind.Utc);
+                var toUtc = DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value);
                 query = query.Where(v => v.StartDate <= toUtc);
             }
 
@@ -126,8 +124,8 @@ public class VoucherService(AppDbContext dbContext) : IVoucherService
             MaxDiscountAmount = request.MaxDiscountAmount,
             UsageLimit = request.UsageLimit,
             LimitPerUser = request.LimitPerUser,
-            StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
-            EndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc),
+            StartDate = DateTimeHelper.NormalizeToUtc(request.StartDate),
+            EndDate = DateTimeHelper.NormalizeToUtc(request.EndDate),
             IsActive = request.IsActive,
             IsPublic = request.IsPublic,
             UsedCount = 0,
@@ -157,8 +155,8 @@ public class VoucherService(AppDbContext dbContext) : IVoucherService
         }
 
         var newCode = request.Code.Trim().ToUpperInvariant();
-        var newStartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc);
-        var newEndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc);
+        var newStartDate = DateTimeHelper.NormalizeToUtc(request.StartDate);
+        var newEndDate = DateTimeHelper.NormalizeToUtc(request.EndDate);
 
         // 2. Nếu chiến dịch đang diễn ra (ACTIVE) -> Chặn thay đổi các thông số nhạy cảm trước khi truy vấn DB
         if (voucher.StartDate <= now && voucher.EndDate >= now)
@@ -277,7 +275,7 @@ public class VoucherService(AppDbContext dbContext) : IVoucherService
             return new ApplyVoucherResponseDto
             {
                 IsValid = false,
-                Message = $"Mã giảm giá chỉ có hiệu lực từ ngày {voucher.StartDate:dd/MM/yyyy HH:mm}."
+                Message = $"Mã giảm giá chỉ có hiệu lực từ ngày {DateTimeHelper.ToVietnamTime(voucher.StartDate):dd/MM/yyyy HH:mm}."
             };
         }
 

@@ -41,14 +41,14 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
 
         if (filter.FromDate.HasValue)
         {
-            var fromUtc = DateTime.SpecifyKind(filter.FromDate.Value.Date, DateTimeKind.Utc);
+            var fromUtc = DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value);
             query = query.Where(po => po.CreatedAt >= fromUtc);
         }
 
         if (filter.ToDate.HasValue)
         {
-            var nextDayUtc = DateTime.SpecifyKind(filter.ToDate.Value.Date.AddDays(1), DateTimeKind.Utc);
-            query = query.Where(po => po.CreatedAt < nextDayUtc);
+            var toUtc = DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value);
+            query = query.Where(po => po.CreatedAt <= toUtc);
         }
 
         query = filter.SortBy?.ToLower() switch

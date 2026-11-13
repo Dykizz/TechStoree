@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace WebBanHang.Api.DTOs.Media;
 
 /// <summary>
@@ -66,19 +64,6 @@ public class CloudinarySignatureResponseDto
     /// </summary>
     /// <example>https://api.cloudinary.com/v1_1/techstore-demo/auto/upload</example>
     public string UploadUrl { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// Yêu cầu xóa tệp tin đa phương tiện trên Cloudinary
-/// </summary>
-public class DeleteMediaRequestDto
-{
-    /// <summary>
-    /// Public ID hoặc Đường dẫn URL đầy đủ của ảnh trên Cloudinary
-    /// </summary>
-    /// <example>https://res.cloudinary.com/demo/image/upload/v1727938472/techstore/products/sample123.jpg</example>
-    [Required(ErrorMessage = "Public ID hoặc URL của tệp phương tiện không được để trống.")]
-    public string PublicIdOrUrl { get; set; } = string.Empty;
 }
 
 /// <summary>

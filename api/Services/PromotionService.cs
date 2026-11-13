@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Promotions;
 using WebBanHang.Api.Exceptions;
@@ -38,15 +39,13 @@ public class PromotionService(AppDbContext dbContext) : IPromotionService
             // 3. Lọc theo khoảng thời gian có hiệu lực
             if (filter.FromDate.HasValue)
             {
-                var fromUtc = DateTime.SpecifyKind(filter.FromDate.Value, DateTimeKind.Utc);
+                var fromUtc = DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value);
                 query = query.Where(p => p.EndDate >= fromUtc);
             }
 
             if (filter.ToDate.HasValue)
             {
-                var rawTo = filter.ToDate.Value;
-                var toDateAdjusted = rawTo.TimeOfDay == TimeSpan.Zero ? rawTo.Date.AddDays(1).AddTicks(-1) : rawTo;
-                var toUtc = DateTime.SpecifyKind(toDateAdjusted, DateTimeKind.Utc);
+                var toUtc = DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value);
                 query = query.Where(p => p.StartDate <= toUtc);
             }
 
@@ -92,8 +91,8 @@ public class PromotionService(AppDbContext dbContext) : IPromotionService
             Description = request.Description?.Trim(),
             DiscountType = request.DiscountType.ToUpperInvariant(),
             DiscountValue = request.DiscountValue,
-            StartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc),
-            EndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc),
+            StartDate = DateTimeHelper.NormalizeToUtc(request.StartDate),
+            EndDate = DateTimeHelper.NormalizeToUtc(request.EndDate),
             IsActive = request.IsActive,
             CreatedAt = DateTime.UtcNow
         };
@@ -132,8 +131,8 @@ public class PromotionService(AppDbContext dbContext) : IPromotionService
             throw new BadRequestException("Chiến dịch đã kết thúc trong quá khứ, không thể chỉnh sửa. Hãy tạo chiến dịch mới.");
         }
 
-        var newStartDate = DateTime.SpecifyKind(request.StartDate, DateTimeKind.Utc);
-        var newEndDate = DateTime.SpecifyKind(request.EndDate, DateTimeKind.Utc);
+        var newStartDate = DateTimeHelper.NormalizeToUtc(request.StartDate);
+        var newEndDate = DateTimeHelper.NormalizeToUtc(request.EndDate);
 
         // 2. Nếu chiến dịch đang diễn ra (ACTIVE)
         if (promotion.StartDate <= now && promotion.EndDate >= now)
