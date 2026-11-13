@@ -46,6 +46,12 @@ public class SurveyAdminListDto
     public bool IsExpired => ExpiredAt.HasValue && ExpiredAt.Value < DateTime.UtcNow;
 
     /// <summary>
+    /// Đang ở trạng thái chờ tới thời điểm bắt đầu mở (StartAt ở tương lai)
+    /// </summary>
+    /// <example>false</example>
+    public bool IsUpcoming => !IsExpired && IsActive && StartAt.HasValue && StartAt.Value > DateTime.UtcNow;
+
+    /// <summary>
     /// Tổng số lượng khách hàng đã được phát bài khảo sát
     /// </summary>
     /// <example>100</example>
