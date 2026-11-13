@@ -1,3 +1,5 @@
+import '../utils/json_parse_helper.dart';
+
 class AppUser {
   final String id;
   final String userName; // Username đăng nhập
@@ -32,17 +34,13 @@ class AppUser {
   int get age => dateOfBirth != null ? DateTime.now().year - dateOfBirth!.year : 0;
 
   factory AppUser.fromJson(Map<String, dynamic> json) {
-    final locked = json['isLocked'] == true || (json['status'] == 'Tạm khóa');
+    final locked = JsonParseHelper.parseBool(json['isLocked']) || (json['status'] == 'Tạm khóa');
     final rawUsername = (json['username'] ?? json['userName'] ?? json['fullName'] ?? json['hoTen'])?.toString() ?? '';
     final rawFullName = (json['fullName'] ?? json['hoTen'] ?? json['userName'] ?? json['username'])?.toString() ?? '';
     final rawEmail = json['email']?.toString() ?? '';
-    
-    List<String> parsedRoles = [];
-    if (json['roles'] != null && json['roles'] is List) {
-      parsedRoles = List<String>.from(json['roles']);
-    } else if (json['vaiTro'] != null && json['vaiTro'] is List) {
-      parsedRoles = List<String>.from(json['vaiTro']);
-    }
+
+    final rawRoles = json['roles'] is List ? json['roles'] : json['vaiTro'];
+    List<String> parsedRoles = JsonParseHelper.parseStringList(rawRoles);
 
     final rawRole = json['primaryRole']?.toString() ?? json['role']?.toString() ?? (parsedRoles.isNotEmpty ? parsedRoles.first : 'USER');
     if (parsedRoles.isEmpty && rawRole.isNotEmpty) {
@@ -52,18 +50,6 @@ class AppUser {
     final rawPhone = (json['phone'] ?? json['soDienThoai'] ?? '')?.toString() ?? '';
     final rawTechInterest = json['techInterest']?.toString();
     final rawAddress = json['address']?.toString();
-
-    DateTime? dob;
-    if (json['dateOfBirth'] != null) {
-      dob = DateTime.tryParse(json['dateOfBirth'].toString());
-    }
-
-    DateTime created;
-    if (json['createdAt'] != null) {
-      created = DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now();
-    } else {
-      created = DateTime.now();
-    }
 
     final uName = rawUsername.isNotEmpty ? rawUsername : rawFullName;
     final fName = rawFullName.isNotEmpty ? rawFullName : uName;
@@ -79,9 +65,9 @@ class AppUser {
       isLocked: locked,
       phone: rawPhone,
       techInterest: rawTechInterest,
-      dateOfBirth: dob,
+      dateOfBirth: JsonParseHelper.parseNullableDateOnly(json['dateOfBirth']),
       address: rawAddress,
-      createdAt: created,
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
     );
   }
 
@@ -97,9 +83,11 @@ class AppUser {
       'isLocked': isLocked,
       'phone': phone,
       'techInterest': techInterest,
-      'dateOfBirth': dateOfBirth?.toIso8601String(),
+      'dateOfBirth': dateOfBirth != null
+          ? JsonParseHelper.toUtcDateOnlyIsoString(dateOfBirth!)
+          : null,
       'address': address,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
     };
   }
 }

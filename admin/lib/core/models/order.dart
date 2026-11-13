@@ -1,3 +1,5 @@
+import '../utils/json_parse_helper.dart';
+
 class OrderItem {
   final int orderItemId;
   final int orderId;
@@ -43,30 +45,31 @@ class OrderItem {
   }
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
-    int parseInt(dynamic val) => val is int ? val : (int.tryParse(val?.toString() ?? '') ?? 0);
-    double parseDouble(dynamic val) => val is num ? val.toDouble() : (double.tryParse(val?.toString() ?? '') ?? 0.0);
-
     final pName = json['productName']?.toString() ?? '';
     final vName = json['variantName']?.toString() ?? '';
-    final uPrice = parseDouble(json['unitPrice'] ?? json['price']);
-    final qty = parseInt(json['quantity'] ?? 1);
-    final totPrice = json['totalPrice'] != null ? parseDouble(json['totalPrice']) : (uPrice * qty);
+    final uPrice = JsonParseHelper.parseDouble(json['unitPrice'] ?? json['price']);
+    final qty = JsonParseHelper.parseInt(json['quantity'] ?? 1);
+    final totPrice = json['totalPrice'] != null
+        ? JsonParseHelper.parseDouble(json['totalPrice'])
+        : (uPrice * qty);
 
     return OrderItem(
-      orderItemId: parseInt(json['orderItemId']),
-      orderId: parseInt(json['orderId']),
-      variantId: parseInt(json['variantId'] ?? json['productId']),
+      orderItemId: JsonParseHelper.parseInt(json['orderItemId']),
+      orderId: JsonParseHelper.parseInt(json['orderId']),
+      variantId: JsonParseHelper.parseInt(json['variantId'] ?? json['productId']),
       productName: pName,
       variantName: vName,
       imageUrl: json['imageUrl']?.toString(),
-      originalPrice: parseDouble(json['originalPrice'] ?? uPrice),
+      originalPrice: JsonParseHelper.parseDouble(json['originalPrice'] ?? uPrice),
       unitPrice: uPrice,
-      promotionId: json['promotionId'] != null ? parseInt(json['promotionId']) : null,
+      promotionId: JsonParseHelper.parseNullableInt(json['promotionId']),
       promotionName: json['promotionName']?.toString(),
-      promotionDiscount: parseDouble(json['promotionDiscount']),
+      promotionDiscount: JsonParseHelper.parseDouble(json['promotionDiscount']),
       quantity: qty,
       totalPrice: totPrice,
-      hasPromotion: json['hasPromotion'] == true || json['promotionId'] != null || parseDouble(json['promotionDiscount']) > 0,
+      hasPromotion: JsonParseHelper.parseBool(json['hasPromotion']) ||
+          json['promotionId'] != null ||
+          JsonParseHelper.parseDouble(json['promotionDiscount']) > 0,
     );
   }
 }
@@ -138,7 +141,6 @@ class Order {
   String get id => orderId.toString();
   String get orderNumber => orderCode.isNotEmpty ? orderCode : 'ORD-$orderId';
   String get customerName => receiverName.isNotEmpty ? receiverName : 'Khách hàng';
-  String get customerEmail => user?['email']?.toString() ?? 'N/A';
   String get status => orderStatus;
 
   // Business Rule: Can cancel/return when orderStatus is PENDING, CONFIRMED, or SHIPPING
@@ -192,27 +194,15 @@ class Order {
   }
 
   factory Order.fromJson(Map<String, dynamic> json) {
-    int parseInt(dynamic val) => val is int ? val : (int.tryParse(val?.toString() ?? '') ?? 0);
-    double parseDouble(dynamic val) => val is num ? val.toDouble() : (double.tryParse(val?.toString() ?? '') ?? 0.0);
-    DateTime? parseDate(dynamic val) {
-      if (val == null) return null;
-      try {
-        return DateTime.parse(val.toString());
-      } catch (_) {
-        return null;
-      }
-    }
-
-    final rawItems = json['items'];
-    List<OrderItem> parsedItems = [];
-    if (rawItems != null && rawItems is List) {
-      parsedItems = rawItems.map((i) => OrderItem.fromJson(i as Map<String, dynamic>)).toList();
-    }
+    final parsedItems = JsonParseHelper.parseJsonList(
+      json['items'],
+      OrderItem.fromJson,
+    );
 
     return Order(
-      orderId: parseInt(json['orderId'] ?? json['id']),
+      orderId: JsonParseHelper.parseInt(json['orderId'] ?? json['id']),
       orderCode: json['orderCode']?.toString() ?? json['orderNumber'] ?? '',
-      userId: parseInt(json['userId']),
+      userId: JsonParseHelper.parseInt(json['userId']),
       receiverName: json['receiverName']?.toString() ?? json['customerName'] ?? '',
       receiverPhone: json['receiverPhone']?.toString() ?? json['phone'] ?? '',
       shippingAddress: json['shippingAddress']?.toString() ?? json['address'] ?? '',
@@ -220,22 +210,25 @@ class Order {
       orderStatus: json['orderStatus']?.toString() ?? json['status'] ?? 'PENDING',
       paymentMethod: json['paymentMethod']?.toString() ?? 'COD',
       paymentStatus: json['paymentStatus']?.toString() ?? 'PENDING',
-      subtotalAmount: parseDouble(json['subtotalAmount'] ?? json['totalAmount']),
-      voucherId: json['voucherId'] != null ? parseInt(json['voucherId']) : null,
+      subtotalAmount: JsonParseHelper.parseDouble(json['subtotalAmount'] ?? json['totalAmount']),
+      voucherId: JsonParseHelper.parseNullableInt(json['voucherId']),
       voucherCode: json['voucherCode']?.toString(),
       voucherTitle: json['voucherTitle']?.toString(),
-      voucherDiscountAmount: parseDouble(json['voucherDiscountAmount']),
-      totalAmount: parseDouble(json['totalAmount']),
-      totalItems: json['totalItems'] != null ? parseInt(json['totalItems']) : parsedItems.length,
-      totalQuantity: json['totalQuantity'] != null ? parseInt(json['totalQuantity']) : parsedItems.fold(0, (sum, item) => sum + item.quantity),
-      totalSavings: parseDouble(json['totalSavings']),
-      createdAt: parseDate(json['createdAt']),
-      updatedAt: parseDate(json['updatedAt']),
-      paidAt: parseDate(json['paidAt']),
-      cancelledAt: parseDate(json['cancelledAt']),
+      voucherDiscountAmount: JsonParseHelper.parseDouble(json['voucherDiscountAmount']),
+      totalAmount: JsonParseHelper.parseDouble(json['totalAmount']),
+      totalItems: JsonParseHelper.parseInt(json['totalItems'], parsedItems.length),
+      totalQuantity: JsonParseHelper.parseInt(
+        json['totalQuantity'],
+        parsedItems.fold(0, (sum, item) => sum + item.quantity),
+      ),
+      totalSavings: JsonParseHelper.parseDouble(json['totalSavings']),
+      createdAt: JsonParseHelper.parseNullableDate(json['createdAt']),
+      updatedAt: JsonParseHelper.parseNullableDate(json['updatedAt']),
+      paidAt: JsonParseHelper.parseNullableDate(json['paidAt']),
+      cancelledAt: JsonParseHelper.parseNullableDate(json['cancelledAt']),
       cancellationReason: json['cancellationReason']?.toString(),
       user: json['user'] is Map<String, dynamic> ? json['user'] as Map<String, dynamic> : null,
-      updatedByUserId: json['updatedByUserId'] != null ? parseInt(json['updatedByUserId']) : null,
+      updatedByUserId: JsonParseHelper.parseNullableInt(json['updatedByUserId']),
       createdByName: json['createdByName']?.toString() ??
           (json['user'] is Map
               ? ((json['user']['fullName'] ?? json['user']['username'])?.toString())

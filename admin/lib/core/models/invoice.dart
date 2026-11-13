@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../utils/json_parse_helper.dart';
 
 class Invoice {
   final int invoiceId;
@@ -87,35 +88,26 @@ class Invoice {
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
     return Invoice(
-      invoiceId: json['invoiceId'] is int
-          ? json['invoiceId'] as int
-          : int.tryParse(json['invoiceId']?.toString() ?? '0') ?? 0,
+      invoiceId: JsonParseHelper.parseInt(json['invoiceId']),
       invoiceCode: json['invoiceCode']?.toString() ?? '',
-      orderId: json['orderId'] is int
-          ? json['orderId'] as int
-          : int.tryParse(json['orderId']?.toString() ?? '0') ?? 0,
+      orderId: JsonParseHelper.parseInt(json['orderId']),
       orderCode: json['orderCode']?.toString() ?? '',
-      userId: json['userId'] is int
-          ? json['userId'] as int
-          : int.tryParse(json['userId']?.toString() ?? '0') ?? 0,
+      userId: JsonParseHelper.parseInt(json['userId']),
       customerName: json['customerName']?.toString() ?? '',
-      totalAmount: (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: JsonParseHelper.parseDouble(json['totalAmount']),
       status: json['status']?.toString() ?? 'UNPAID',
       paymentMethod: json['paymentMethod']?.toString() ?? 'COD',
-      paidAt: json['paidAt'] != null ? DateTime.tryParse(json['paidAt'].toString()) : null,
-      createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      paidAt: JsonParseHelper.parseNullableDate(json['paidAt']),
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
       note: json['note']?.toString(),
       receiverPhone: json['receiverPhone']?.toString() ?? '',
       shippingAddress: json['shippingAddress']?.toString() ?? '',
-      subtotalAmount: (json['subtotalAmount'] as num?)?.toDouble() ?? (json['totalAmount'] as num?)?.toDouble() ?? 0.0,
-      voucherDiscountAmount: (json['voucherDiscountAmount'] as num?)?.toDouble() ?? 0.0,
+      subtotalAmount: JsonParseHelper.parseDouble(
+        json['subtotalAmount'] ?? json['totalAmount'],
+      ),
+      voucherDiscountAmount: JsonParseHelper.parseDouble(json['voucherDiscountAmount']),
       voucherCode: json['voucherCode']?.toString(),
-      items: (json['items'] as List<dynamic>?)
-              ?.map((item) => InvoiceItem.fromJson(item as Map<String, dynamic>))
-              .toList() ??
-          const [],
+      items: JsonParseHelper.parseJsonList(json['items'], InvoiceItem.fromJson),
     );
   }
 
@@ -130,8 +122,8 @@ class Invoice {
       'totalAmount': totalAmount,
       'status': status,
       'paymentMethod': paymentMethod,
-      'paidAt': paidAt?.toIso8601String(),
-      'createdAt': createdAt.toIso8601String(),
+      'paidAt': paidAt?.toUtc().toIso8601String(),
+      'createdAt': createdAt.toUtc().toIso8601String(),
       'note': note,
       'receiverPhone': receiverPhone,
       'shippingAddress': shippingAddress,
@@ -165,13 +157,13 @@ class InvoiceItem {
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     return InvoiceItem(
-      orderItemId: (json['orderItemId'] as num?)?.toInt() ?? 0,
+      orderItemId: JsonParseHelper.parseInt(json['orderItemId']),
       productName: json['productName']?.toString() ?? '',
       variantName: json['variantName']?.toString() ?? '',
       imageUrl: json['imageUrl']?.toString(),
-      unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
-      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
-      totalPrice: (json['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      unitPrice: JsonParseHelper.parseDouble(json['unitPrice']),
+      quantity: JsonParseHelper.parseInt(json['quantity']),
+      totalPrice: JsonParseHelper.parseDouble(json['totalPrice']),
     );
   }
 
@@ -210,22 +202,17 @@ class InvoiceStatistics {
   });
 
   factory InvoiceStatistics.fromJson(Map<String, dynamic> json) {
-    final statusCountsRaw = json['statusCounts'];
-    final Map<String, int> counts = {};
-    if (statusCountsRaw is Map) {
-      statusCountsRaw.forEach((k, v) {
-        counts[k.toString().toUpperCase()] = (v as num?)?.toInt() ?? 0;
-      });
-    }
-
     return InvoiceStatistics(
-      totalInvoices: (json['totalInvoices'] as num?)?.toInt() ?? 0,
-      paidCount: (json['paidCount'] as num?)?.toInt() ?? 0,
-      unpaidCount: (json['unpaidCount'] as num?)?.toInt() ?? 0,
-      cancelledCount: (json['cancelledCount'] as num?)?.toInt() ?? 0,
-      paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
-      unpaidAmount: (json['unpaidAmount'] as num?)?.toDouble() ?? 0.0,
-      statusCounts: counts,
+      totalInvoices: JsonParseHelper.parseInt(json['totalInvoices']),
+      paidCount: JsonParseHelper.parseInt(json['paidCount']),
+      unpaidCount: JsonParseHelper.parseInt(json['unpaidCount']),
+      cancelledCount: JsonParseHelper.parseInt(json['cancelledCount']),
+      paidAmount: JsonParseHelper.parseDouble(json['paidAmount']),
+      unpaidAmount: JsonParseHelper.parseDouble(json['unpaidAmount']),
+      statusCounts: JsonParseHelper.parseIntMap(
+        json['statusCounts'],
+        uppercaseKeys: true,
+      ),
     );
   }
 }

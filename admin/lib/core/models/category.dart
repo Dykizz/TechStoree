@@ -1,3 +1,5 @@
+import '../utils/json_parse_helper.dart';
+
 class Category {
   final String id;
   final String name;
@@ -16,20 +18,11 @@ class Category {
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
-    int count = 0;
-    final rawCount = json['productCount'] ?? json['soLuongSanPham'];
-    if (rawCount != null) {
-      if (rawCount is num) {
-        count = rawCount.toInt();
-      } else if (rawCount is String) {
-        count = int.tryParse(rawCount) ?? 0;
-      }
-    }
     return Category(
       id: (json['categoryId'] ?? json['id'])?.toString() ?? '',
       name: json['categoryName']?.toString() ?? json['name']?.toString() ?? json['tenDanhMuc']?.toString() ?? '',
       code: json['code']?.toString() ?? json['maDanhMuc']?.toString() ?? 'CAT-${json['categoryId'] ?? json['id']}',
-      productCount: count,
+      productCount: JsonParseHelper.parseInt(json['productCount'] ?? json['soLuongSanPham']),
       description: json['description']?.toString() ?? json['moTa']?.toString() ?? '',
       iconName: json['iconName']?.toString() ?? 'devices',
     );

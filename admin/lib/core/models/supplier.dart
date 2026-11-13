@@ -1,3 +1,5 @@
+import '../utils/json_parse_helper.dart';
+
 class Supplier {
   final String id;
   final String name;
@@ -32,8 +34,8 @@ class Supplier {
       email: json['email'] ?? '',
       address: json['address'] ?? json['diaChi'] ?? '',
       description: json['description'] ?? json['moTa'] ?? '',
-      deletedAt: json['deletedAt'] != null ? DateTime.tryParse(json['deletedAt'].toString()) : null,
-      isActive: json['isActive'] is bool ? json['isActive'] as bool : true,
+      deletedAt: JsonParseHelper.parseNullableDate(json['deletedAt']),
+      isActive: JsonParseHelper.parseBool(json['isActive'], fallback: true),
     );
   }
 

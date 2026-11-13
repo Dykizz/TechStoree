@@ -1,5 +1,6 @@
 // Mô hình dữ liệu Vai trò (Role) và Quyền hạn (Permission)
 // Khớp với hợp đồng API Backend WebBanHang.Api
+import '../utils/json_parse_helper.dart';
 
 class RoleModel {
   final String roleId;
@@ -20,14 +21,12 @@ class RoleModel {
 
   factory RoleModel.fromJson(Map<String, dynamic> json) {
     return RoleModel(
-      roleId: (json['roleId'] ?? json['id'] ?? '') as String,
-      roleName: (json['roleName'] ?? json['name'] ?? '') as String,
-      description: json['description'] as String?,
-      isSystem: json['isSystem'] == true,
-      userCount: (json['userCount'] is num) ? (json['userCount'] as num).toInt() : 0,
-      permissions: (json['permissions'] is List)
-          ? List<String>.from(json['permissions'].map((e) => e.toString()))
-          : const [],
+      roleId: (json['roleId'] ?? json['id'] ?? '').toString(),
+      roleName: (json['roleName'] ?? json['name'] ?? '').toString(),
+      description: json['description']?.toString(),
+      isSystem: JsonParseHelper.parseBool(json['isSystem']),
+      userCount: JsonParseHelper.parseInt(json['userCount']),
+      permissions: JsonParseHelper.parseStringList(json['permissions']),
     );
   }
 
@@ -62,15 +61,13 @@ class PermissionDetailModel {
 
   factory PermissionDetailModel.fromJson(Map<String, dynamic> json) {
     return PermissionDetailModel(
-      permissionId: (json['permissionId'] ?? json['id'] ?? '') as String,
-      permissionName: (json['permissionName'] ?? json['name'] ?? '') as String,
-      module: (json['module'] ?? '') as String,
-      description: json['description'] as String?,
-      isReserved: json['isReserved'] == true,
-      endpointCount: (json['endpointCount'] is num) ? (json['endpointCount'] as num).toInt() : 0,
-      endpoints: (json['endpoints'] is List)
-          ? List<String>.from(json['endpoints'].map((e) => e.toString()))
-          : const [],
+      permissionId: (json['permissionId'] ?? json['id'] ?? '').toString(),
+      permissionName: (json['permissionName'] ?? json['name'] ?? '').toString(),
+      module: (json['module'] ?? '').toString(),
+      description: json['description']?.toString(),
+      isReserved: JsonParseHelper.parseBool(json['isReserved']),
+      endpointCount: JsonParseHelper.parseInt(json['endpointCount']),
+      endpoints: JsonParseHelper.parseStringList(json['endpoints']),
     );
   }
 
@@ -106,19 +103,16 @@ class RoleDetailModel {
 
   factory RoleDetailModel.fromJson(Map<String, dynamic> json) {
     return RoleDetailModel(
-      roleId: (json['roleId'] ?? json['id'] ?? '') as String,
-      roleName: (json['roleName'] ?? json['name'] ?? '') as String,
-      description: json['description'] as String?,
-      isSystem: json['isSystem'] == true,
-      userCount: (json['userCount'] is num) ? (json['userCount'] as num).toInt() : 0,
-      permissions: (json['permissions'] is List)
-          ? List<String>.from(json['permissions'].map((e) => e.toString()))
-          : const [],
-      permissionDetails: (json['permissionDetails'] is List)
-          ? (json['permissionDetails'] as List)
-              .map((e) => PermissionDetailModel.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : const [],
+      roleId: (json['roleId'] ?? json['id'] ?? '').toString(),
+      roleName: (json['roleName'] ?? json['name'] ?? '').toString(),
+      description: json['description']?.toString(),
+      isSystem: JsonParseHelper.parseBool(json['isSystem']),
+      userCount: JsonParseHelper.parseInt(json['userCount']),
+      permissions: JsonParseHelper.parseStringList(json['permissions']),
+      permissionDetails: JsonParseHelper.parseJsonList(
+        json['permissionDetails'],
+        PermissionDetailModel.fromJson,
+      ),
     );
   }
 
@@ -144,12 +138,11 @@ class ModulePermissionsModel {
 
   factory ModulePermissionsModel.fromJson(Map<String, dynamic> json) {
     return ModulePermissionsModel(
-      module: (json['module'] ?? '') as String,
-      permissions: (json['permissions'] is List)
-          ? (json['permissions'] as List)
-              .map((e) => PermissionDetailModel.fromJson(e as Map<String, dynamic>))
-              .toList()
-          : const [],
+      module: (json['module'] ?? '').toString(),
+      permissions: JsonParseHelper.parseJsonList(
+        json['permissions'],
+        PermissionDetailModel.fromJson,
+      ),
     );
   }
 

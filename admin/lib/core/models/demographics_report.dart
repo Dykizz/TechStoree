@@ -1,3 +1,5 @@
+import '../constants/tech_interests.dart';
+import '../utils/json_parse_helper.dart';
 import 'app_user.dart';
 
 /// Mô hình báo cáo phân tích nhân khẩu học khách hàng
@@ -18,22 +20,30 @@ class DemographicsReport {
   });
 
   factory DemographicsReport.fromJson(Map<String, dynamic> json) {
+    final rawInterests = JsonParseHelper.parseJsonList(
+      json['interests'],
+      InterestGroupReport.fromJson,
+    );
+    final knownInterests = rawInterests.where((i) => i.key != 'NOT_SET').toList()
+      ..sort((a, b) => b.count.compareTo(a.count));
+    final notSetInterests = rawInterests.where((i) => i.key == 'NOT_SET');
+
     return DemographicsReport(
-      totalCustomers: (json['totalCustomers'] as num?)?.toInt() ?? 0,
-      customersWithBirthDate: (json['customersWithBirthDate'] as num?)?.toInt() ?? 0,
-      customersWithInterest: (json['customersWithInterest'] as num?)?.toInt() ?? 0,
-      ageGroups: (json['ageGroups'] as List?)
-              ?.map((e) => AgeGroupReport.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      interests: (json['interests'] as List?)
-              ?.map((e) => InterestGroupReport.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
+      totalCustomers: JsonParseHelper.parseInt(json['totalCustomers']),
+      customersWithBirthDate: JsonParseHelper.parseInt(json['customersWithBirthDate']),
+      customersWithInterest: JsonParseHelper.parseInt(json['customersWithInterest']),
+      ageGroups: JsonParseHelper.parseJsonList(
+        json['ageGroups'],
+        AgeGroupReport.fromJson,
+      ),
+      interests: [...knownInterests, ...notSetInterests],
     );
   }
 
-  factory DemographicsReport.fromUsers(List<AppUser> users) {
+  factory DemographicsReport.fromUsers(
+    List<AppUser> users, {
+    List<TechInterestOption>? techInterestOptions,
+  }) {
     final customers = users.where((u) =>
         u.role.toUpperCase() == 'USER' &&
         (u.roles.isEmpty || u.roles.every((r) => r.toUpperCase() == 'USER'))).toList();
@@ -105,20 +115,9 @@ class DemographicsReport {
         ),
     ];
 
-    // Phân nhóm sở thích công nghệ chuẩn hóa từ dữ liệu thực tế
-    String normalizeInterestName(String raw) {
-      final upper = raw.toUpperCase();
-      if (upper.contains('GAMING')) return 'Gaming & Đồ họa';
-      if (upper.contains('VĂN PHÒNG') || upper.contains('OFFICE')) return 'Văn phòng & Học tập';
-      if (upper.contains('CODING') || upper.contains('AI') || upper.contains('LẬP TRÌNH')) return 'Lập trình & AI';
-      if (upper.contains('AUDIO') || upper.contains('ÂM THANH') || upper.contains('STUDIO')) return 'Âm thanh & Studio';
-      if (upper.contains('WATCH') || upper.contains('HEALTH') || upper.contains('ĐỒNG HỒ') || upper.contains('SỨC KHỎE')) return 'Smartwatch & Sức khỏe';
-      if (upper.contains('PHOTO') || upper.contains('VIDEO') || upper.contains('NHIẾP ẢNH') || upper.contains('QUAY PHIM')) return 'Nhiếp ảnh & Quay phim';
-      if (upper.contains('HOME') || upper.contains('NHÀ THÔNG MINH')) return 'Nhà thông minh (SmartHome)';
-      return raw.trim();
-    }
-
-    final Map<String, int> interestMap = {};
+    // Phân nhóm sở thích công nghệ chuẩn hóa theo enum key Backend + tương thích dữ liệu chữ cũ
+    final Map<String, int> interestCounts = {};
+    final Map<String, String> interestNames = {};
     int notSetCount = 0;
 
     for (final c in customers) {
@@ -126,15 +125,23 @@ class DemographicsReport {
       if (rawInterest == null || rawInterest.isEmpty) {
         notSetCount++;
       } else {
-        final normalized = normalizeInterestName(rawInterest);
-        interestMap[normalized] = (interestMap[normalized] ?? 0) + 1;
+        final key = TechInterestCatalog.tryNormalizeKey(
+              rawInterest,
+              options: techInterestOptions,
+            ) ??
+            rawInterest;
+        interestCounts[key] = (interestCounts[key] ?? 0) + 1;
+        interestNames[key] ??= TechInterestCatalog.displayLabel(
+          rawInterest,
+          options: techInterestOptions,
+        );
       }
     }
 
-    final interests = interestMap.entries.map((entry) {
+    final interests = interestCounts.entries.map((entry) {
       return InterestGroupReport(
         key: entry.key,
-        name: entry.key,
+        name: interestNames[entry.key] ?? entry.key,
         count: entry.value,
         percentage: total > 0 ? double.parse(((entry.value / total) * 100).toStringAsFixed(1)) : 0.0,
       );
@@ -178,8 +185,8 @@ class AgeGroupReport {
     return AgeGroupReport(
       groupKey: json['groupKey']?.toString() ?? '',
       groupName: json['groupName']?.toString() ?? '',
-      count: (json['count'] as num?)?.toInt() ?? 0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      count: JsonParseHelper.parseInt(json['count']),
+      percentage: JsonParseHelper.parseDouble(json['percentage']),
     );
   }
 }
@@ -201,8 +208,8 @@ class InterestGroupReport {
     return InterestGroupReport(
       key: json['key']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      count: (json['count'] as num?)?.toInt() ?? 0,
-      percentage: (json['percentage'] as num?)?.toDouble() ?? 0.0,
+      count: JsonParseHelper.parseInt(json['count']),
+      percentage: JsonParseHelper.parseDouble(json['percentage']),
     );
   }
 }

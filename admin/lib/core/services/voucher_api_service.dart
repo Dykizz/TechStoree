@@ -30,6 +30,93 @@ mixin VoucherApiService on BaseApiService {
     return <Voucher>[];
   }
 
+  /// Lấy toàn bộ voucher qua mọi trang (`pageSize=100`) phục vụ dropdown chọn phần thưởng khảo sát.
+  Future<List<Voucher>> getAllVouchers({
+    String? token,
+    String? status,
+    bool? isActive,
+    String? search,
+    bool throwOnError = false,
+  }) async {
+    final List<Voucher> allVouchers = [];
+    int currentPage = 1;
+    const int pageSize = 100;
+
+    try {
+      while (true) {
+        final queryParams = <String, String>{
+          'page': currentPage.toString(),
+          'pageSize': pageSize.toString(),
+        };
+        if (status != null && status.isNotEmpty && status != 'Tất cả') {
+          queryParams['status'] = status;
+        }
+        if (isActive != null) {
+          queryParams['isActive'] = isActive.toString();
+        }
+        if (search != null && search.isNotEmpty) {
+          queryParams['search'] = search;
+        }
+
+        final uri = Uri.parse('$baseUrl/vouchers').replace(queryParameters: queryParams);
+        final response = await httpGet(uri, token: token);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          extractErrorMessage(response);
+          if (throwOnError) {
+            throw Exception(
+              lastErrorMessage.isNotEmpty
+                  ? lastErrorMessage
+                  : 'Không thể tải danh sách voucher (HTTP ${response.statusCode})',
+            );
+          }
+          break;
+        }
+
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        if (jsonRes is! Map<String, dynamic> || jsonRes['success'] != true) {
+          extractErrorMessage(response);
+          if (throwOnError) {
+            throw Exception(lastErrorMessage.isNotEmpty ? lastErrorMessage : 'Dữ liệu voucher không hợp lệ.');
+          }
+          break;
+        }
+
+        lastErrorMessage = '';
+        final data = jsonRes['data'];
+        List itemsList = [];
+        Map<String, dynamic>? meta;
+
+        if (data is List) {
+          itemsList = data;
+        } else if (data is Map<String, dynamic>) {
+          if (data['items'] is List) itemsList = data['items'] as List;
+          if (data['meta'] is Map<String, dynamic>) meta = data['meta'] as Map<String, dynamic>;
+        }
+
+        final pageItems = itemsList
+            .whereType<Map<String, dynamic>>()
+            .map(Voucher.fromJson)
+            .toList();
+        allVouchers.addAll(pageItems);
+
+        final totalPages = (meta?['totalPages'] as num?)?.toInt();
+        final hasNext = meta?['hasNextPage'] == true ||
+            (totalPages != null && currentPage < totalPages);
+
+        if (!hasNext || pageItems.isEmpty || currentPage >= 50) {
+          break;
+        }
+        currentPage++;
+      }
+      return allVouchers;
+    } catch (e) {
+      if (kDebugMode) print('API Error getAllVouchers: $e');
+      if (throwOnError) rethrow;
+      return allVouchers;
+    }
+  }
+
   Future<Voucher?> getVoucherById(int id, {String? token}) async {
     try {
       final uri = Uri.parse('$baseUrl/vouchers/$id');

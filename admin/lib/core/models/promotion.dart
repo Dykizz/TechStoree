@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../utils/json_parse_helper.dart';
 
 class PromotionVariantItem {
   final int variantId;
@@ -34,24 +35,17 @@ class PromotionVariantItem {
   }
 
   factory PromotionVariantItem.fromJson(Map<String, dynamic> json) {
-    Map<String, String> attrs = {};
-    if (json['attributes'] != null && json['attributes'] is Map) {
-      (json['attributes'] as Map).forEach((k, v) {
-        attrs[k.toString()] = v.toString();
-      });
-    }
-
     return PromotionVariantItem(
-      variantId: (json['variantId'] ?? json['variant_id'] ?? 0) as int,
-      productId: (json['productId'] ?? json['product_id'] ?? 0) as int,
+      variantId: JsonParseHelper.parseInt(json['variantId'] ?? json['variant_id']),
+      productId: JsonParseHelper.parseInt(json['productId'] ?? json['product_id']),
       productName: (json['productName'] ?? '').toString(),
       variantName: (json['variantName'] ?? '').toString(),
-      originalPrice: (json['originalPrice'] ?? 0).toDouble(),
-      promotionalPrice: (json['promotionalPrice'] ?? 0).toDouble(),
-      discountAmount: (json['discountAmount'] ?? 0).toDouble(),
-      stockQuantity: (json['stockQuantity'] ?? 0) as int,
+      originalPrice: JsonParseHelper.parseDouble(json['originalPrice']),
+      promotionalPrice: JsonParseHelper.parseDouble(json['promotionalPrice']),
+      discountAmount: JsonParseHelper.parseDouble(json['discountAmount']),
+      stockQuantity: JsonParseHelper.parseInt(json['stockQuantity']),
       imageUrl: json['imageUrl'] as String?,
-      attributes: attrs,
+      attributes: JsonParseHelper.parseStringMap(json['attributes']),
     );
   }
 
@@ -117,61 +111,30 @@ class Promotion {
   }
 
   factory Promotion.fromJson(Map<String, dynamic> json) {
-    List<PromotionVariantItem> parsedVariants = [];
-    if (json['variants'] != null && json['variants'] is List) {
-      parsedVariants = (json['variants'] as List)
-          .map((v) => PromotionVariantItem.fromJson(v as Map<String, dynamic>))
-          .toList();
-    }
+    final parsedVariants = JsonParseHelper.parseJsonList(
+      json['variants'],
+      PromotionVariantItem.fromJson,
+    );
 
-    List<int> parsedVariantIds = [];
-    if (json['variantIds'] != null && json['variantIds'] is List) {
-      parsedVariantIds = (json['variantIds'] as List).map((id) => (id as num).toInt()).toList();
-    } else if (parsedVariants.isNotEmpty) {
-      parsedVariantIds = parsedVariants.map((v) => v.variantId).toList();
-    }
-
-    DateTime parsedStart;
-    try {
-      parsedStart = json['startDate'] != null
-          ? DateTime.parse(json['startDate'].toString()).toLocal()
-          : DateTime.now();
-    } catch (_) {
-      parsedStart = DateTime.now();
-    }
-
-    DateTime parsedEnd;
-    try {
-      parsedEnd = json['endDate'] != null
-          ? DateTime.parse(json['endDate'].toString()).toLocal()
-          : DateTime.now().add(const Duration(days: 7));
-    } catch (_) {
-      parsedEnd = DateTime.now().add(const Duration(days: 7));
-    }
-
-    DateTime parsedCreated;
-    try {
-      parsedCreated = json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'].toString()).toLocal()
-          : DateTime.now();
-    } catch (_) {
-      parsedCreated = DateTime.now();
-    }
-
-    String parsedStatus = (json['status'] ?? 'ACTIVE').toString();
+    final parsedVariantIds = json['variantIds'] is List
+        ? JsonParseHelper.parseIntList(json['variantIds'])
+        : parsedVariants.map((v) => v.variantId).toList();
 
     return Promotion(
-      promotionId: (json['promotionId'] ?? json['id'] ?? 0) as int,
+      promotionId: JsonParseHelper.parseInt(json['promotionId'] ?? json['id']),
       name: (json['name'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       discountType: (json['discountType'] ?? 'PERCENTAGE').toString(),
-      discountValue: (json['discountValue'] ?? 0).toDouble(),
-      startDate: parsedStart,
-      endDate: parsedEnd,
-      isActive: (json['isActive'] ?? true) as bool,
-      createdAt: parsedCreated,
-      status: parsedStatus,
-      variantCount: (json['variantCount'] ?? parsedVariants.length) as int,
+      discountValue: JsonParseHelper.parseDouble(json['discountValue']),
+      startDate: JsonParseHelper.parseDate(json['startDate']),
+      endDate: JsonParseHelper.parseDate(
+        json['endDate'],
+        fallback: DateTime.now().add(const Duration(days: 7)),
+      ),
+      isActive: JsonParseHelper.parseBool(json['isActive'], fallback: true),
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
+      status: (json['status'] ?? 'ACTIVE').toString(),
+      variantCount: JsonParseHelper.parseInt(json['variantCount'], parsedVariants.length),
       variants: parsedVariants,
       variantIds: parsedVariantIds,
     );

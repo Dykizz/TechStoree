@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/invoice.dart';
+import '../utils/app_date_formatter.dart';
 import 'base_api_service.dart';
 
 mixin InvoiceApiService on BaseApiService {
@@ -50,10 +51,10 @@ mixin InvoiceApiService on BaseApiService {
         queryParams['advancedQuery'] = advancedQuery.trim();
       }
       if (fromDate != null) {
-        queryParams['fromDate'] = fromDate.toIso8601String();
+        queryParams['fromDate'] = AppDateFormatter.toApiRangeStartUtcIso(fromDate);
       }
       if (toDate != null) {
-        queryParams['toDate'] = toDate.toIso8601String();
+        queryParams['toDate'] = AppDateFormatter.toApiRangeEndUtcIso(toDate);
       }
       if (minAmount != null) {
         queryParams['minAmount'] = minAmount.toString();

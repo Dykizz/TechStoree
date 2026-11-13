@@ -1,4 +1,5 @@
 import 'package:intl/intl.dart';
+import '../utils/json_parse_helper.dart';
 
 class Voucher {
   final int voucherId;
@@ -52,34 +53,28 @@ class Voucher {
   }
 
   factory Voucher.fromJson(Map<String, dynamic> json) {
-    DateTime parseDate(dynamic val, DateTime fallback) {
-      if (val == null) return fallback;
-      try {
-        return DateTime.parse(val.toString()).toLocal();
-      } catch (_) {
-        return fallback;
-      }
-    }
-
     return Voucher(
-      voucherId: (json['voucherId'] ?? json['id'] ?? 0) as int,
+      voucherId: JsonParseHelper.parseInt(json['voucherId'] ?? json['id']),
       code: (json['code'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       description: json['description']?.toString(),
       discountType: (json['discountType'] ?? 'PERCENTAGE').toString(),
-      discountValue: (json['discountValue'] ?? 0).toDouble(),
-      minOrderValue: (json['minOrderValue'] ?? 0).toDouble(),
-      maxDiscountAmount: json['maxDiscountAmount'] != null ? (json['maxDiscountAmount'] as num).toDouble() : null,
-      usageLimit: json['usageLimit'] != null ? (json['usageLimit'] as num).toInt() : null,
-      usedCount: (json['usedCount'] ?? 0) as int,
-      limitPerUser: (json['limitPerUser'] ?? 1) as int,
-      startDate: parseDate(json['startDate'], DateTime.now()),
-      endDate: parseDate(json['endDate'], DateTime.now().add(const Duration(days: 7))),
-      isActive: (json['isActive'] ?? true) as bool,
-      isPublic: (json['isPublic'] ?? true) as bool,
-      createdAt: parseDate(json['createdAt'], DateTime.now()),
+      discountValue: JsonParseHelper.parseDouble(json['discountValue']),
+      minOrderValue: JsonParseHelper.parseDouble(json['minOrderValue']),
+      maxDiscountAmount: JsonParseHelper.parseNullableDouble(json['maxDiscountAmount']),
+      usageLimit: JsonParseHelper.parseNullableInt(json['usageLimit']),
+      usedCount: JsonParseHelper.parseInt(json['usedCount']),
+      limitPerUser: JsonParseHelper.parseInt(json['limitPerUser'], 1),
+      startDate: JsonParseHelper.parseDate(json['startDate']),
+      endDate: JsonParseHelper.parseDate(
+        json['endDate'],
+        fallback: DateTime.now().add(const Duration(days: 7)),
+      ),
+      isActive: JsonParseHelper.parseBool(json['isActive'], fallback: true),
+      isPublic: JsonParseHelper.parseBool(json['isPublic'], fallback: true),
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
       status: (json['status'] ?? 'ACTIVE').toString(),
-      totalClaimedCount: (json['totalClaimedCount'] ?? 0) as int,
+      totalClaimedCount: JsonParseHelper.parseInt(json['totalClaimedCount']),
     );
   }
 
