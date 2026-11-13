@@ -7,6 +7,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_toast.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import 'role_form_dialog.dart';
 
 class RolesScreen extends StatefulWidget {
@@ -888,16 +889,19 @@ class _RolesScreenState extends State<RolesScreen> {
                             ],
                           ),
                         )
-                      : _isLoadingCatalog || _isLoadingDetail
-                          ? const Center(child: CircularProgressIndicator())
-                          : _buildPermissionMatrixWorkspace(
-                              context,
-                              cardBg: cardBg,
-                              borderColor: borderColor,
-                              textPrimary: textPrimary,
-                              textSecondary: textSecondary,
-                              isDark: isDark,
-                            ),
+                      : SmoothLoadingWrapper(
+                          isLoading: _isLoadingCatalog || _isLoadingDetail,
+                          hasData: _permissionModules.isNotEmpty,
+                          initialMinHeight: 420,
+                          child: _buildPermissionMatrixWorkspace(
+                            context,
+                            cardBg: cardBg,
+                            borderColor: borderColor,
+                            textPrimary: textPrimary,
+                            textSecondary: textSecondary,
+                            isDark: isDark,
+                          ),
+                        ),
                 ),
               ],
             ),
