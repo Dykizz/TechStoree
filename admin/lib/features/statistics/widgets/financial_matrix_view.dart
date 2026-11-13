@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_tokens.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/data_table_container.dart';
+import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../models/statistics_models.dart';
 import 'financial_performance_chart.dart';
 
@@ -45,16 +46,13 @@ class FinancialMatrixView extends StatelessWidget {
     final marginQ4 = revRow.q4 > 0 ? (profitRow.q4 / revRow.q4) * 100 : 0.0;
     final marginTotal = totalRev > 0 ? (netProfit / totalRev) * 100 : 0.0;
 
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 60),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return SmoothLoadingWrapper(
+      isLoading: isLoading,
+      hasData: rows.isNotEmpty,
+      initialMinHeight: 420,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         // 1. Biểu đồ cột nhóm Hoạt động kinh doanh 4 Quý (Thu - Chi - Lãi)
         FinancialPerformanceChart(
           rows: rows,
@@ -320,6 +318,7 @@ class FinancialMatrixView extends StatelessWidget {
           style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: textSecondary),
         ),
       ],
+      ),
     );
   }
 }

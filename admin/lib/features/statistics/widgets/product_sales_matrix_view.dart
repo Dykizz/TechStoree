@@ -8,6 +8,7 @@ import '../../../core/widgets/app_pagination.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
+import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../models/statistics_models.dart';
 
 enum ProductMatrixMode { quarterly, threeYears }
@@ -620,27 +621,25 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
         const SizedBox(height: AppTokens.space16),
 
         // DataTable (Không có cột Loại sản phẩm như người dùng yêu cầu!)
-        if (widget.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (filteredItems.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inventory_2_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
-                  const SizedBox(height: 8),
-                  Text('Không tìm thấy sản phẩm phù hợp.', style: TextStyle(color: textSecondary, fontSize: 13)),
-                ],
-              ),
-            ),
-          )
-        else
-          DataTableContainer(
+        SmoothLoadingWrapper(
+          isLoading: widget.isLoading,
+          hasData: widget.quarterlyProducts.isNotEmpty || widget.productList.isNotEmpty,
+          initialMinHeight: 360,
+          child: filteredItems.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.inventory_2_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
+                        const SizedBox(height: 8),
+                        Text('Không tìm thấy sản phẩm phù hợp.', style: TextStyle(color: textSecondary, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                )
+              : DataTableContainer(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -831,6 +830,7 @@ class _ProductSalesMatrixViewState extends State<ProductSalesMatrixView> {
               ],
             ),
           ),
+        ),
       ],
     );
   }

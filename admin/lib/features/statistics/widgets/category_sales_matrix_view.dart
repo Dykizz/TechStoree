@@ -7,6 +7,7 @@ import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/app_pagination.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
+import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../models/statistics_models.dart';
 
 enum CategoryMatrixMode { quarterly, threeYears }
@@ -252,27 +253,25 @@ class _CategorySalesMatrixViewState extends State<CategorySalesMatrixView> {
         const SizedBox(height: AppTokens.space16),
 
         // DataTable
-        if (widget.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (filtered.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.category_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
-                  const SizedBox(height: 8),
-                  Text('Không tìm thấy loại sản phẩm phù hợp.', style: TextStyle(color: textSecondary, fontSize: 13)),
-                ],
-              ),
-            ),
-          )
-        else
-          DataTableContainer(
+        SmoothLoadingWrapper(
+          isLoading: widget.isLoading,
+          hasData: widget.categoryList.isNotEmpty,
+          initialMinHeight: 360,
+          child: filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.category_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
+                        const SizedBox(height: 8),
+                        Text('Không tìm thấy loại sản phẩm phù hợp.', style: TextStyle(color: textSecondary, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                )
+              : DataTableContainer(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -450,6 +449,7 @@ class _CategorySalesMatrixViewState extends State<CategorySalesMatrixView> {
               ],
             ),
           ),
+        ),
       ],
     );
   }
