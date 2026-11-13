@@ -9,6 +9,7 @@ import '../../core/models/supplier.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
@@ -16,6 +17,7 @@ import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -32,9 +34,6 @@ class PurchaseOrdersScreen extends StatefulWidget {
 
 class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-  final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-  final dateFormatDate = DateFormat('dd/MM/yyyy');
-  final dateFormatTime = DateFormat('HH:mm');
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _searchQuery = '';
@@ -111,24 +110,23 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<Supplier>>(
+    return CachedFutureBuilder<List<Supplier>>(
       future: _suppliersFuture,
       builder: (context, supplierSnap) {
         final suppliers = supplierSnap.data ?? [];
 
-        return FutureBuilder<List<PurchaseOrder>>(
+        return CachedFutureBuilder<List<PurchaseOrder>>(
           future: _ordersFuture,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-            }
+            final isLoading = snapshot.connectionState == ConnectionState.waiting;
+            final hasData = snapshot.hasData;
 
             var orders = snapshot.data ?? [];
 
@@ -162,7 +160,6 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                 const SingleActivator(LogicalKeyboardKey.escape): _closeQuickView,
               },
               child: Focus(
-                autofocus: true,
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(AppTokens.space16),
                   child: Column(
@@ -243,15 +240,19 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                       ),
 
                       // Adaptive Split Layout
-                      orders.isEmpty
-                          ? const DataTableContainer(
-                              child: EmptyState(
-                                title: 'Chưa có phiếu nhập hàng nào',
-                                message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
-                                icon: Icons.inventory_2_outlined,
-                              ),
-                            )
-                          : LayoutBuilder(
+                      SmoothLoadingWrapper(
+                        isLoading: isLoading,
+                        hasData: hasData,
+                        initialMinHeight: 380,
+                        child: orders.isEmpty
+                            ? const DataTableContainer(
+                                child: EmptyState(
+                                  title: 'Chưa có phiếu nhập hàng nào',
+                                  message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
+                                  icon: Icons.inventory_2_outlined,
+                                ),
+                              )
+                            : LayoutBuilder(
                               builder: (context, constraints) {
                                 final table = _buildPurchaseOrdersTable(
                                   paginatedOrders: paginatedOrders,
@@ -335,6 +336,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                                 );
                               },
                             ),
+                      ),
                     ],
                   ),
                 ),
@@ -457,11 +459,11 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            dateFormatDate.format(po.createdAt),
+                            AppDateFormatter.formatDate(po.createdAt),
                             style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary),
                           ),
                           Text(
-                            dateFormatTime.format(po.createdAt),
+                            AppDateFormatter.formatTime(po.createdAt),
                             style: TextStyle(fontSize: 10, color: textSecondary),
                           ),
                         ],
@@ -653,7 +655,7 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: _buildInfoItem('Nhà cung cấp', po.supplierName, textPrimary, textSecondary)),
-                    Expanded(child: _buildInfoItem('Ngày tạo', dateFormat.format(po.createdAt), textPrimary, textSecondary)),
+                    Expanded(child: _buildInfoItem('Ngày tạo', AppDateFormatter.formatDateTime(po.createdAt), textPrimary, textSecondary)),
                     const Spacer(), // Balance layout
                   ],
                 ),

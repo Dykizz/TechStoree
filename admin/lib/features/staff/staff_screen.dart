@@ -7,6 +7,7 @@ import '../../core/models/role.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_pagination.dart';
@@ -18,6 +19,7 @@ import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class StaffScreen extends StatefulWidget {
@@ -73,19 +75,18 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<AppUser>>(
+    return CachedFutureBuilder<List<AppUser>>(
       future: _staffFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         var allUsers = snapshot.data ?? [];
         // Lọc chắc chắn chỉ lấy nhân viên nội bộ
@@ -217,7 +218,11 @@ class _StaffScreenState extends State<StaffScreen> {
 
               Flexible(
                 fit: FlexFit.loose,
-                child: DataTableContainer(
+                child: SmoothLoadingWrapper(
+                  isLoading: isLoading,
+                  hasData: hasData,
+                  initialMinHeight: 380,
+                  child: DataTableContainer(
                   child: staffList.isEmpty
                       ? const EmptyState(
                           icon: Icons.badge_outlined,
@@ -316,7 +321,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                       ),
                                       DataCell(_buildRolesBadges(u)),
                                       DataCell(
-                                        Text('${u.createdAt.day}/${u.createdAt.month}/${u.createdAt.year}', style: TextStyle(color: textSecondary, fontSize: 11)),
+                                        Text(AppDateFormatter.formatDate(u.createdAt), style: TextStyle(color: textSecondary, fontSize: 11)),
                                       ),
                                       DataCell(
                                         StatusBadge(
@@ -379,6 +384,7 @@ class _StaffScreenState extends State<StaffScreen> {
                               ),
                           ],
                         ),
+                ),
                 ),
               ),
             ],
@@ -506,7 +512,7 @@ class _StaffScreenState extends State<StaffScreen> {
                   isBoldValue: true,
                 ),
                 const SizedBox(height: 10),
-                _buildDetailRow(Icons.calendar_today_outlined, 'Ngày gia nhập', '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}', textPrimary, textSecondary),
+                _buildDetailRow(Icons.calendar_today_outlined, 'Ngày gia nhập', AppDateFormatter.formatDate(user.createdAt), textPrimary, textSecondary),
                 const SizedBox(height: 10),
                 _buildDetailRow(Icons.shield_outlined, 'Trạng thái', user.isLocked ? 'Đã bị tạm khóa' : 'Đang làm việc', user.isLocked ? AppColors.danger : AppColors.success, textSecondary),
               ],
