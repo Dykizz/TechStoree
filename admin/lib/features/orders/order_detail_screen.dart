@@ -10,6 +10,7 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../invoices/widgets/invoice_detail_dialog.dart';
 import '../../core/widgets/status_badge.dart';
 import 'widgets/packing_slip_dialog.dart';
@@ -526,9 +527,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.lightBackground,
-      body: _isLoadingDetails
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-          : SingleChildScrollView(
+      body: SmoothLoadingWrapper(
+        isLoading: _isLoadingDetails,
+        hasData: true,
+        child: SingleChildScrollView(
               padding: const EdgeInsets.all(AppTokens.space16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,6 +721,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 
