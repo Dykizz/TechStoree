@@ -20,6 +20,7 @@ import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class VouchersScreen extends StatefulWidget {
@@ -144,12 +145,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<Voucher>>(
+    return CachedFutureBuilder<List<Voucher>>(
       future: _vouchersFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         var vouchers = snapshot.data ?? [];
 
@@ -346,7 +346,11 @@ class _VouchersScreenState extends State<VouchersScreen> {
 
               // Data Table Container (Tối ưu 5 cột gọn gàng, đồng bộ với Promotions & Products)
               Flexible(
-                child: DataTableContainer(
+                child: SmoothLoadingWrapper(
+                  isLoading: isLoading,
+                  hasData: hasData,
+                  initialMinHeight: 380,
+                  child: DataTableContainer(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -581,6 +585,7 @@ class _VouchersScreenState extends State<VouchersScreen> {
                         ),
                     ],
                   ),
+                ),
                 ),
               ),
             ],

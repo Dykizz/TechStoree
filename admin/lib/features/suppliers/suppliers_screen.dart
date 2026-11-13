@@ -15,6 +15,7 @@ import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/app_toast.dart';
 
 class SuppliersScreen extends StatefulWidget {
@@ -52,19 +53,18 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<Supplier>>(
+    return CachedFutureBuilder<List<Supplier>>(
       future: _suppliersFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         final allSuppliers = snapshot.data ?? [];
         final allCount = allSuppliers.length;
@@ -152,7 +152,11 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                 ),
               ),
 
-              DataTableContainer(
+              SmoothLoadingWrapper(
+                isLoading: isLoading,
+                hasData: hasData,
+                initialMinHeight: 380,
+                child: DataTableContainer(
                   child: suppliers.isEmpty
                       ? const EmptyState(
                           icon: Icons.domain_outlined,
@@ -307,6 +311,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                           ],
                         ),
                 ),
+              ),
             ],
           ),
         );

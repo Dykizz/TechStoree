@@ -1,11 +1,75 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../constants/tech_interests.dart';
 import '../models/app_user.dart';
 import '../models/demographics_report.dart';
+import '../utils/json_parse_helper.dart';
 import 'base_api_service.dart';
 
 mixin UserApiService on BaseApiService {
   final Map<String, AppUser> _userCache = {};
+  List<TechInterestOption>? _techInterestsCache;
+
+  /// Danh sách sở thích công nghệ đã tải (mặc định fallback từ [TechInterestCatalog.defaults]).
+  List<TechInterestOption> get cachedTechInterests =>
+      _techInterestsCache ?? TechInterestCatalog.defaults;
+
+  /// Lấy danh mục sở thích công nghệ chuẩn hóa từ API `GET /users/tech-interests`.
+  Future<List<TechInterestOption>> getTechInterests({
+    String? token,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && _techInterestsCache != null) {
+      return _techInterestsCache!;
+    }
+    try {
+      final response = await httpGet(
+        Uri.parse('$baseUrl/users/tech-interests'),
+        token: token,
+      );
+      final data = parseApiResponse(response);
+      if (data is List) {
+        final parsed = data
+            .whereType<Map<String, dynamic>>()
+            .map(TechInterestOption.fromJson)
+            .where((o) => o.key.isNotEmpty && o.displayName.isNotEmpty)
+            .toList();
+        if (parsed.isNotEmpty) {
+          _techInterestsCache = parsed;
+          return parsed;
+        }
+      }
+    } catch (e) {
+      debugPrint('[UserApiService] Lỗi getTechInterests: $e');
+    }
+    return cachedTechInterests;
+  }
+
+  AppUser _mapAndCacheUser(Map<String, dynamic> json) {
+    final apiUser = AppUser.fromJson(json);
+    final cached = _userCache[apiUser.id];
+    final finalUser = AppUser(
+      id: apiUser.id,
+      userName: apiUser.userName.isNotEmpty ? apiUser.userName : (cached?.userName ?? ''),
+      fullName: apiUser.fullName.isNotEmpty ? apiUser.fullName : (cached?.fullName ?? ''),
+      email: apiUser.email.isNotEmpty ? apiUser.email : (cached?.email ?? ''),
+      role: apiUser.role.isNotEmpty ? apiUser.role : (cached?.role ?? 'USER'),
+      roles: apiUser.roles.isNotEmpty ? apiUser.roles : (cached?.roles ?? const ['USER']),
+      status: apiUser.isLocked ? 'Tạm khóa' : 'Hoạt động',
+      isLocked: apiUser.isLocked,
+      phone: apiUser.phone.isNotEmpty ? apiUser.phone : (cached?.phone ?? ''),
+      techInterest: (apiUser.techInterest != null && apiUser.techInterest!.trim().isNotEmpty)
+          ? apiUser.techInterest
+          : cached?.techInterest,
+      dateOfBirth: apiUser.dateOfBirth ?? cached?.dateOfBirth,
+      address: (apiUser.address != null && apiUser.address!.trim().isNotEmpty)
+          ? apiUser.address
+          : cached?.address,
+      createdAt: apiUser.createdAt,
+    );
+    _userCache[finalUser.id] = finalUser;
+    return finalUser;
+  }
 
   /// Lấy danh sách tài khoản người dùng từ Backend API (PostgreSQL)
   /// isStaffOnly = true: Chỉ lấy danh sách nhân viên nội bộ
@@ -38,31 +102,7 @@ mixin UserApiService on BaseApiService {
           itemsList = data['items'] as List;
         }
         if (itemsList.isNotEmpty) {
-          return itemsList.map((json) {
-            final apiUser = AppUser.fromJson(json as Map<String, dynamic>);
-            final cached = _userCache[apiUser.id];
-            final finalUser = AppUser(
-              id: apiUser.id,
-              userName: apiUser.userName.isNotEmpty ? apiUser.userName : (cached?.userName ?? ''),
-              fullName: apiUser.fullName.isNotEmpty ? apiUser.fullName : (cached?.fullName ?? ''),
-              email: apiUser.email.isNotEmpty ? apiUser.email : (cached?.email ?? ''),
-              role: apiUser.role.isNotEmpty ? apiUser.role : (cached?.role ?? 'USER'),
-              roles: apiUser.roles.isNotEmpty ? apiUser.roles : (cached?.roles ?? const ['USER']),
-              status: apiUser.isLocked ? 'Tạm khóa' : 'Hoạt động',
-              isLocked: apiUser.isLocked,
-              phone: apiUser.phone.isNotEmpty ? apiUser.phone : (cached?.phone ?? ''),
-              techInterest: (apiUser.techInterest != null && apiUser.techInterest!.trim().isNotEmpty)
-                  ? apiUser.techInterest
-                  : cached?.techInterest,
-              dateOfBirth: apiUser.dateOfBirth ?? cached?.dateOfBirth,
-              address: (apiUser.address != null && apiUser.address!.trim().isNotEmpty)
-                  ? apiUser.address
-                  : cached?.address,
-              createdAt: apiUser.createdAt,
-            );
-            _userCache[finalUser.id] = finalUser;
-            return finalUser;
-          }).toList();
+          return itemsList.map((json) => _mapAndCacheUser(json as Map<String, dynamic>)).toList();
         }
       }
     } catch (e) {
@@ -72,10 +112,101 @@ mixin UserApiService on BaseApiService {
     return <AppUser>[];
   }
 
+  /// Lấy toàn bộ tài khoản người dùng qua mọi trang (`pageSize=100`) phục vụ gán khảo sát / bộ chọn đầy đủ.
+  Future<List<AppUser>> getAllUsers({
+    String? token,
+    bool? isStaffOnly,
+    bool? isLocked,
+    String? search,
+    bool throwOnError = false,
+  }) async {
+    final List<AppUser> allUsers = [];
+    int currentPage = 1;
+    const int pageSize = 100;
+
+    try {
+      while (true) {
+        final queryParams = <String, String>{
+          'page': currentPage.toString(),
+          'pageSize': pageSize.toString(),
+        };
+        if (isStaffOnly != null) queryParams['isStaffOnly'] = isStaffOnly.toString();
+        if (isLocked != null) queryParams['isLocked'] = isLocked.toString();
+        if (search != null && search.trim().isNotEmpty) queryParams['search'] = search.trim();
+
+        final uri = Uri.parse('$baseUrl/users').replace(queryParameters: queryParams);
+        final response = await httpGet(uri, token: token);
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          extractErrorMessage(response);
+          if (throwOnError) {
+            throw Exception(
+              lastErrorMessage.isNotEmpty
+                  ? lastErrorMessage
+                  : 'Không thể tải danh sách người dùng (HTTP ${response.statusCode})',
+            );
+          }
+          break;
+        }
+
+        final jsonRes = json.decode(utf8.decode(response.bodyBytes));
+        if (jsonRes is! Map<String, dynamic> || jsonRes['success'] != true) {
+          extractErrorMessage(response);
+          if (throwOnError) {
+            throw Exception(lastErrorMessage.isNotEmpty ? lastErrorMessage : 'Dữ liệu người dùng không hợp lệ.');
+          }
+          break;
+        }
+
+        lastErrorMessage = '';
+        final data = jsonRes['data'];
+        List itemsList = [];
+        Map<String, dynamic>? meta;
+
+        if (data is List) {
+          itemsList = data;
+        } else if (data is Map<String, dynamic>) {
+          if (data['items'] is List) itemsList = data['items'] as List;
+          if (data['meta'] is Map<String, dynamic>) meta = data['meta'] as Map<String, dynamic>;
+        }
+
+        final pageUsers = itemsList
+            .whereType<Map<String, dynamic>>()
+            .map(_mapAndCacheUser)
+            .toList();
+        allUsers.addAll(pageUsers);
+
+        final totalPages = (meta?['totalPages'] as num?)?.toInt();
+        final hasNext = meta?['hasNextPage'] == true ||
+            (totalPages != null && currentPage < totalPages);
+
+        if (!hasNext || pageUsers.isEmpty || currentPage >= 50) {
+          break;
+        }
+        currentPage++;
+      }
+      return allUsers;
+    } catch (e) {
+      debugPrint('[UserApiService] Lỗi getAllUsers: $e');
+      if (throwOnError) rethrow;
+      return allUsers;
+    }
+  }
+
   Future<DemographicsReport> getDemographicsReport({String? token}) async {
-    // Luôn tổng hợp báo cáo trực tiếp từ dữ liệu khách hàng thực tế trong database
-    final users = await getUsers(token: token, isStaffOnly: false);
-    return DemographicsReport.fromUsers(users);
+    final response = await httpGet(
+      Uri.parse('$baseUrl/users/demographics'),
+      token: token,
+    );
+    final data = parseApiResponse(response);
+    if (data is Map<String, dynamic>) {
+      return DemographicsReport.fromJson(data);
+    }
+    throw Exception(
+      lastErrorMessage.isNotEmpty
+          ? lastErrorMessage
+          : 'Không thể tải báo cáo nhân khẩu học (HTTP ${response.statusCode})',
+    );
   }
 
   Future<ApiResult> createUser(AppUser user, String password, {String? token}) async {
@@ -90,7 +221,9 @@ mixin UserApiService on BaseApiService {
           'fullName': user.fullName,
           'phone': user.phone.isNotEmpty ? user.phone : null,
           'techInterest': user.techInterest,
-          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+          'dateOfBirth': user.dateOfBirth != null
+              ? JsonParseHelper.toUtcDateOnlyIsoString(user.dateOfBirth!)
+              : null,
           'address': user.address,
           'roles': user.roles.isNotEmpty ? user.roles : [user.role],
         }),
@@ -123,7 +256,9 @@ mixin UserApiService on BaseApiService {
           'fullName': user.fullName,
           'email': user.email,
           'phone': user.phone.isNotEmpty ? user.phone : null,
-          'dateOfBirth': user.dateOfBirth?.toIso8601String(),
+          'dateOfBirth': user.dateOfBirth != null
+              ? JsonParseHelper.toUtcDateOnlyIsoString(user.dateOfBirth!)
+              : null,
           'techInterest': user.techInterest,
           'address': user.address,
           'roles': user.roles.isNotEmpty ? user.roles : [user.role],
@@ -136,7 +271,33 @@ mixin UserApiService on BaseApiService {
 
       // Cập nhật trạng thái khóa nếu có thay đổi
       if (oldUser != null && oldUser.isLocked != user.isLocked) {
-        await toggleUserLock(user.id, isLocked: user.isLocked, token: token);
+        final lockUpdated = await toggleUserLock(user.id, isLocked: user.isLocked, token: token);
+        if (!lockUpdated) {
+          // Hồ sơ đã được lưu ở bước PUT trên, giữ nguyên trạng thái khóa cũ trong cache
+          _userCache[user.id] = AppUser(
+            id: user.id,
+            userName: user.userName,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            roles: user.roles,
+            status: oldUser.status,
+            isLocked: oldUser.isLocked,
+            phone: user.phone,
+            techInterest: user.techInterest,
+            dateOfBirth: user.dateOfBirth,
+            address: user.address,
+            createdAt: user.createdAt,
+          );
+          notifyListeners();
+          final detail = lastErrorMessage.isNotEmpty
+              ? lastErrorMessage
+              : 'không thể thay đổi trạng thái khóa.';
+          return ApiResult(
+            success: false,
+            message: 'Đã lưu hồ sơ nhưng lỗi cập nhật trạng thái khóa: $detail',
+          );
+        }
       }
 
       _userCache[user.id] = user;
@@ -208,10 +369,6 @@ mixin UserApiService on BaseApiService {
       debugPrint('[UserApiService] Lỗi toggleUserLock: $e');
     }
     return false;
-  }
-
-  Future<bool> updateUserRole(String userId, String roleId, {String? token}) async {
-    return updateUserRoles(userId, [roleId], token: token);
   }
 
   Future<bool> updateUserRoles(String userId, List<String> roles, {String? token}) async {

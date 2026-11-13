@@ -529,3 +529,72 @@ class InvoiceQuickViewPanel extends StatelessWidget {
   }
 }
 
+/// Khung giữ chỗ bên phải khi người dùng chưa chọn hóa đơn nào để xem nhanh
+class InvoiceQuickViewPlaceholder extends StatelessWidget {
+  const InvoiceQuickViewPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(-2, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : AppColors.primary).withValues(alpha: 0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.receipt_long_outlined,
+                  size: 38,
+                  color: textSecondary.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Chưa chọn hóa đơn',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Nhấp vào một hóa đơn trong danh sách\nđể xem nhanh chi tiết tại đây',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: textSecondary.withValues(alpha: 0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+

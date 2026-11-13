@@ -27,7 +27,11 @@ mixin ReviewApiService on BaseApiService {
     return CustomerReviewOverviewMetric.empty();
   }
 
-  Future<ReviewStatistics?> getDetailedReviewStatistics({int? productId, String? token}) async {
+  Future<ReviewStatistics?> getDetailedReviewStatistics({
+    int? productId,
+    String? token,
+    bool throwOnError = false,
+  }) async {
     try {
       final queryParams = <String, String>{};
       if (productId != null) {
@@ -42,14 +46,24 @@ mixin ReviewApiService on BaseApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true) {
+          lastErrorMessage = '';
           final data = jsonRes['data'];
           if (data is Map<String, dynamic>) {
             return ReviewStatistics.fromJson(data);
           }
         }
       }
+      final errMsg = extractErrorMessage(response);
+      if (throwOnError) {
+        throw Exception(
+          errMsg.isNotEmpty
+              ? errMsg
+              : 'Không thể tải thống kê đánh giá (HTTP ${response.statusCode})',
+        );
+      }
     } catch (e) {
       if (kDebugMode) print('API Error getDetailedReviewStatistics: $e');
+      if (throwOnError) rethrow;
     }
     return null;
   }
@@ -69,6 +83,7 @@ mixin ReviewApiService on BaseApiService {
     String? sortBy,
     bool isAscending = false,
     String? token,
+    bool throwOnError = false,
   }) async {
     try {
       final queryParams = <String, String>{
@@ -94,6 +109,7 @@ mixin ReviewApiService on BaseApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true) {
+          lastErrorMessage = '';
           final data = jsonRes['data'];
           List<dynamic> itemsData = [];
           Map<String, dynamic>? metaData;
@@ -125,8 +141,17 @@ mixin ReviewApiService on BaseApiService {
       } else {
         if (kDebugMode) print('getAdminReviews HTTP ${response.statusCode}: ${response.body}');
       }
+      final errMsg = extractErrorMessage(response);
+      if (throwOnError) {
+        throw Exception(
+          errMsg.isNotEmpty
+              ? errMsg
+              : 'Không thể tải danh sách đánh giá (HTTP ${response.statusCode})',
+        );
+      }
     } catch (e) {
       if (kDebugMode) print('API Error getAdminReviews: $e');
+      if (throwOnError) rethrow;
     }
     return ReviewPagedResult(items: [], totalCount: 0, page: page, pageSize: pageSize);
   }

@@ -80,14 +80,18 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             }
         }
 
+        var startAt = DateTimeHelper.NormalizeToUtc(dto.StartAt);
+        var expiredAt = DateTimeHelper.NormalizeToUtc(dto.ExpiredAt);
+        ValidateSurveySchedule(startAt, expiredAt);
+
         var survey = new Survey
         {
             Title = dto.Title.Trim(),
             Description = dto.Description?.Trim(),
             RewardVoucherId = dto.RewardVoucherId,
             IsActive = dto.IsActive,
-            StartAt = dto.StartAt,
-            ExpiredAt = dto.ExpiredAt,
+            StartAt = startAt,
+            ExpiredAt = expiredAt,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -147,6 +151,10 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             }
         }
 
+        var newStartAt = DateTimeHelper.NormalizeToUtc(dto.StartAt);
+        var newExpiredAt = DateTimeHelper.NormalizeToUtc(dto.ExpiredAt);
+        ValidateSurveySchedule(newStartAt, newExpiredAt);
+
         // Kiểm tra xem đã có khách hàng nào nộp bài chưa
         bool hasResponses = await context.SurveyAssignments
             .AnyAsync(a => a.SurveyId == surveyId && a.CompletedAt != null);
@@ -154,6 +162,11 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
         // QUY TẮC TOÀN VẸN: Nếu đã có người nộp bài -> KHÓA CẤU TRÚC CÂU HỎI
         if (hasResponses)
         {
+            if (newStartAt.HasValue && newStartAt.Value > DateTime.UtcNow && newStartAt != survey.StartAt)
+            {
+                throw new BadRequestException("Bài khảo sát đã có phản hồi, không thể dời thời điểm bắt đầu sang tương lai.");
+            }
+
             // Kiểm tra: Chỉ chặn khi Admin thực sự cố tình thay đổi/thêm/bớt câu hỏi hoặc đáp án
             if (dto.Questions != null && IsQuestionsStructureChanged(survey.Questions, dto.Questions))
             {
@@ -168,8 +181,8 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             survey.Description = dto.Description?.Trim();
             survey.RewardVoucherId = dto.RewardVoucherId;
             survey.IsActive = dto.IsActive;
-            survey.StartAt = dto.StartAt;
-            survey.ExpiredAt = dto.ExpiredAt;
+            survey.StartAt = newStartAt;
+            survey.ExpiredAt = newExpiredAt;
         }
         else
         {
@@ -178,8 +191,8 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             survey.Description = dto.Description?.Trim();
             survey.RewardVoucherId = dto.RewardVoucherId;
             survey.IsActive = dto.IsActive;
-            survey.StartAt = dto.StartAt;
-            survey.ExpiredAt = dto.ExpiredAt;
+            survey.StartAt = newStartAt;
+            survey.ExpiredAt = newExpiredAt;
 
             if (dto.Questions != null)
             {
@@ -497,10 +510,13 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
 
     public async Task<IEnumerable<CustomerSurveyListDto>> GetCustomerSurveysAsync(int userId)
     {
+        var now = DateTime.UtcNow;
         var assignments = await context.SurveyAssignments
             .Include(a => a.Survey)
                 .ThenInclude(s => s.RewardVoucher)
-            .Where(a => a.UserId == userId && a.Survey.IsActive)
+            .Where(a => a.UserId == userId
+                        && a.Survey.IsActive
+                        && (!a.Survey.StartAt.HasValue || a.Survey.StartAt.Value <= now))
             .OrderBy(a => a.CompletedAt.HasValue) // Bài chưa làm lên đầu
             .ThenByDescending(a => a.AssignedAt)
             .AsNoTracking()
@@ -520,15 +536,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             .FirstOrDefaultAsync(a => a.SurveyId == surveyId && a.UserId == userId)
             ?? throw new ForbiddenException("Bạn chưa được cấp quyền tham gia bài khảo sát này.");
 
-        if (!assignment.Survey.IsActive)
-        {
-            throw new BadRequestException("Bài khảo sát này hiện đã đóng nhận câu trả lời.");
-        }
-
-        if (assignment.Survey.ExpiredAt.HasValue && assignment.Survey.ExpiredAt.Value < DateTime.UtcNow)
-        {
-            throw new BadRequestException("Bài khảo sát này đã kết thúc thời gian nhận phản hồi.");
-        }
+        EnsureSurveyOpenForCustomer(assignment.Survey);
 
         if (assignment.CompletedAt.HasValue)
         {
@@ -549,15 +557,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
             .FirstOrDefaultAsync(a => a.SurveyId == surveyId && a.UserId == userId)
             ?? throw new ForbiddenException("Bạn không có quyền thực hiện bài khảo sát này.");
 
-        if (!assignment.Survey.IsActive)
-        {
-            throw new BadRequestException("Bài khảo sát đã dừng nhận phản hồi.");
-        }
-
-        if (assignment.Survey.ExpiredAt.HasValue && assignment.Survey.ExpiredAt.Value < DateTime.UtcNow)
-        {
-            throw new BadRequestException("Bài khảo sát này đã kết thúc thời gian nhận phản hồi.");
-        }
+        EnsureSurveyOpenForCustomer(assignment.Survey);
 
         if (assignment.CompletedAt.HasValue)
         {
@@ -750,12 +750,46 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
         return false;
     }
 
+    private static void ValidateSurveySchedule(DateTime? startAt, DateTime? expiredAt)
+    {
+        if (startAt.HasValue && expiredAt.HasValue && expiredAt.Value <= startAt.Value)
+        {
+            throw new BadRequestException("Thời điểm kết thúc (hạn chót) phải lớn hơn thời điểm bắt đầu mở khảo sát.");
+        }
+    }
+
+    private static void EnsureSurveyOpenForCustomer(Survey survey)
+    {
+        if (!survey.IsActive)
+        {
+            throw new BadRequestException("Bài khảo sát này hiện đã đóng nhận phản hồi.");
+        }
+
+        var now = DateTime.UtcNow;
+        if (survey.StartAt.HasValue && survey.StartAt.Value > now)
+        {
+            throw new BadRequestException(
+                $"Bài khảo sát chưa đến thời gian mở ({DateTimeHelper.ToVietnamTime(survey.StartAt.Value):dd/MM/yyyy HH:mm}), hiện chưa thể thực hiện hoặc nộp bài.");
+        }
+
+        if (survey.ExpiredAt.HasValue && survey.ExpiredAt.Value < now)
+        {
+            throw new BadRequestException("Bài khảo sát này đã kết thúc thời gian nhận phản hồi.");
+        }
+    }
+
     public async Task<bool> MarkSurveyNotifiedAsync(int surveyId, int userId)
     {
         var assignment = await context.SurveyAssignments
+            .Include(a => a.Survey)
             .FirstOrDefaultAsync(a => a.SurveyId == surveyId && a.UserId == userId);
 
-        if (assignment == null) return false;
+        if (assignment == null || !assignment.Survey.IsActive) return false;
+
+        if (assignment.Survey.StartAt.HasValue && assignment.Survey.StartAt.Value > DateTime.UtcNow)
+        {
+            return false;
+        }
 
         if (!assignment.IsNotified)
         {
@@ -797,10 +831,17 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
         sb.AppendLine($"Mã khảo sát,{survey.SurveyId}");
         sb.AppendLine($"Tiêu đề,{Escape(survey.Title)}");
         sb.AppendLine($"Mô tả,{Escape(survey.Description)}");
-        sb.AppendLine($"Trạng thái,{(survey.IsActive ? "Đang mở" : "Đã tạm dừng")}");
-        sb.AppendLine($"Hạn chót,{(survey.ExpiredAt.HasValue ? survey.ExpiredAt.Value.ToString("dd/MM/yyyy HH:mm:ss") : "Không thời hạn")}");
+        var nowUtc = DateTime.UtcNow;
+        var statusText = (survey.ExpiredAt.HasValue && survey.ExpiredAt.Value < nowUtc)
+            ? "Đã hết hạn"
+            : (!survey.IsActive
+                ? "Đã tạm dừng"
+                : (survey.StartAt.HasValue && survey.StartAt.Value > nowUtc ? "Chờ mở theo lịch" : "Đang mở"));
+        sb.AppendLine($"Trạng thái,{statusText}");
+        sb.AppendLine($"Thời điểm mở,{(survey.StartAt.HasValue ? DateTimeHelper.ToVietnamTime(survey.StartAt.Value).ToString("dd/MM/yyyy HH:mm:ss") : "Mở ngay")}");
+        sb.AppendLine($"Hạn chót,{(survey.ExpiredAt.HasValue ? DateTimeHelper.ToVietnamTime(survey.ExpiredAt.Value).ToString("dd/MM/yyyy HH:mm:ss") : "Không thời hạn")}");
         sb.AppendLine($"Voucher quà tặng,{Escape(survey.RewardVoucher != null ? $"{survey.RewardVoucher.Code} - {survey.RewardVoucher.Title}" : "Không có")}");
-        sb.AppendLine($"Ngày tạo,{survey.CreatedAt:dd/MM/yyyy HH:mm:ss}");
+        sb.AppendLine($"Ngày tạo,{DateTimeHelper.ToVietnamTime(survey.CreatedAt):dd/MM/yyyy HH:mm:ss}");
 
         var totalAssigned = survey.Assignments.Count;
         var completedAssignments = survey.Assignments.Where(a => a.CompletedAt != null).ToList();
@@ -864,7 +905,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
                 assign.AssignmentId.ToString(),
                 assign.UserId.ToString(),
                 Escape(userDisplay),
-                assign.CompletedAt.HasValue ? assign.CompletedAt.Value.ToString("dd/MM/yyyy HH:mm:ss") : ""
+                assign.CompletedAt.HasValue ? DateTimeHelper.ToVietnamTime(assign.CompletedAt.Value).ToString("dd/MM/yyyy HH:mm:ss") : ""
             };
 
             var userAnswers = assign.Answers.ToList();
@@ -896,7 +937,7 @@ public class SurveyService(AppDbContext context, IVoucherService voucherService)
 
         var safeTitle = string.Concat(survey.Title.Split(System.IO.Path.GetInvalidFileNameChars())).Replace(" ", "_");
         if (safeTitle.Length > 30) safeTitle = safeTitle.Substring(0, 30);
-        var fileName = $"KhaoSat_{survey.SurveyId}_{safeTitle}_{DateTime.UtcNow:yyyyMMdd}.csv";
+        var fileName = $"KhaoSat_{survey.SurveyId}_{safeTitle}_{DateTimeHelper.ToVietnamTime(DateTime.UtcNow):yyyyMMdd}.csv";
 
         return (fileBytes, fileName);
     }

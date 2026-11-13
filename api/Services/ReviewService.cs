@@ -222,12 +222,14 @@ public class ReviewService(AppDbContext dbContext) : IReviewService
         // 6. Lọc theo khoảng thời gian tạo đánh giá
         if (filter.FromDate.HasValue)
         {
-            query = query.Where(r => r.CreatedAt >= filter.FromDate.Value);
+            var fromUtc = DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value);
+            query = query.Where(r => r.CreatedAt >= fromUtc);
         }
 
         if (filter.ToDate.HasValue)
         {
-            query = query.Where(r => r.CreatedAt <= filter.ToDate.Value);
+            var toUtc = DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value);
+            query = query.Where(r => r.CreatedAt <= toUtc);
         }
 
         // 7. Lọc theo từ khóa tìm kiếm

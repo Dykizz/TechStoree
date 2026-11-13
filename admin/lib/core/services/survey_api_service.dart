@@ -27,6 +27,7 @@ mixin SurveyApiService on BaseApiService {
     int page = 1,
     int pageSize = 10,
     String? token,
+    bool throwOnError = false,
   }) async {
     try {
       final queryParams = <String, String>{
@@ -49,22 +50,39 @@ mixin SurveyApiService on BaseApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true) {
+          lastErrorMessage = '';
           final data = jsonRes['data'];
           if (data is Map<String, dynamic>) {
             final List itemsJson = data['items'] ?? [];
             final items = itemsJson.map((item) => SurveyAdminList.fromJson(item as Map<String, dynamic>)).toList();
+            final meta = data['meta'] is Map<String, dynamic>
+                ? data['meta'] as Map<String, dynamic>
+                : data;
+            final parsedPageSize = (meta['pageSize'] as num?)?.toInt() ?? pageSize;
+            final parsedTotalItems = (meta['totalItems'] as num?)?.toInt() ?? items.length;
+            final parsedTotalPages = (meta['totalPages'] as num?)?.toInt() ??
+                (parsedPageSize > 0 ? (parsedTotalItems / parsedPageSize).ceil() : 1);
             return SurveyPagedResult(
               items: items,
-              totalItems: (data['totalItems'] ?? items.length) as int,
-              page: (data['page'] ?? page) as int,
-              pageSize: (data['pageSize'] ?? pageSize) as int,
-              totalPages: (data['totalPages'] ?? 1) as int,
+              totalItems: parsedTotalItems,
+              page: (meta['page'] as num?)?.toInt() ?? page,
+              pageSize: parsedPageSize,
+              totalPages: parsedTotalPages,
             );
           }
         }
       }
+      extractErrorMessage(response);
+      if (throwOnError) {
+        throw Exception(
+          lastErrorMessage.isNotEmpty
+              ? lastErrorMessage
+              : 'Không thể tải danh sách khảo sát (HTTP ${response.statusCode})',
+        );
+      }
     } catch (e) {
       debugPrint('API Error getSurveys: $e');
+      if (throwOnError) rethrow;
     }
 
     return SurveyPagedResult(
@@ -76,7 +94,7 @@ mixin SurveyApiService on BaseApiService {
     );
   }
 
-  Future<SurveyAdminDetail?> getSurveyById(int id, {String? token}) async {
+  Future<SurveyAdminDetail?> getSurveyById(int id, {String? token, bool throwOnError = false}) async {
     try {
       final response = await httpGet(
         Uri.parse('$baseUrl/surveys/$id'),
@@ -86,11 +104,28 @@ mixin SurveyApiService on BaseApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true && jsonRes['data'] != null) {
+          lastErrorMessage = '';
           return SurveyAdminDetail.fromJson(jsonRes['data'] as Map<String, dynamic>);
         }
       }
+      if (response.statusCode == 404 && !throwOnError) {
+        extractErrorMessage(response);
+        return null;
+      }
+      extractErrorMessage(response);
+      if (response.statusCode != 404 && throwOnError) {
+        throw Exception(
+          lastErrorMessage.isNotEmpty
+              ? lastErrorMessage
+              : 'Không thể tải chi tiết bài khảo sát (HTTP ${response.statusCode})',
+        );
+      }
     } catch (e) {
       debugPrint('API Error getSurveyById: $e');
+      if (lastErrorMessage.isEmpty) {
+        lastErrorMessage = 'Lỗi kết nối khi tải chi tiết bài khảo sát: $e';
+      }
+      if (throwOnError) rethrow;
     }
     return null;
   }
@@ -220,7 +255,7 @@ mixin SurveyApiService on BaseApiService {
     }
   }
 
-  Future<SurveyStatistics?> getSurveyStatistics(int id, {String? token}) async {
+  Future<SurveyStatistics?> getSurveyStatistics(int id, {String? token, bool throwOnError = false}) async {
     try {
       final response = await httpGet(
         Uri.parse('$baseUrl/surveys/$id/statistics'),
@@ -230,11 +265,24 @@ mixin SurveyApiService on BaseApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final jsonRes = json.decode(utf8.decode(response.bodyBytes));
         if (jsonRes is Map<String, dynamic> && jsonRes['success'] == true && jsonRes['data'] != null) {
+          lastErrorMessage = '';
           return SurveyStatistics.fromJson(jsonRes['data'] as Map<String, dynamic>);
         }
       }
+      extractErrorMessage(response);
+      if (throwOnError) {
+        throw Exception(
+          lastErrorMessage.isNotEmpty
+              ? lastErrorMessage
+              : 'Không thể tải dữ liệu thống kê khảo sát (HTTP ${response.statusCode})',
+        );
+      }
     } catch (e) {
       debugPrint('API Error getSurveyStatistics: $e');
+      if (lastErrorMessage.isEmpty) {
+        lastErrorMessage = 'Lỗi kết nối khi tải thống kê khảo sát: $e';
+      }
+      if (throwOnError) rethrow;
     }
     return null;
   }
@@ -297,10 +345,13 @@ mixin SurveyApiService on BaseApiService {
         if (!fileName.toLowerCase().endsWith('.csv')) {
           fileName = '$fileName.csv';
         }
+        lastErrorMessage = '';
         return (response.bodyBytes, fileName);
       }
+      extractErrorMessage(response);
     } catch (e) {
       debugPrint('API Error exportSurveyCsv: $e');
+      lastErrorMessage = 'Lỗi kết nối khi xuất báo cáo khảo sát: $e';
     }
     return (null, '');
   }

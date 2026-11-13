@@ -5,6 +5,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_tokens.dart';
 import '../../../core/models/order.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/utils/date_preset_helper.dart';
+import '../../../core/widgets/advanced_filter_widgets.dart';
 import '../../../core/widgets/app_dropdown.dart';
 import '../../../core/widgets/app_search_field.dart';
 
@@ -54,10 +56,7 @@ class OrderToolbar extends StatelessWidget {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
     final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-    final dateFormatDate = DateFormat('dd/MM/yyyy');
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -93,21 +92,10 @@ class OrderToolbar extends StatelessWidget {
             width: 175,
             child: AppDropdown<String>(
               value: selectedDatePreset,
-              items: [
-                const DropdownMenuItem(value: 'ALL', child: Text('Thời gian: Tất cả')),
-                const DropdownMenuItem(value: 'TODAY', child: Text('Hôm nay')),
-                const DropdownMenuItem(value: 'YESTERDAY', child: Text('Hôm qua')),
-                const DropdownMenuItem(value: 'LAST_7_DAYS', child: Text('7 ngày qua')),
-                const DropdownMenuItem(value: 'THIS_MONTH', child: Text('Tháng này')),
-                DropdownMenuItem(
-                  value: 'CUSTOM',
-                  child: Text(
-                    selectedDateRange != null && selectedDatePreset == 'CUSTOM'
-                        ? '${dateFormatDate.format(selectedDateRange!.start)} - ${dateFormatDate.format(selectedDateRange!.end)}'
-                        : 'Tùy chọn ngày...',
-                  ),
-                ),
-              ],
+              items: DatePresetHelper.buildDropdownItems(
+                selectedDateRange: selectedDateRange,
+                selectedDatePreset: selectedDatePreset,
+              ),
               onChanged: (val) {
                 if (val != null) {
                   onDatePresetChanged(val);
@@ -142,67 +130,20 @@ class OrderToolbar extends StatelessWidget {
 
           const SizedBox(width: 8),
 
-          // 4. Nút "Bộ lọc" (40px chuẩn)
-          SizedBox(
-            height: 40,
-            child: OutlinedButton.icon(
-              onPressed: onToggleAdvancedFilter,
-              icon: Icon(
-                Icons.tune_rounded,
-                size: 16,
-                color: (isAdvancedFilterOpen || advancedFilterCount > 0) ? Colors.white : textPrimary,
-              ),
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    advancedFilterCount > 0 ? 'Lọc ($advancedFilterCount)' : 'Bộ lọc',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: (isAdvancedFilterOpen || advancedFilterCount > 0) ? Colors.white : textPrimary,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    isAdvancedFilterOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                    size: 16,
-                    color: (isAdvancedFilterOpen || advancedFilterCount > 0) ? Colors.white : textSecondary,
-                  ),
-                ],
-              ),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: (isAdvancedFilterOpen || advancedFilterCount > 0) ? AppColors.primary : null,
-                side: BorderSide(
-                  color: (isAdvancedFilterOpen || advancedFilterCount > 0) ? AppColors.primary : borderColor,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-              ),
-            ),
+          // 4. Nút "Bộ lọc"
+          FilterToggleButton(
+            isOpen: isAdvancedFilterOpen,
+            activeCount: advancedFilterCount,
+            onPressed: onToggleAdvancedFilter,
           ),
 
           // 5. Nút Đặt lại bộ lọc (chỉ hiện khi có active filter)
           if (hasActiveFilters) ...[
             const SizedBox(width: 8),
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: IconButton(
-                tooltip: 'Đặt lại toàn bộ lọc',
-                onPressed: onResetFilters,
-                icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppColors.danger),
-                style: IconButton.styleFrom(
-                  backgroundColor: AppColors.danger.withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ),
+            FilterResetIconButton(onPressed: onResetFilters),
           ],
         ],
       ),
     );
   }
 }
-

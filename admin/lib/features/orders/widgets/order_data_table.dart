@@ -8,6 +8,7 @@ import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_button.dart';
 import '../../../core/widgets/app_pagination.dart';
 import '../../../core/widgets/data_table_container.dart';
+import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
 import '../../../core/widgets/status_badge.dart';
@@ -50,14 +51,15 @@ class OrderDataTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(color: AppColors.primary),
-        ),
-      );
-    }
+    return SmoothLoadingWrapper(
+      isLoading: isLoading,
+      hasData: orders.isNotEmpty,
+      initialMinHeight: 420,
+      child: _buildTableContent(context),
+    );
+  }
+
+  Widget _buildTableContent(BuildContext context) {
 
     if (orders.isEmpty) {
       return const DataTableContainer(

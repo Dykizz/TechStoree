@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,28 +8,34 @@ import '../../core/models/voucher.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/empty_state.dart';
-import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
+import 'survey_helpers.dart';
 
 class SurveyDetailView extends StatefulWidget {
   final int surveyId;
+  final String backLabel;
   final VoidCallback onBack;
   final Function(SurveyAdminDetail survey) onEdit;
   final Function(SurveyAdminList survey) onAssign;
   final Function(int surveyId) onViewStats;
-  final VoidCallback onSurveyChanged;
+  final void Function({bool reloadDetail}) onSurveyChanged;
+  final int refreshTrigger;
 
   const SurveyDetailView({
     super.key,
     required this.surveyId,
+    this.backLabel = 'Danh sách khảo sát',
     required this.onBack,
     required this.onEdit,
     required this.onAssign,
     required this.onViewStats,
     required this.onSurveyChanged,
+    this.refreshTrigger = 0,
   });
 
   @override
@@ -41,7 +45,7 @@ class SurveyDetailView extends StatefulWidget {
 class _SurveyDetailViewState extends State<SurveyDetailView> {
   late Future<SurveyAdminDetail?> _detailFuture;
   final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-  bool _isExporting = false;
+  bool _isActionBusy = false;
 
   @override
   void initState() {
@@ -49,15 +53,23 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
     _loadDetail();
   }
 
+  @override
+  void didUpdateWidget(covariant SurveyDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.surveyId != oldWidget.surveyId || widget.refreshTrigger != oldWidget.refreshTrigger) {
+      setState(_loadDetail);
+    }
+  }
+
   void _loadDetail() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _detailFuture = apiService.getSurveyById(widget.surveyId, token: token);
+    _detailFuture = apiService.getSurveyById(widget.surveyId, token: token, throwOnError: true);
   }
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final token = authProvider.token;
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
@@ -67,68 +79,133 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
     final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
     final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
 
-    return FutureBuilder<SurveyAdminDetail?>(
+    return CachedFutureBuilder<SurveyAdminDetail?>(
       future: _detailFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
-
-        final survey = snapshot.data;
-        if (survey == null) {
-          return Padding(
-            padding: const EdgeInsets.all(AppTokens.space16),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    IconButton(icon: const Icon(Icons.arrow_back), onPressed: widget.onBack),
-                    const SizedBox(width: 8),
-                    Text('Chi tiết bài khảo sát', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary)),
-                  ],
-                ),
-                const Expanded(
-                  child: EmptyState(
-                    icon: Icons.assignment_late_rounded,
-                    title: 'Không tìm thấy bài khảo sát',
-                    message: 'Bài khảo sát này có thể đã bị xóa hoặc không còn tồn tại trên hệ thống.',
-                  ),
-                ),
-              ],
+        final isWaiting = snapshot.connectionState == ConnectionState.waiting;
+        if (isWaiting && !snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(AppTokens.space16),
+            child: SmoothLoadingWrapper(
+              isLoading: true,
+              hasData: false,
+              initialMinHeight: 420,
+              child: SizedBox.shrink(),
             ),
           );
         }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTokens.space16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Breadcrumb & Action Header
-              Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: widget.onBack,
-                    icon: const Icon(Icons.arrow_back_rounded, size: 16),
-                    label: const Text('Danh sách khảo sát', style: TextStyle(fontSize: 12)),
-                  ),
-                  const Text(' / ', style: TextStyle(color: Colors.grey)),
-                  Expanded(
-                    child: Text(
-                      survey.title,
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+        if (snapshot.hasError && !snapshot.hasData) {
+          return buildSurveyFallbackView(
+            headerTitle: 'Chi tiết bài khảo sát',
+            textPrimary: textPrimary,
+            onBack: widget.onBack,
+            icon: Icons.error_outline_rounded,
+            title: 'Không thể tải chi tiết bài khảo sát',
+            message: extractFriendlySurveyError(snapshot.error),
+            action: AppButton(
+              label: 'Thử lại',
+              icon: Icons.refresh_rounded,
+              onPressed: () => setState(_loadDetail),
+            ),
+          );
+        }
 
-              // Page Header with Actions
-              PageHeader(
-                title: survey.title,
-                subtitle: 'Mã ID khảo sát: #${survey.surveyId} • Khởi tạo: ${survey.createdAt.day}/${survey.createdAt.month}/${survey.createdAt.year}',
-                action: Wrap(
+        final survey = snapshot.data;
+        if (survey == null) {
+          return buildSurveyFallbackView(
+            headerTitle: 'Chi tiết bài khảo sát',
+            textPrimary: textPrimary,
+            onBack: widget.onBack,
+            icon: Icons.assignment_late_rounded,
+            title: 'Không tìm thấy bài khảo sát',
+            message: 'Bài khảo sát này có thể đã bị xóa hoặc không còn tồn tại trên hệ thống.',
+            action: AppButton(
+              label: 'Quay lại danh sách',
+              variant: AppButtonVariant.outline,
+              onPressed: widget.onBack,
+            ),
+          );
+        }
+
+        return SmoothLoadingWrapper(
+          isLoading: isWaiting || _isActionBusy,
+          hasData: true,
+          blockInteraction: _isActionBusy,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppTokens.space16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (snapshot.hasError)
+                  buildSurveyErrorBanner(
+                    error: snapshot.error,
+                    onRetry: () => setState(_loadDetail),
+                    margin: const EdgeInsets.only(bottom: 12),
+                  ),
+                // Breadcrumb & Action Header
+                Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: widget.onBack,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                      label: Text(widget.backLabel, style: const TextStyle(fontSize: 12)),
+                    ),
+                    const Text(' / ', style: TextStyle(color: Colors.grey)),
+                    Expanded(
+                      child: Text(
+                        'Chi tiết #${survey.surveyId}',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textPrimary),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Page Header + Status Badge (full-width title)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            survey.title,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: textPrimary,
+                              letterSpacing: -0.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Mã ID khảo sát: #${survey.surveyId} • Khởi tạo: ${AppDateFormatter.formatDate(survey.createdAt)}',
+                            style: TextStyle(fontSize: 12, color: textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    StatusBadge(
+                      label: survey.isExpired
+                          ? 'ĐÃ HẾT HẠN'
+                          : (!survey.isActive
+                              ? 'TẠM DỪNG'
+                              : (survey.isUpcoming ? 'CHỜ MỞ THEO LỊCH' : 'ĐANG MỞ NỘP BÀI')),
+                      isSuccess: !survey.isExpired && survey.isActive && !survey.isUpcoming,
+                      isDanger: survey.isExpired,
+                      isWarning: !survey.isExpired && !survey.isActive,
+                      isInfo: survey.isUpcoming,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Action Bar
+                Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
@@ -136,40 +213,40 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                       AppButton(
                         label: 'Phát khảo sát',
                         icon: Icons.send_rounded,
-                        onPressed: () => widget.onAssign(survey),
+                        onPressed: _isActionBusy ? null : () => widget.onAssign(survey),
                       ),
                     AppButton(
                       label: 'Thống kê',
                       icon: Icons.bar_chart_rounded,
                       variant: AppButtonVariant.outline,
-                      onPressed: () => widget.onViewStats(survey.surveyId),
+                      onPressed: _isActionBusy ? null : () => widget.onViewStats(survey.surveyId),
                     ),
                     AppButton(
-                      label: _isExporting ? 'Đang xuất...' : 'Xuất báo cáo',
+                      label: _isActionBusy ? 'Đang xử lý...' : 'Xuất báo cáo',
                       icon: Icons.file_download_outlined,
                       variant: AppButtonVariant.outline,
-                      onPressed: _isExporting ? null : () => _exportReport(apiService, token, survey.surveyId),
+                      onPressed: _isActionBusy ? null : () => _exportReport(apiService, token, survey.surveyId),
                     ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
                         label: 'Chỉnh sửa',
                         icon: Icons.edit_outlined,
                         variant: AppButtonVariant.outline,
-                        onPressed: () => widget.onEdit(survey),
+                        onPressed: _isActionBusy ? null : () => widget.onEdit(survey),
                       ),
                     if (authProvider.can('Surveys.Create'))
                       AppButton(
                         label: 'Nhân bản',
                         icon: Icons.copy_rounded,
                         variant: AppButtonVariant.outline,
-                        onPressed: () => _confirmClone(apiService, token, survey),
+                        onPressed: _isActionBusy ? null : () => _confirmClone(apiService, token, survey),
                       ),
                     if (authProvider.can('Surveys.Update'))
                       AppButton(
                         label: survey.isActive ? 'Tạm dừng' : 'Mở nhận bài',
                         icon: survey.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline,
                         variant: AppButtonVariant.outline,
-                        onPressed: () => _toggleActive(apiService, token, survey),
+                        onPressed: _isActionBusy ? null : () => _toggleActive(apiService, token, survey),
                       ),
                     if (authProvider.can('Surveys.Delete'))
                       Tooltip(
@@ -178,63 +255,72 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                           label: 'Xóa',
                           icon: Icons.delete_outline_rounded,
                           variant: AppButtonVariant.danger,
-                          onPressed: survey.hasResponses ? null : () => _confirmDelete(apiService, token, survey),
+                          onPressed: (survey.hasResponses || _isActionBusy)
+                              ? null
+                              : () => _confirmDelete(apiService, token, survey),
                         ),
                       ),
                   ],
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-              // SECTION A: GENERAL INFORMATION
-              _buildSectionTitle('A. THÔNG TIN CHUNG KHẢO SÁT', textSecondary),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: borderColor),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Tiêu đề khảo sát:', style: TextStyle(fontSize: 11, color: textSecondary)),
-                              Text(survey.title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary)),
-                            ],
-                          ),
-                        ),
-                        StatusBadge(
-                          label: survey.isExpired
-                              ? 'ĐÃ HẾT HẠN'
-                              : (survey.isActive ? 'ĐANG MỞ NỘP BÀI' : 'TẠM DỪNG'),
-                          isSuccess: !survey.isExpired && survey.isActive,
-                          isDanger: survey.isExpired,
-                          isWarning: !survey.isExpired && !survey.isActive,
-                        ),
+                // SECTION A: GENERAL INFORMATION
+                _buildSectionTitle('A. THÔNG TIN CHUNG KHẢO SÁT', textSecondary),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (survey.description != null && survey.description!.trim().isNotEmpty) ...[
+                        Text('Mô tả nội dung:', style: TextStyle(fontSize: 11, color: textSecondary)),
+                        const SizedBox(height: 2),
+                        Text(survey.description!, style: TextStyle(fontSize: 12, color: textPrimary)),
+                        const Divider(height: 24),
                       ],
-                    ),
-                    if (survey.description != null && survey.description!.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Text('Mô tả nội dung:', style: TextStyle(fontSize: 11, color: textSecondary)),
-                      Text(survey.description!, style: TextStyle(fontSize: 12, color: textPrimary)),
-                    ],
-                    const Divider(height: 24),
-                    Row(
-                      children: [
-                        _buildInfoTile('Tổng phát bài', '${survey.totalAssigned} KH', textPrimary, textSecondary),
-                        _buildInfoTile('Đã nộp bài', '${survey.totalCompleted} KH', textPrimary, textSecondary),
-                        _buildInfoTile('Tỷ lệ phản hồi', '${survey.responseRatePercent}%', AppColors.primary, textSecondary, isBold: true),
-                        _buildInfoTile('Hạn chót', survey.expiredAt != null ? '${survey.expiredAt!.hour.toString().padLeft(2, '0')}:${survey.expiredAt!.minute.toString().padLeft(2, '0')} ${survey.expiredAt!.day}/${survey.expiredAt!.month}/${survey.expiredAt!.year}' : 'Không giới hạn', survey.isExpired ? AppColors.danger : (survey.expiredAt != null ? AppColors.warning : textPrimary), textSecondary),
-                        _buildInfoTile('Cấu trúc câu hỏi', survey.hasResponses ? 'Đã khóa (Có phản hồi)' : 'Được phép chỉnh sửa', survey.hasResponses ? AppColors.warning : AppColors.success, textSecondary),
-                      ],
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final maxW = constraints.maxWidth;
+                        final cols = maxW >= 860 ? 5 : (maxW >= 540 ? 3 : 2);
+                        const spacing = 16.0;
+                        final tileWidth = (maxW - spacing * (cols - 1)) / cols;
+                        return Wrap(
+                          spacing: spacing,
+                          runSpacing: 12,
+                          children: [
+                            _buildInfoTile(tileWidth, 'Tổng phát bài', '${survey.totalAssigned} KH', textPrimary, textSecondary),
+                            _buildInfoTile(tileWidth, 'Đã nộp bài', '${survey.totalCompleted} KH', textPrimary, textSecondary),
+                            _buildInfoTile(tileWidth, 'Tỷ lệ phản hồi', '${survey.responseRatePercent}%', AppColors.primary, textSecondary, isBold: true),
+                            _buildInfoTile(
+                              tileWidth,
+                              'Ngày bắt đầu',
+                              survey.startAt != null ? AppDateFormatter.formatDateTime(survey.startAt!) : 'Mở ngay',
+                              survey.isUpcoming ? AppColors.info : textPrimary,
+                              textSecondary,
+                            ),
+                            _buildInfoTile(
+                              tileWidth,
+                              'Hạn chót',
+                              survey.expiredAt != null ? AppDateFormatter.formatDateTime(survey.expiredAt!) : 'Không giới hạn',
+                              survey.isExpired ? AppColors.danger : (survey.expiredAt != null ? AppColors.warning : textPrimary),
+                              textSecondary,
+                            ),
+                            _buildInfoTile(
+                              tileWidth,
+                              'Cấu trúc câu hỏi',
+                              survey.hasResponses ? 'Đã khóa (Có phản hồi)' : 'Được phép chỉnh sửa',
+                              survey.hasResponses ? AppColors.warning : AppColors.success,
+                              textSecondary,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -262,7 +348,8 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                 ...survey.questions.map((q) => _buildQuestionCard(q, isDark, cardBg, borderColor, textPrimary, textSecondary)),
             ],
           ),
-        );
+        ),
+      );
       },
     );
   }
@@ -274,8 +361,9 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
     );
   }
 
-  Widget _buildInfoTile(String label, String value, Color valueColor, Color labelColor, {bool isBold = false}) {
-    return Expanded(
+  Widget _buildInfoTile(double width, String label, String value, Color valueColor, Color labelColor, {bool isBold = false}) {
+    return SizedBox(
+      width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,9 +397,9 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.06),
+        color: AppColors.success.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,11 +424,12 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
                 ),
               ),
-              StatusBadge(
-                label: (voucher?.isActive == true) ? 'VOUCHER HOẠT ĐỘNG' : 'TẠM TẮT',
-                isSuccess: voucher?.isActive == true,
-                isDanger: voucher?.isActive != true,
-              ),
+              if (voucher != null)
+                StatusBadge(
+                  label: voucher.isActive ? 'VOUCHER HOẠT ĐỘNG' : 'TẠM TẮT',
+                  isSuccess: voucher.isActive,
+                  isDanger: !voucher.isActive,
+                ),
             ],
           ),
           if (voucher != null) ...[
@@ -355,7 +444,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                 if (voucher.maxDiscountAmount != null)
                   _buildVoucherMeta('Giảm tối đa', currencyFormat.format(voucher.maxDiscountAmount), textPrimary, textSecondary),
                 _buildVoucherMeta('Lượt dùng / Giới hạn', '${voucher.usedCount} / ${voucher.usageLimit ?? "Không giới hạn"}', textPrimary, textSecondary),
-                _buildVoucherMeta('Thời hạn voucher', '${voucher.startDate.day}/${voucher.startDate.month} - ${voucher.endDate.day}/${voucher.endDate.month}/${voucher.endDate.year}', textPrimary, textSecondary),
+                _buildVoucherMeta('Thời hạn voucher', '${AppDateFormatter.formatDate(voucher.startDate)} - ${AppDateFormatter.formatDate(voucher.endDate)}', textPrimary, textSecondary),
               ],
             ),
           ],
@@ -402,11 +491,11 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                 ),
               ),
               if (q.isRequired)
-                const ContainerBadge(label: 'Bắt buộc', color: AppColors.danger)
+                const _ContainerBadge(label: 'Bắt buộc', color: AppColors.danger)
               else
-                const ContainerBadge(label: 'Tùy chọn', color: Colors.grey),
+                const _ContainerBadge(label: 'Tùy chọn', color: Colors.grey),
               const SizedBox(width: 6),
-              ContainerBadge(
+              _ContainerBadge(
                 label: q.questionType.displayName,
                 color: q.questionType == SurveyQuestionType.MULTI_CHOICE
                     ? const Color(0xFF0284C7)
@@ -417,9 +506,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
             ],
           ),
 
-          if ((q.questionType == SurveyQuestionType.SINGLE_CHOICE ||
-                  q.questionType == SurveyQuestionType.MULTI_CHOICE) &&
-              q.options.isNotEmpty) ...[
+          if (q.questionType.isChoiceBased && q.options.isNotEmpty) ...[
             const SizedBox(height: 10),
             Padding(
               padding: const EdgeInsets.only(left: 32),
@@ -441,8 +528,6 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(child: Text(opt.optionText, style: TextStyle(fontSize: 12, color: textPrimary))),
-                        if (opt.voteCount > 0)
-                          Text('${opt.voteCount} vote (${opt.percentage}%)', style: TextStyle(fontSize: 11, color: textSecondary)),
                       ],
                     ),
                   );
@@ -456,6 +541,7 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
   }
 
   Future<void> _toggleActive(ApiService apiService, String? token, SurveyAdminDetail survey) async {
+    if (_isActionBusy) return;
     final action = survey.isActive ? 'tạm dừng' : 'mở lại';
     final confirm = await showDialog<bool>(
       context: context,
@@ -472,22 +558,26 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
       ),
     );
 
-    if (confirm == true) {
+    if (confirm != true || !mounted) return;
+    setState(() => _isActionBusy = true);
+    try {
       final res = await apiService.toggleSurveyActive(survey.surveyId, token: token);
-      if (mounted) {
-        _loadDetail();
-        widget.onSurveyChanged();
+      if (!mounted) return;
+      if (res) {
+        setState(_loadDetail);
+        widget.onSurveyChanged(reloadDetail: false);
+        AppToast.success(context, 'Đã $action khảo sát thành công!');
+      } else {
         final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';
-        if (res) {
-          AppToast.success(context, 'Đã $action khảo sát thành công!');
-        } else {
-          AppToast.error(context, errMsg);
-        }
+        AppToast.error(context, errMsg);
       }
+    } finally {
+      if (mounted) setState(() => _isActionBusy = false);
     }
   }
 
   Future<void> _confirmClone(ApiService apiService, String? token, SurveyAdminDetail survey) async {
+    if (_isActionBusy) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -503,20 +593,24 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
       ),
     );
 
-    if (confirm == true) {
+    if (confirm != true || !mounted) return;
+    setState(() => _isActionBusy = true);
+    try {
       final res = await apiService.cloneSurvey(survey.surveyId, token: token);
-      if (mounted) {
-        widget.onSurveyChanged();
-        if (res.success) {
-          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
-        } else {
-          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
-        }
+      if (!mounted) return;
+      if (res.success) {
+        widget.onSurveyChanged(reloadDetail: false);
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
       }
+    } finally {
+      if (mounted) setState(() => _isActionBusy = false);
     }
   }
 
   Future<void> _confirmDelete(ApiService apiService, String? token, SurveyAdminDetail survey) async {
+    if (_isActionBusy) return;
     if (survey.hasResponses) {
       AppToast.warning(context, 'Không thể xóa khảo sát đã có phản hồi!');
       return;
@@ -538,84 +632,53 @@ class _SurveyDetailViewState extends State<SurveyDetailView> {
       ),
     );
 
-    if (confirm == true) {
+    if (confirm != true || !mounted) return;
+    setState(() => _isActionBusy = true);
+    try {
       final res = await apiService.deleteSurvey(survey.surveyId, token: token);
-      if (mounted) {
-        widget.onSurveyChanged();
-        if (res.success) {
-          widget.onBack();
-          AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
-        } else {
-          AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
-        }
+      if (!mounted) return;
+      if (res.success) {
+        widget.onSurveyChanged(reloadDetail: false);
+        widget.onBack();
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
       }
+    } finally {
+      if (mounted) setState(() => _isActionBusy = false);
     }
   }
 
   Future<void> _exportReport(ApiService apiService, String? token, int surveyId) async {
-    setState(() => _isExporting = true);
+    if (_isActionBusy) return;
+    setState(() => _isActionBusy = true);
     try {
-      final (bytes, filename) = await apiService.exportSurveyCsv(surveyId, token: token);
-      if (bytes != null && bytes.isNotEmpty) {
-        String? targetPath;
-        try {
-          final savedUri = await FilePicker.saveFile(
-            dialogTitle: 'Chọn nơi lưu file báo cáo kết quả khảo sát (CSV / Excel)',
-            fileName: filename,
-            bytes: bytes,
-            type: FileType.custom,
-            allowedExtensions: ['csv'],
-          );
-          if (savedUri != null) {
-            final file = File.fromUri(savedUri);
-            if (!await file.exists() || await file.length() == 0) {
-              await file.writeAsBytes(bytes);
-            }
-            targetPath = file.path;
-          }
-        } catch (pickerErr) {
-          debugPrint('FilePicker error: $pickerErr');
-        }
-
-        // Tự động lưu vào thư mục Downloads của máy tính nếu chưa có đường dẫn
-        if (targetPath == null) {
-          final userProfile = Platform.environment['USERPROFILE'] ?? 'C:\\Users\\Public';
-          final downloadsDir = Directory('$userProfile\\Downloads');
-          final saveDir = await downloadsDir.exists() ? downloadsDir.path : userProfile;
-          final fallbackFile = File('$saveDir\\$filename');
-          await fallbackFile.writeAsBytes(bytes);
-          targetPath = fallbackFile.path;
-        }
-
-        if (!mounted) return;
-        AppToast.success(context, 'Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)');
-      } else {
-        if (!mounted) return;
-        AppToast.error(context, 'Không thể tải báo cáo khảo sát.');
-      }
-    } catch (e) {
-      if (!mounted) return;
-      AppToast.error(context, 'Lỗi khi xuất file báo cáo: $e');
+      await exportSurveyCsvReport(
+        context: context,
+        surveyId: surveyId,
+        apiService: apiService,
+        token: token,
+      );
     } finally {
-      if (mounted) setState(() => _isExporting = false);
+      if (mounted) setState(() => _isActionBusy = false);
     }
   }
 }
 
-class ContainerBadge extends StatelessWidget {
+class _ContainerBadge extends StatelessWidget {
   final String label;
   final Color color;
 
-  const ContainerBadge({super.key, required this.label, required this.color});
+  const _ContainerBadge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: color.withOpacity(0.3), width: 0.8),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
       ),
       child: Text(
         label,

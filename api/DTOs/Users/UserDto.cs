@@ -1,3 +1,4 @@
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Enums;
 
 namespace WebBanHang.Api.DTOs.Users;
@@ -44,7 +45,7 @@ public class UserDto
     /// Tuổi (tính tự động theo năm sinh)
     /// </summary>
     /// <example>25</example>
-    public int Age => DateOfBirth.HasValue ? DateTime.UtcNow.Year - DateOfBirth.Value.Year : 0;
+    public int Age => DateOfBirth.HasValue ? DateTimeHelper.GetVietnamCurrentYear() - DateOfBirth.Value.Year : 0;
 
     /// <summary>
     /// Sở thích công nghệ

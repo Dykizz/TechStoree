@@ -7,6 +7,7 @@ import '../../core/constants/app_tokens.dart';
 import '../../core/models/order.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/date_preset_helper.dart';
 import '../../core/widgets/app_date_range_picker.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/page_header.dart';
@@ -158,48 +159,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return;
     }
 
-    final now = DateTime.now();
-    DateTimeRange? range;
-
-    switch (preset) {
-      case 'TODAY':
-        final start = DateTime(now.year, now.month, now.day);
-        final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        range = DateTimeRange(start: start, end: end);
-        break;
-      case 'YESTERDAY':
-        final y = now.subtract(const Duration(days: 1));
-        final start = DateTime(y.year, y.month, y.day);
-        final end = DateTime(y.year, y.month, y.day, 23, 59, 59);
-        range = DateTimeRange(start: start, end: end);
-        break;
-      case 'LAST_7_DAYS':
-        final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
-        final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-        range = DateTimeRange(start: start, end: end);
-        break;
-      case 'THIS_MONTH':
-        final start = DateTime(now.year, now.month, 1);
-        final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-        range = DateTimeRange(start: start, end: end);
-        break;
-      case 'ALL':
-      default:
-        range = null;
-        break;
-    }
-
     setState(() {
       _selectedDatePreset = preset;
-      _selectedDateRange = range;
+      _selectedDateRange = DatePresetHelper.getRangeForPreset(preset);
       _currentPage = 1;
     });
     _loadOrders();
-  }
-
-  double? _parseAmount(String text) {
-    final clean = text.replaceAll(RegExp(r'[^0-9]'), '').trim();
-    return clean.isNotEmpty ? double.tryParse(clean) : null;
   }
 
   void _onAmountChanged() {
@@ -210,8 +175,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _applyCustomAmount() {
-    final min = _parseAmount(_minAmountCtrl.text);
-    final max = _parseAmount(_maxAmountCtrl.text);
+    final min = DatePresetHelper.parseAmount(_minAmountCtrl.text);
+    final max = DatePresetHelper.parseAmount(_maxAmountCtrl.text);
 
     if (min != null && max != null && min > max) {
       return;

@@ -8,6 +8,7 @@ import '../../../core/widgets/app_pagination.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
+import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../models/statistics_models.dart';
 
 class StaffSalesMatrixView extends StatefulWidget {
@@ -469,30 +470,28 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
         const SizedBox(height: AppTokens.space16),
 
         // Bảng Ma trận Doanh số Nhân viên (Bảng b - Có Quick Sort & Phân trang AppPagination)
-        if (widget.isLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 40),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (filtered.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40),
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.person_search_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Không tìm thấy nhân viên phù hợp với điều kiện tìm kiếm/lọc hiện tại.',
-                    style: TextStyle(color: textSecondary, fontSize: 13),
+        SmoothLoadingWrapper(
+          isLoading: widget.isLoading,
+          hasData: widget.staffList.isNotEmpty,
+          initialMinHeight: 360,
+          child: filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person_search_outlined, size: 40, color: textSecondary.withValues(alpha: 0.6)),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Không tìm thấy nhân viên phù hợp với điều kiện tìm kiếm/lọc hiện tại.',
+                          style: TextStyle(color: textSecondary, fontSize: 13),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
-          )
-        else
-          DataTableContainer(
+                )
+              : DataTableContainer(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -731,6 +730,7 @@ class _StaffSalesMatrixViewState extends State<StaffSalesMatrixView> {
               ],
             ),
           ),
+        ),
         const SizedBox(height: AppTokens.space16),
         // Chú thích phương pháp thống kê
         Text(

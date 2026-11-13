@@ -1,3 +1,4 @@
+import '../utils/json_parse_helper.dart';
 import 'voucher.dart';
 
 enum SurveyQuestionType {
@@ -7,45 +8,26 @@ enum SurveyQuestionType {
 }
 
 extension SurveyQuestionTypeExt on SurveyQuestionType {
-  String get value {
-    switch (this) {
-      case SurveyQuestionType.SINGLE_CHOICE:
-        return 'SINGLE_CHOICE';
-      case SurveyQuestionType.MULTI_CHOICE:
-        return 'MULTI_CHOICE';
-      case SurveyQuestionType.TEXT:
-        return 'TEXT';
-    }
-  }
+  String get value => name;
 
-  String get displayName {
-    switch (this) {
-      case SurveyQuestionType.SINGLE_CHOICE:
-        return 'Trắc nghiệm (1 đáp án)';
-      case SurveyQuestionType.MULTI_CHOICE:
-        return 'Trắc nghiệm (Nhiều đáp án)';
-      case SurveyQuestionType.TEXT:
-        return 'Tự luận / Ý kiến đóng góp';
-    }
-  }
+  String get displayName => switch (this) {
+    SurveyQuestionType.SINGLE_CHOICE => 'Trắc nghiệm (1 đáp án)',
+    SurveyQuestionType.MULTI_CHOICE => 'Trắc nghiệm (Nhiều đáp án)',
+    SurveyQuestionType.TEXT => 'Tự luận / Ý kiến đóng góp',
+  };
 
   bool get isChoiceBased =>
       this == SurveyQuestionType.SINGLE_CHOICE ||
       this == SurveyQuestionType.MULTI_CHOICE;
 
-  static SurveyQuestionType fromString(String val) {
-    final v = val.trim().toUpperCase();
-    if (v == 'TEXT') {
-      return SurveyQuestionType.TEXT;
-    }
-    if (v == 'MULTI_CHOICE' ||
-        v == 'MULTIPLE_CHOICE' ||
-        v == 'CHECKBOX' ||
-        v == 'MULTI') {
-      return SurveyQuestionType.MULTI_CHOICE;
-    }
-    return SurveyQuestionType.SINGLE_CHOICE;
-  }
+  static SurveyQuestionType fromString(String val) =>
+      switch (val.trim().toUpperCase()) {
+        'TEXT' => SurveyQuestionType.TEXT,
+        // MULTIPLE_CHOICE / CHECKBOX / MULTI are defensive aliases; API uses MULTI_CHOICE.
+        'MULTI_CHOICE' || 'MULTIPLE_CHOICE' || 'CHECKBOX' || 'MULTI' =>
+          SurveyQuestionType.MULTI_CHOICE,
+        _ => SurveyQuestionType.SINGLE_CHOICE,
+      };
 }
 
 enum SurveyTargetType {
@@ -55,38 +37,20 @@ enum SurveyTargetType {
 }
 
 extension SurveyTargetTypeExt on SurveyTargetType {
-  String get value {
-    switch (this) {
-      case SurveyTargetType.ALL:
-        return 'ALL';
-      case SurveyTargetType.BY_IDS:
-        return 'BY_IDS';
-      case SurveyTargetType.BY_INTEREST:
-        return 'BY_INTEREST';
-    }
-  }
+  String get value => name;
 
-  String get displayName {
-    switch (this) {
-      case SurveyTargetType.ALL:
-        return 'Tất cả khách hàng (ALL)';
-      case SurveyTargetType.BY_IDS:
-        return 'Danh sách khách hàng chỉ định (BY_IDS)';
-      case SurveyTargetType.BY_INTEREST:
-        return 'Phân khúc sở thích công nghệ (BY_INTEREST)';
-    }
-  }
+  String get displayName => switch (this) {
+    SurveyTargetType.ALL => 'Tất cả khách hàng (ALL)',
+    SurveyTargetType.BY_IDS => 'Danh sách khách hàng chỉ định (BY_IDS)',
+    SurveyTargetType.BY_INTEREST => 'Phân khúc sở thích công nghệ (BY_INTEREST)',
+  };
 
-  static SurveyTargetType fromString(String val) {
-    switch (val.toUpperCase()) {
-      case 'BY_IDS':
-        return SurveyTargetType.BY_IDS;
-      case 'BY_INTEREST':
-        return SurveyTargetType.BY_INTEREST;
-      default:
-        return SurveyTargetType.ALL;
-    }
-  }
+  static SurveyTargetType fromString(String val) =>
+      switch (val.trim().toUpperCase()) {
+        'BY_IDS' => SurveyTargetType.BY_IDS,
+        'BY_INTEREST' => SurveyTargetType.BY_INTEREST,
+        _ => SurveyTargetType.ALL,
+      };
 }
 
 class SurveyAdminList {
@@ -107,6 +71,7 @@ class SurveyAdminList {
   final List<int> assignedUserIds;
 
   bool get isExpired => expiredAt != null && expiredAt!.isBefore(DateTime.now());
+  bool get isUpcoming => !isExpired && isActive && startAt != null && startAt!.isAfter(DateTime.now());
 
   SurveyAdminList({
     required this.surveyId,
@@ -127,50 +92,25 @@ class SurveyAdminList {
   });
 
   factory SurveyAdminList.fromJson(Map<String, dynamic> json) {
-    DateTime parseDate(dynamic val) {
-      if (val == null) return DateTime.now();
-      return DateTime.tryParse(val.toString())?.toLocal() ?? DateTime.now();
-    }
-
-    DateTime? parseNullableDate(dynamic val) {
-      if (val == null) return null;
-      return DateTime.tryParse(val.toString())?.toLocal();
-    }
-
-    final totalAssigned = (json['totalAssigned'] ?? 0) as int;
-    final totalCompleted = (json['totalCompleted'] ?? 0) as int;
-    double responseRate = 0.0;
-    if (json['responseRatePercent'] != null) {
-      responseRate = (json['responseRatePercent'] as num).toDouble();
-    } else if (totalAssigned > 0) {
-      responseRate = (totalCompleted / totalAssigned * 100);
-    }
-
-    final bool hasResp = json['hasResponses'] == true || totalCompleted > 0;
-
-    List<int> assignedIds = [];
-    if (json['assignedUserIds'] is List) {
-      assignedIds = (json['assignedUserIds'] as List)
-          .map((e) => (e as num).toInt())
-          .toList();
-    }
+    final totalAssigned = JsonParseHelper.parseInt(json['totalAssigned']);
+    final totalCompleted = JsonParseHelper.parseInt(json['totalCompleted']);
 
     return SurveyAdminList(
-      surveyId: (json['surveyId'] ?? json['id'] ?? 0) as int,
+      surveyId: JsonParseHelper.parseInt(json['surveyId'] ?? json['id']),
       title: (json['title'] ?? '').toString(),
       description: json['description']?.toString(),
-      rewardVoucherId: json['rewardVoucherId'] != null ? (json['rewardVoucherId'] as num).toInt() : null,
+      rewardVoucherId: JsonParseHelper.parseNullableInt(json['rewardVoucherId']),
       rewardVoucherCode: json['rewardVoucherCode']?.toString(),
       rewardVoucherTitle: json['rewardVoucherTitle']?.toString(),
-      isActive: (json['isActive'] ?? true) as bool,
-      createdAt: parseDate(json['createdAt']),
-      startAt: parseNullableDate(json['startAt']),
-      expiredAt: parseNullableDate(json['expiredAt']),
+      isActive: JsonParseHelper.parseBool(json['isActive'], fallback: true),
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
+      startAt: JsonParseHelper.parseNullableDate(json['startAt']),
+      expiredAt: JsonParseHelper.parseNullableDate(json['expiredAt']),
       totalAssigned: totalAssigned,
       totalCompleted: totalCompleted,
-      responseRatePercent: double.parse(responseRate.toStringAsFixed(1)),
-      hasResponses: hasResp,
-      assignedUserIds: assignedIds,
+      responseRatePercent: _parseResponseRate(json, totalAssigned, totalCompleted),
+      hasResponses: JsonParseHelper.parseBool(json['hasResponses']) || totalCompleted > 0,
+      assignedUserIds: JsonParseHelper.parseIntList(json['assignedUserIds']),
     );
   }
 }
@@ -201,17 +141,14 @@ class SurveyAdminDetail extends SurveyAdminList {
 
   factory SurveyAdminDetail.fromJson(Map<String, dynamic> json) {
     final base = SurveyAdminList.fromJson(json);
-    List<SurveyQuestionDetail> questions = [];
-    if (json['questions'] is List) {
-      questions = (json['questions'] as List)
-          .map((q) => SurveyQuestionDetail.fromJson(q as Map<String, dynamic>))
-          .toList();
-    }
-
-    Voucher? voucher;
-    if (json['rewardVoucher'] is Map<String, dynamic>) {
-      voucher = Voucher.fromJson(json['rewardVoucher'] as Map<String, dynamic>);
-    }
+    final rawVoucher = json['rewardVoucher'];
+    final Voucher? voucher = rawVoucher is Map
+        ? Voucher.fromJson(
+            rawVoucher is Map<String, dynamic>
+                ? rawVoucher
+                : Map<String, dynamic>.from(rawVoucher),
+          )
+        : null;
 
     return SurveyAdminDetail(
       surveyId: base.surveyId,
@@ -228,7 +165,8 @@ class SurveyAdminDetail extends SurveyAdminList {
       totalCompleted: base.totalCompleted,
       responseRatePercent: base.responseRatePercent,
       hasResponses: base.hasResponses,
-      questions: questions,
+      assignedUserIds: base.assignedUserIds,
+      questions: JsonParseHelper.parseJsonList(json['questions'], SurveyQuestionDetail.fromJson),
       rewardVoucher: voucher,
     );
   }
@@ -256,29 +194,17 @@ class SurveyQuestionDetail {
   });
 
   factory SurveyQuestionDetail.fromJson(Map<String, dynamic> json) {
-    List<SurveyOption> options = [];
-    if (json['options'] is List) {
-      options = (json['options'] as List)
-          .map((o) => SurveyOption.fromJson(o as Map<String, dynamic>))
-          .toList();
-    }
-
-    List<TextAnswer> textAnswers = [];
-    if (json['textAnswers'] is List) {
-      textAnswers = (json['textAnswers'] as List)
-          .map((t) => TextAnswer.fromJson(t as Map<String, dynamic>))
-          .toList();
-    }
-
     return SurveyQuestionDetail(
-      questionId: (json['questionId'] ?? json['id'] ?? 0) as int,
+      questionId: JsonParseHelper.parseInt(json['questionId'] ?? json['id']),
       questionText: (json['questionText'] ?? '').toString(),
-      questionType: SurveyQuestionTypeExt.fromString((json['questionType'] ?? 'SINGLE_CHOICE').toString()),
-      isRequired: (json['isRequired'] ?? true) as bool,
-      orderNum: (json['orderNum'] ?? 1) as int,
-      totalAnswers: (json['totalAnswers'] ?? 0) as int,
-      options: options,
-      textAnswers: textAnswers,
+      questionType: SurveyQuestionTypeExt.fromString(
+        (json['questionType'] ?? 'SINGLE_CHOICE').toString(),
+      ),
+      isRequired: JsonParseHelper.parseBool(json['isRequired'], fallback: true),
+      orderNum: JsonParseHelper.parseInt(json['orderNum'], 1),
+      totalAnswers: JsonParseHelper.parseInt(json['totalAnswers']),
+      options: JsonParseHelper.parseJsonList(json['options'], SurveyOption.fromJson),
+      textAnswers: JsonParseHelper.parseJsonList(json['textAnswers'], TextAnswer.fromJson),
     );
   }
 }
@@ -300,11 +226,11 @@ class SurveyOption {
 
   factory SurveyOption.fromJson(Map<String, dynamic> json) {
     return SurveyOption(
-      optionId: (json['optionId'] ?? json['id'] ?? 0) as int,
+      optionId: JsonParseHelper.parseInt(json['optionId'] ?? json['id']),
       optionText: (json['optionText'] ?? '').toString(),
-      orderNum: (json['orderNum'] ?? 1) as int,
-      voteCount: (json['voteCount'] ?? 0) as int,
-      percentage: json['percentage'] != null ? (json['percentage'] as num).toDouble() : 0.0,
+      orderNum: JsonParseHelper.parseInt(json['orderNum'], 1),
+      voteCount: JsonParseHelper.parseInt(json['voteCount']),
+      percentage: JsonParseHelper.parseDouble(json['percentage']),
     );
   }
 }
@@ -321,15 +247,10 @@ class TextAnswer {
   });
 
   factory TextAnswer.fromJson(Map<String, dynamic> json) {
-    DateTime parseDate(dynamic val) {
-      if (val == null) return DateTime.now();
-      return DateTime.tryParse(val.toString())?.toLocal() ?? DateTime.now();
-    }
-
     return TextAnswer(
       text: (json['text'] ?? '').toString(),
       customerName: (json['customerName'] ?? 'Khách hàng').toString(),
-      submittedAt: parseDate(json['submittedAt']),
+      submittedAt: JsonParseHelper.parseDate(json['submittedAt']),
     );
   }
 }
@@ -352,29 +273,16 @@ class SurveyStatistics {
   });
 
   factory SurveyStatistics.fromJson(Map<String, dynamic> json) {
-    List<QuestionStatistics> questions = [];
-    if (json['questions'] is List) {
-      questions = (json['questions'] as List)
-          .map((q) => QuestionStatistics.fromJson(q as Map<String, dynamic>))
-          .toList();
-    }
-
-    final totalAssigned = (json['totalAssigned'] ?? 0) as int;
-    final totalCompleted = (json['totalCompleted'] ?? 0) as int;
-    double responseRate = 0.0;
-    if (json['responseRatePercent'] != null) {
-      responseRate = (json['responseRatePercent'] as num).toDouble();
-    } else if (totalAssigned > 0) {
-      responseRate = (totalCompleted / totalAssigned * 100);
-    }
+    final totalAssigned = JsonParseHelper.parseInt(json['totalAssigned']);
+    final totalCompleted = JsonParseHelper.parseInt(json['totalCompleted']);
 
     return SurveyStatistics(
-      surveyId: (json['surveyId'] ?? json['id'] ?? 0) as int,
+      surveyId: JsonParseHelper.parseInt(json['surveyId'] ?? json['id']),
       title: (json['title'] ?? '').toString(),
       totalAssigned: totalAssigned,
       totalCompleted: totalCompleted,
-      responseRatePercent: double.parse(responseRate.toStringAsFixed(1)),
-      questions: questions,
+      responseRatePercent: _parseResponseRate(json, totalAssigned, totalCompleted),
+      questions: JsonParseHelper.parseJsonList(json['questions'], QuestionStatistics.fromJson),
     );
   }
 }
@@ -397,27 +305,15 @@ class QuestionStatistics {
   });
 
   factory QuestionStatistics.fromJson(Map<String, dynamic> json) {
-    List<OptionStatistics> optionStats = [];
-    if (json['optionStats'] is List) {
-      optionStats = (json['optionStats'] as List)
-          .map((o) => OptionStatistics.fromJson(o as Map<String, dynamic>))
-          .toList();
-    }
-
-    List<TextAnswer> textAnswers = [];
-    if (json['textAnswers'] is List) {
-      textAnswers = (json['textAnswers'] as List)
-          .map((t) => TextAnswer.fromJson(t as Map<String, dynamic>))
-          .toList();
-    }
-
     return QuestionStatistics(
-      questionId: (json['questionId'] ?? json['id'] ?? 0) as int,
+      questionId: JsonParseHelper.parseInt(json['questionId'] ?? json['id']),
       questionText: (json['questionText'] ?? '').toString(),
-      questionType: SurveyQuestionTypeExt.fromString((json['questionType'] ?? 'SINGLE_CHOICE').toString()),
-      totalAnswers: (json['totalAnswers'] ?? 0) as int,
-      optionStats: optionStats,
-      textAnswers: textAnswers,
+      questionType: SurveyQuestionTypeExt.fromString(
+        (json['questionType'] ?? 'SINGLE_CHOICE').toString(),
+      ),
+      totalAnswers: JsonParseHelper.parseInt(json['totalAnswers']),
+      optionStats: JsonParseHelper.parseJsonList(json['optionStats'], OptionStatistics.fromJson),
+      textAnswers: JsonParseHelper.parseJsonList(json['textAnswers'], TextAnswer.fromJson),
     );
   }
 }
@@ -437,10 +333,10 @@ class OptionStatistics {
 
   factory OptionStatistics.fromJson(Map<String, dynamic> json) {
     return OptionStatistics(
-      optionId: (json['optionId'] ?? json['id'] ?? 0) as int,
+      optionId: JsonParseHelper.parseInt(json['optionId'] ?? json['id']),
       optionText: (json['optionText'] ?? '').toString(),
-      voteCount: (json['voteCount'] ?? 0) as int,
-      percentage: json['percentage'] != null ? (json['percentage'] as num).toDouble() : 0.0,
+      voteCount: JsonParseHelper.parseInt(json['voteCount']),
+      percentage: JsonParseHelper.parseDouble(json['percentage']),
     );
   }
 }
@@ -464,17 +360,15 @@ class CreateSurveyRequest {
     required this.questions,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'title': title,
-      'description': description,
-      'rewardVoucherId': rewardVoucherId,
-      'isActive': isActive,
-      'startAt': startAt?.toUtc().toIso8601String(),
-      'expiredAt': expiredAt?.toUtc().toIso8601String(),
-      'questions': questions.map((q) => q.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => _buildSurveyPayload(
+    title: title,
+    description: description,
+    rewardVoucherId: rewardVoucherId,
+    isActive: isActive,
+    startAt: startAt,
+    expiredAt: expiredAt,
+    questions: questions,
+  );
 }
 
 class CreateSurveyQuestion {
@@ -499,9 +393,7 @@ class CreateSurveyQuestion {
       'isRequired': isRequired,
       'orderNum': orderNum,
     };
-    if ((questionType == SurveyQuestionType.SINGLE_CHOICE ||
-            questionType == SurveyQuestionType.MULTI_CHOICE) &&
-        options != null) {
+    if (questionType.isChoiceBased && options != null) {
       data['options'] = options!.map((o) => o.toJson()).toList();
     }
     return data;
@@ -544,20 +436,15 @@ class UpdateSurveyRequest {
     this.questions,
   });
 
-  Map<String, dynamic> toJson() {
-    final Map<String, dynamic> data = {
-      'title': title,
-      'description': description,
-      'rewardVoucherId': rewardVoucherId,
-      'isActive': isActive,
-      'startAt': startAt?.toUtc().toIso8601String(),
-      'expiredAt': expiredAt?.toUtc().toIso8601String(),
-    };
-    if (questions != null) {
-      data['questions'] = questions!.map((q) => q.toJson()).toList();
-    }
-    return data;
-  }
+  Map<String, dynamic> toJson() => _buildSurveyPayload(
+    title: title,
+    description: description,
+    rewardVoucherId: rewardVoucherId,
+    isActive: isActive,
+    startAt: startAt,
+    expiredAt: expiredAt,
+    questions: questions,
+  );
 }
 
 class AssignSurveyRequest {
@@ -583,4 +470,41 @@ class AssignSurveyRequest {
     }
     return data;
   }
+}
+
+double _parseResponseRate(
+  Map<String, dynamic> json,
+  int totalAssigned,
+  int totalCompleted,
+) {
+  double rate = 0.0;
+  if (json['responseRatePercent'] != null) {
+    rate = JsonParseHelper.parseDouble(json['responseRatePercent']);
+  } else if (totalAssigned > 0) {
+    rate = totalCompleted / totalAssigned * 100;
+  }
+  return double.parse(rate.toStringAsFixed(1));
+}
+
+Map<String, dynamic> _buildSurveyPayload({
+  required String title,
+  String? description,
+  int? rewardVoucherId,
+  required bool isActive,
+  DateTime? startAt,
+  DateTime? expiredAt,
+  List<CreateSurveyQuestion>? questions,
+}) {
+  final Map<String, dynamic> data = {
+    'title': title,
+    'description': description,
+    'rewardVoucherId': rewardVoucherId,
+    'isActive': isActive,
+    'startAt': startAt?.toUtc().toIso8601String(),
+    'expiredAt': expiredAt?.toUtc().toIso8601String(),
+  };
+  if (questions != null) {
+    data['questions'] = questions.map((q) => q.toJson()).toList();
+  }
+  return data;
 }

@@ -1,35 +1,4 @@
-int _parseInt(dynamic val, [int defaultValue = 0]) {
-  if (val == null) return defaultValue;
-  if (val is int) return val;
-  if (val is num) return val.toInt();
-  if (val is String) {
-    return int.tryParse(val) ?? double.tryParse(val)?.toInt() ?? defaultValue;
-  }
-  return defaultValue;
-}
-
-int? _parseNullableInt(dynamic val) {
-  if (val == null) return null;
-  if (val is int) return val;
-  if (val is num) return val.toInt();
-  if (val is String) {
-    final parsed = int.tryParse(val);
-    if (parsed != null) return parsed;
-    final d = double.tryParse(val);
-    return d?.toInt();
-  }
-  return null;
-}
-
-double _parseDouble(dynamic val, [double defaultValue = 0.0]) {
-  if (val == null) return defaultValue;
-  if (val is double) return val;
-  if (val is num) return val.toDouble();
-  if (val is String) {
-    return double.tryParse(val) ?? defaultValue;
-  }
-  return defaultValue;
-}
+import '../utils/json_parse_helper.dart';
 
 class PurchaseOrderItem {
   final int? poItemId;
@@ -62,13 +31,13 @@ class PurchaseOrderItem {
 
   factory PurchaseOrderItem.fromJson(Map<String, dynamic> json) {
     return PurchaseOrderItem(
-      poItemId: _parseNullableInt(json['poItemId'] ?? json['id']),
-      variantId: _parseInt(json['variantId'] ?? json['variant_id'], 0),
-      productId: _parseNullableInt(json['productId'] ?? json['product_id']),
+      poItemId: JsonParseHelper.parseNullableInt(json['poItemId'] ?? json['id']),
+      variantId: JsonParseHelper.parseInt(json['variantId'] ?? json['variant_id'], 0),
+      productId: JsonParseHelper.parseNullableInt(json['productId'] ?? json['product_id']),
       productName: json['productName']?.toString() ?? '',
       variantName: json['variantName']?.toString() ?? '',
-      importPrice: _parseDouble(json['importPrice'] ?? json['price']),
-      quantity: _parseInt(json['quantity'], 1),
+      importPrice: JsonParseHelper.parseDouble(json['importPrice'] ?? json['price']),
+      quantity: JsonParseHelper.parseInt(json['quantity'], 1),
     );
   }
 
@@ -117,16 +86,12 @@ class PurchaseOrder {
   bool get isDraft => status.toUpperCase() == 'DRAFT' || status == '0';
   bool get isComplete => status.toUpperCase() == 'COMPLETE' || status.toUpperCase() == 'COMPLETED' || status == '1';
   bool get isCompleted => isComplete;
-  bool get isCancle => status.toUpperCase() == 'CANCLE' || status.toUpperCase() == 'CANCELLED' || status == '2';
 
   factory PurchaseOrder.fromJson(Map<String, dynamic> json) {
-    List<PurchaseOrderItem> parsedItems = [];
-    if (json['items'] != null && json['items'] is List) {
-      parsedItems = (json['items'] as List)
-          .where((i) => i != null && i is Map)
-          .map((i) => PurchaseOrderItem.fromJson(i as Map<String, dynamic>))
-          .toList();
-    }
+    final parsedItems = JsonParseHelper.parseJsonList(
+      json['items'],
+      PurchaseOrderItem.fromJson,
+    );
 
     String parsedStatus = 'DRAFT';
     if (json['status'] != null) {
@@ -140,27 +105,18 @@ class PurchaseOrder {
       }
     }
 
-    DateTime parsedDate;
-    try {
-      parsedDate = json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'].toString()).toLocal()
-          : DateTime.now();
-    } catch (_) {
-      parsedDate = DateTime.now();
-    }
-
     return PurchaseOrder(
-      purchaseOrderId: _parseInt(json['purchaseOrderId'] ?? json['id'], 0),
+      purchaseOrderId: JsonParseHelper.parseInt(json['purchaseOrderId'] ?? json['id'], 0),
       poCode: (json['poCode'] ?? json['code'] ?? '').toString(),
-      supplierId: _parseInt(json['supplierId'], 0),
+      supplierId: JsonParseHelper.parseInt(json['supplierId'], 0),
       supplierName: (json['supplierName'] ?? 'Chưa xác định').toString(),
-      createdByUserId: _parseInt(json['createdByUserId'], 0),
+      createdByUserId: JsonParseHelper.parseInt(json['createdByUserId'], 0),
       createdByName: (json['createdByName'] ?? 'Admin').toString(),
-      totalCost: _parseDouble(json['totalCost']),
-      totalItems: _parseInt(json['totalItems'], parsedItems.length),
+      totalCost: JsonParseHelper.parseDouble(json['totalCost']),
+      totalItems: JsonParseHelper.parseInt(json['totalItems'], parsedItems.length),
       status: parsedStatus,
       note: (json['note'] ?? '').toString(),
-      createdAt: parsedDate,
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
       approvedByName: json['approvedByName']?.toString(),
       receivedByName: json['receivedByName']?.toString(),
       items: parsedItems,

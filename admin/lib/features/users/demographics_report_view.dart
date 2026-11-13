@@ -10,6 +10,7 @@ import '../../core/services/api_service.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 
 /// Màn hình Báo Cáo Phân Tích Nhân Khẩu Học & Sở Thích Công Nghệ Khách Hàng (CRM)
 /// 100% dữ liệu động từ backend:
@@ -36,7 +37,9 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
   int _touchedInterestIndex = -1;
   bool _useBarChartForAge = true;
 
-  // Bảng màu trực quan hiện đại cho các phân khúc
+  static const Color _slateColor = Color(0xFF64748B);
+
+  // Bảng màu trực quan hiện đại cho các phân khúc hoạt động
   static const List<Color> _palette = [
     Color(0xFF2563EB), // Blue
     Color(0xFF0D9488), // Teal
@@ -46,7 +49,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
     Color(0xFF10B981), // Emerald
     Color(0xFF6366F1), // Indigo
     Color(0xFFF97316), // Orange
-    Color(0xFF64748B), // Slate
+    Color(0xFF06B6D4), // Cyan
   ];
 
   @override
@@ -64,6 +67,28 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
   }
 
   Color _getColorForIndex(int index) => _palette[index % _palette.length];
+
+  Color _ageGroupColor(String groupKey, int fallbackIndex) {
+    switch (groupKey.toUpperCase()) {
+      case 'UNDER_18':
+        return _palette[0];
+      case 'AGE_18_TO_24':
+        return _palette[1];
+      case 'AGE_25_TO_35':
+        return _palette[2];
+      case 'OVER_35':
+        return _palette[3];
+      case 'UNKNOWN':
+        return _slateColor;
+      default:
+        return _getColorForIndex(fallbackIndex);
+    }
+  }
+
+  Color _interestColor(String key, int index) {
+    if (key.toUpperCase() == 'NOT_SET') return _slateColor;
+    return _getColorForIndex(index);
+  }
 
   IconData _getInterestIcon(String key) {
     final upper = key.toUpperCase();
@@ -85,11 +110,19 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<DemographicsReport>(
+    return CachedFutureBuilder<DemographicsReport>(
       future: _reportFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+          return const Padding(
+            padding: EdgeInsets.all(AppTokens.space16),
+            child: SmoothLoadingWrapper(
+              isLoading: true,
+              hasData: false,
+              initialMinHeight: 420,
+              child: SizedBox.shrink(),
+            ),
+          );
         }
 
         if (snapshot.hasError || !snapshot.hasData) {
@@ -180,67 +213,111 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
 
               const SizedBox(height: AppTokens.space16),
 
-              // 1. KPI Metric Summary Cards (Dữ liệu động 100%)
+              // 1. KPI Metric Summary Cards (Đồng nhất hiệu ứng hover, border glow, shadow & watermark với Dashboard / Thống kê)
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final isWide = constraints.maxWidth > 900;
-                  final isMedium = constraints.maxWidth > 600;
-                  final crossAxisCount = isWide ? 4 : (isMedium ? 2 : 1);
+                  final isWide = constraints.maxWidth >= 900;
+                  final isMedium = constraints.maxWidth >= 550;
 
-                  return GridView.count(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: isWide ? 2.4 : 2.8,
-                    children: [
-                      _buildMetricCard(
-                        title: 'Tổng khách hàng',
-                        value: '${report.totalCustomers}',
-                        subtext: 'Khách hàng có tài khoản hệ thống',
-                        icon: Icons.people_alt_rounded,
-                        color: const Color(0xFF2563EB),
-                        cardBg: cardBg,
-                        borderColor: borderColor,
-                        textPrimary: textPrimary,
-                        textSecondary: textSecondary,
+                  final cards = [
+                    _DemographicsKpiCard(
+                      title: 'Tổng khách hàng',
+                      value: '${report.totalCustomers}',
+                      subtext: 'Khách hàng có tài khoản hệ thống',
+                      icon: Icons.people_alt_rounded,
+                      iconColor: const Color(0xFF2563EB),
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                    _DemographicsKpiCard(
+                      title: 'Độ phủ ngày sinh',
+                      value: '$dobRate%',
+                      subtext: '${report.customersWithBirthDate}/${report.totalCustomers} khách hàng đã điền',
+                      icon: Icons.cake_rounded,
+                      iconColor: const Color(0xFF10B981),
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                    _DemographicsKpiCard(
+                      title: 'Độ phủ sở thích',
+                      value: '$interestRate%',
+                      subtext: '${report.customersWithInterest}/${report.totalCustomers} khách hàng đã chọn',
+                      icon: Icons.psychology_rounded,
+                      iconColor: const Color(0xFF8B5CF6),
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                    _DemographicsKpiCard(
+                      title: 'Nhóm tuổi chủ lực',
+                      value: topAge != null ? topAge.groupName : 'N/A',
+                      subtext: topAge != null ? '${topAge.count} KH (${topAge.percentage}%)' : 'Chưa có dữ liệu',
+                      icon: Icons.trending_up_rounded,
+                      iconColor: const Color(0xFFF59E0B),
+                      isDark: isDark,
+                      cardBg: cardBg,
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
+                  ];
+
+                  if (isWide) {
+                    return IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (int i = 0; i < cards.length; i++) ...[
+                            Expanded(child: cards[i]),
+                            if (i < cards.length - 1) const SizedBox(width: 12),
+                          ],
+                        ],
                       ),
-                      _buildMetricCard(
-                        title: 'Độ phủ ngày sinh',
-                        value: '$dobRate%',
-                        subtext: '${report.customersWithBirthDate}/${report.totalCustomers} khách hàng đã điền',
-                        icon: Icons.cake_rounded,
-                        color: const Color(0xFF10B981),
-                        cardBg: cardBg,
-                        borderColor: borderColor,
-                        textPrimary: textPrimary,
-                        textSecondary: textSecondary,
-                      ),
-                      _buildMetricCard(
-                        title: 'Độ phủ sở thích',
-                        value: '$interestRate%',
-                        subtext: '${report.customersWithInterest}/${report.totalCustomers} khách hàng đã chọn',
-                        icon: Icons.psychology_rounded,
-                        color: const Color(0xFF8B5CF6),
-                        cardBg: cardBg,
-                        borderColor: borderColor,
-                        textPrimary: textPrimary,
-                        textSecondary: textSecondary,
-                      ),
-                      _buildMetricCard(
-                        title: 'Nhóm tuổi chủ lực',
-                        value: topAge != null ? topAge.groupName : 'N/A',
-                        subtext: topAge != null ? '${topAge.count} KH (${topAge.percentage}%)' : '',
-                        icon: Icons.trending_up_rounded,
-                        color: const Color(0xFFF59E0B),
-                        cardBg: cardBg,
-                        borderColor: borderColor,
-                        textPrimary: textPrimary,
-                        textSecondary: textSecondary,
-                      ),
-                    ],
-                  );
+                    );
+                  } else if (isMedium) {
+                    return Column(
+                      children: [
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: cards[0]),
+                              const SizedBox(width: 12),
+                              Expanded(child: cards[1]),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(child: cards[2]),
+                              const SizedBox(width: 12),
+                              Expanded(child: cards[3]),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        for (int i = 0; i < cards.length; i++) ...[
+                          cards[i],
+                          if (i < cards.length - 1) const SizedBox(height: 12),
+                        ],
+                      ],
+                    );
+                  }
                 },
               ),
 
@@ -265,7 +342,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB).withOpacity(0.12),
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Icon(Icons.bar_chart_rounded, color: Color(0xFF2563EB), size: 18),
@@ -275,7 +352,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '1. Phân Bố Độ Tuổi Khách Hàng (Age Demographics)',
+                                  '1. Phân bố độ tuổi khách hàng',
                                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
                                 ),
                                 const SizedBox(height: 2),
@@ -371,7 +448,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8B5CF6).withOpacity(0.12),
+                            color: const Color(0xFF8B5CF6).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Icon(Icons.devices_rounded, color: Color(0xFF8B5CF6), size: 18),
@@ -381,7 +458,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '2. Phân Khúc Sở Thích Công Nghệ (Tech Preferences)',
+                              '2. Phân khúc sở thích công nghệ',
                               style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
                             ),
                             const SizedBox(height: 2),
@@ -435,65 +512,6 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
 
   // --- SUB WIDGETS ---
 
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required String subtext,
-    required IconData icon,
-    required Color color,
-    required Color cardBg,
-    required Color borderColor,
-    required Color textPrimary,
-    required Color textSecondary,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(icon, color: color, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(title, style: TextStyle(fontSize: 11, color: textSecondary, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: textPrimary),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (subtext.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtext,
-                    style: TextStyle(fontSize: 10, color: textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildChartTypeTab({
     required String label,
     required IconData icon,
@@ -541,7 +559,8 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
     }
 
     final maxCount = ageGroups.map((g) => g.count).fold<int>(0, (a, b) => a > b ? a : b);
-    final maxY = maxCount == 0 ? 5.0 : (maxCount * 1.25).ceilToDouble();
+    final maxY = maxCount == 0 ? 4.0 : (maxCount * 1.25).ceilToDouble();
+    final yInterval = maxY <= 4 ? 1.0 : (maxY / 4).ceilToDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,6 +578,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
               barTouchData: BarTouchData(
                 touchTooltipData: BarTouchTooltipData(
                   getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                    if (groupIndex < 0 || groupIndex >= ageGroups.length) return null;
                     final item = ageGroups[groupIndex];
                     return BarTooltipItem(
                       '${item.groupName}\n',
@@ -581,8 +601,9 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                   sideTitles: SideTitles(
                     showTitles: true,
                     reservedSize: 28,
+                    interval: yInterval,
                     getTitlesWidget: (val, meta) {
-                      if (val == meta.max || val == 0) return const SizedBox();
+                      if (val <= 0 || val == meta.max || val % 1 != 0) return const SizedBox();
                       return Text(
                         val.toInt().toString(),
                         style: TextStyle(fontSize: 10, color: textSecondary),
@@ -613,7 +634,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                horizontalInterval: (maxY / 4).clamp(1.0, 100.0),
+                horizontalInterval: yInterval,
                 getDrawingHorizontalLine: (val) => FlLine(
                   color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                   strokeWidth: 1,
@@ -622,7 +643,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
               barGroups: ageGroups.asMap().entries.map((entry) {
                 final idx = entry.key;
                 final item = entry.value;
-                final color = _getColorForIndex(idx);
+                final color = _ageGroupColor(item.groupKey, idx);
 
                 return BarChartGroupData(
                   x: idx,
@@ -635,7 +656,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                       backDrawRodData: BackgroundBarChartRodData(
                         show: true,
                         toY: maxY,
-                        color: color.withOpacity(0.08),
+                        color: color.withValues(alpha: 0.08),
                       ),
                     ),
                   ],
@@ -698,7 +719,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                       final idx = entry.key;
                       final g = entry.value;
                       final isTouched = idx == _touchedAgeIndex;
-                      final color = _getColorForIndex(idx);
+                      final color = _ageGroupColor(g.groupKey, idx);
 
                       return PieChartSectionData(
                         color: color,
@@ -724,7 +745,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                   children: validGroups.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final g = entry.value;
-                    final color = _getColorForIndex(idx);
+                    final color = _ageGroupColor(g.groupKey, idx);
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -780,13 +801,13 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
         ...activeGroups.asMap().entries.map((entry) {
           final idx = entry.key;
           final g = entry.value;
-          final color = _getColorForIndex(idx);
+          final color = _ageGroupColor(g.groupKey, idx);
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A).withOpacity(0.5) : const Color(0xFFF8FAFC),
+              color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: borderColor),
             ),
@@ -815,7 +836,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.12),
+                        color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -831,7 +852,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                   child: LinearProgressIndicator(
                     value: (g.percentage / 100).clamp(0.0, 1.0),
                     minHeight: 5,
-                    backgroundColor: color.withOpacity(0.12),
+                    backgroundColor: color.withValues(alpha: 0.12),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
@@ -852,6 +873,9 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
     }
 
     final totalCount = valid.fold<int>(0, (a, b) => a + b.count);
+    final touchedItem = (_touchedInterestIndex >= 0 && _touchedInterestIndex < valid.length)
+        ? valid[_touchedInterestIndex]
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -887,7 +911,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                     final idx = entry.key;
                     final item = entry.value;
                     final isTouched = idx == _touchedInterestIndex;
-                    final color = _getColorForIndex(idx);
+                    final color = _interestColor(item.key, idx);
 
                     return PieChartSectionData(
                       color: color,
@@ -905,31 +929,30 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
               ),
 
               // Nhãn trung tâm Donut
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _touchedInterestIndex >= 0 && _touchedInterestIndex < valid.length
-                        ? '${valid[_touchedInterestIndex].count}'
-                        : '$totalCount',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: _touchedInterestIndex >= 0 && _touchedInterestIndex < valid.length
-                          ? _getColorForIndex(_touchedInterestIndex)
-                          : textPrimary,
+              SizedBox(
+                width: 96,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      touchedItem != null ? '${touchedItem.count}' : '$totalCount',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: touchedItem != null
+                            ? _interestColor(touchedItem.key, _touchedInterestIndex)
+                            : textPrimary,
+                      ),
                     ),
-                  ),
-                  Text(
-                    _touchedInterestIndex >= 0 && _touchedInterestIndex < valid.length
-                        ? valid[_touchedInterestIndex].name
-                        : 'Lượt lựa chọn',
-                    style: TextStyle(fontSize: 10, color: textSecondary),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    Text(
+                      touchedItem != null ? touchedItem.name : 'Tổng khách hàng',
+                      style: TextStyle(fontSize: 10, color: textSecondary),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -958,14 +981,14 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
         ...activeInterests.asMap().entries.map((entry) {
           final idx = entry.key;
           final item = entry.value;
-          final color = _getColorForIndex(idx);
+          final color = _interestColor(item.key, idx);
           final icon = _getInterestIcon(item.key);
 
           return Container(
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0F172A).withOpacity(0.5) : const Color(0xFFF8FAFC),
+              color: isDark ? const Color(0xFF0F172A).withValues(alpha: 0.5) : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: borderColor),
             ),
@@ -977,7 +1000,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                     Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.12),
+                        color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Icon(icon, color: color, size: 16),
@@ -997,7 +1020,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: color.withOpacity(0.12),
+                        color: color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -1013,7 +1036,7 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
                   child: LinearProgressIndicator(
                     value: (item.percentage / 100).clamp(0.0, 1.0),
                     minHeight: 5,
-                    backgroundColor: color.withOpacity(0.12),
+                    backgroundColor: color.withValues(alpha: 0.12),
                     valueColor: AlwaysStoppedAnimation<Color>(color),
                   ),
                 ),
@@ -1022,6 +1045,162 @@ class _DemographicsReportViewState extends State<DemographicsReportView> {
           );
         }),
       ],
+    );
+  }
+}
+
+/// Thẻ KPI Báo cáo nhân khẩu học
+/// Đồng nhất hiệu ứng hover, border glow, shadow và watermark icon với DashboardKpiCard / _StatisticsKpiCard
+class _DemographicsKpiCard extends StatefulWidget {
+  final String title;
+  final String value;
+  final String subtext;
+  final IconData icon;
+  final Color iconColor;
+  final bool isDark;
+  final Color cardBg;
+  final Color borderColor;
+  final Color textPrimary;
+  final Color textSecondary;
+
+  const _DemographicsKpiCard({
+    required this.title,
+    required this.value,
+    required this.subtext,
+    required this.icon,
+    required this.iconColor,
+    required this.isDark,
+    required this.cardBg,
+    required this.borderColor,
+    required this.textPrimary,
+    required this.textSecondary,
+  });
+
+  @override
+  State<_DemographicsKpiCard> createState() => _DemographicsKpiCardState();
+}
+
+class _DemographicsKpiCardState extends State<_DemographicsKpiCard> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: widget.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _isHovered
+                ? widget.iconColor.withValues(alpha: 0.55)
+                : widget.borderColor.withValues(alpha: widget.isDark ? 0.6 : 0.8),
+            width: _isHovered ? 1.4 : 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: _isHovered
+                  ? widget.iconColor.withValues(alpha: widget.isDark ? 0.20 : 0.12)
+                  : (widget.isDark
+                      ? Colors.black.withValues(alpha: 0.25)
+                      : const Color(0xFF64748B).withValues(alpha: 0.05)),
+              blurRadius: _isHovered ? 14 : 7,
+              offset: _isHovered ? const Offset(0, 4) : const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          clipBehavior: Clip.antiAlias,
+          children: [
+            Positioned(
+              right: -6,
+              bottom: -8,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: widget.isDark ? 0.06 : 0.045,
+                  child: Icon(
+                    widget.icon,
+                    size: 58,
+                    color: widget.iconColor,
+                  ),
+                ),
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: widget.iconColor.withValues(alpha: widget.isDark ? 0.18 : 0.10),
+                        borderRadius: BorderRadius.circular(7),
+                        border: Border.all(
+                          color: widget.iconColor.withValues(alpha: 0.25),
+                          width: 1,
+                        ),
+                      ),
+                      child: Icon(widget.icon, size: 14, color: widget.iconColor),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.title.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                          color: widget.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: Text(
+                    widget.value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: widget.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (widget.subtext.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2),
+                    child: Text(
+                      widget.subtext,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: widget.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

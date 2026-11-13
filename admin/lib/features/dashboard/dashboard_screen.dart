@@ -6,6 +6,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/providers/navigation_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import 'models/dashboard_data.dart';
 import 'services/dashboard_data_provider.dart';
 import 'widgets/category_analytics_widget.dart';
@@ -122,21 +123,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          if (_isLoading)
+          if (_isLoading && _dataResult == null)
             _buildSkeletonLoading(backgroundColor, borderColor, isDark)
-          else if (_errorMessage != null)
+          else if (_errorMessage != null && _dataResult == null)
             _buildErrorState(textPrimary, backgroundColor, borderColor)
           else if (_dataResult != null)
-            _buildDashboardContent(
-              data: _dataResult!,
-              authProvider: authProvider,
-              navProvider: navProvider,
-              isDark: isDark,
-              backgroundColor: backgroundColor,
-              borderColor: borderColor,
-              textPrimary: textPrimary,
-              textSecondary: textSecondary,
-              adminName: adminName,
+            SmoothLoadingWrapper(
+              isLoading: _isLoading,
+              hasData: true,
+              child: _buildDashboardContent(
+                data: _dataResult!,
+                authProvider: authProvider,
+                navProvider: navProvider,
+                isDark: isDark,
+                backgroundColor: backgroundColor,
+                borderColor: borderColor,
+                textPrimary: textPrimary,
+                textSecondary: textSecondary,
+                adminName: adminName,
+              ),
             ),
         ],
       ),

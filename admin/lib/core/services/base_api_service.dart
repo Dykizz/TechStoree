@@ -81,9 +81,6 @@ abstract class BaseApiService extends ChangeNotifier {
   /// Lấy Access Token hiện tại trong RAM
   static String? get ramAccessToken => _ramAccessToken;
 
-  /// Lấy Refresh Token hiện tại trong RAM
-  static String? get ramRefreshToken => _ramRefreshToken;
-
   /// Kiểm tra có Refresh Token hợp lệ trong RAM hay không
   static bool get hasRamRefreshToken => _ramRefreshToken != null && _ramRefreshToken!.isNotEmpty;
 

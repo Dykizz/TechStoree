@@ -9,12 +9,6 @@ class NumberDisplayFormatter {
     final formatted = _formatter.format(value.round()).replaceAll(',', '.');
     return '$formatted đ';
   }
-
-  static String formatWithoutUnit(num value) {
-    if (value == 0) return '0';
-    final formatted = _formatter.format(value.round()).replaceAll(',', '.');
-    return formatted;
-  }
 }
 
 /// Dòng số liệu thống kê tài chính (Bảng a - Hoạt động kinh doanh)

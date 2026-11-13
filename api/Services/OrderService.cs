@@ -678,7 +678,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
 
         if (now < voucher.StartDate)
         {
-            throw new BadRequestException($"Mã giảm giá chỉ có hiệu lực từ ngày {voucher.StartDate:dd/MM/yyyy HH:mm}.");
+            throw new BadRequestException($"Mã giảm giá chỉ có hiệu lực từ ngày {DateTimeHelper.ToVietnamTime(voucher.StartDate):dd/MM/yyyy HH:mm}.");
         }
 
         if (now > voucher.EndDate)
@@ -722,15 +722,13 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
 
         if (filter.FromDate.HasValue)
         {
-            var fromUtc = DateTime.SpecifyKind(filter.FromDate.Value, DateTimeKind.Utc);
+            var fromUtc = DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value);
             query = query.Where(o => o.CreatedAt >= fromUtc);
         }
 
         if (filter.ToDate.HasValue)
         {
-            var rawTo = filter.ToDate.Value;
-            var toAdjusted = rawTo.TimeOfDay == TimeSpan.Zero ? rawTo.Date.AddDays(1).AddTicks(-1) : rawTo;
-            var toUtc = DateTime.SpecifyKind(toAdjusted, DateTimeKind.Utc);
+            var toUtc = DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value);
             query = query.Where(o => o.CreatedAt <= toUtc);
         }
 

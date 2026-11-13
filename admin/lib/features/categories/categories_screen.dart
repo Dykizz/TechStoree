@@ -12,6 +12,7 @@ import '../../core/widgets/app_search_field.dart';
 import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
@@ -43,6 +44,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     _categoriesFuture = apiService.getCategories(token: token);
   }
 
+  void _applySearch(String query) {
+    setState(() {
+      _searchQuery = query;
+      _currentPage = 1;
+    });
+  }
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -51,19 +59,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<Category>>(
+    return CachedFutureBuilder<List<Category>>(
       future: _categoriesFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         var categories = snapshot.data ?? [];
         if (_searchQuery.isNotEmpty) {
@@ -93,7 +100,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ? AppButton(
                         label: 'Thêm loại sản phẩm',
                         icon: Icons.add_rounded,
-                        onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
+                        onPressed: () => _showFormDialog(apiService, authProvider.token, null),
                       )
                     : null,
               ),
@@ -107,15 +114,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       c.code.toLowerCase().contains(q.toLowerCase()),
                   itemLabel: (c) => c.name,
                   itemSubtitle: (c) => 'Mã loại: ${c.code}',
-                  onSelected: (c) => setState(() => _searchQuery = c.name),
-                  onSubmitted: (val) => setState(() => _searchQuery = val.trim()),
-                  onCleared: () => setState(() => _searchQuery = ''),
+                  onSelected: (c) => _applySearch(c.name),
+                  onSubmitted: (val) => _applySearch(val.trim()),
+                  onCleared: () => _applySearch(''),
                 ),
               ),
 
               Flexible(
                 fit: FlexFit.loose,
-                child: DataTableContainer(
+                child: SmoothLoadingWrapper(
+                  isLoading: isLoading,
+                  hasData: hasData,
+                  initialMinHeight: 380,
+                  child: DataTableContainer(
                   child: categories.isEmpty
                       ? const EmptyState(
                           icon: Icons.category_outlined,
@@ -146,8 +157,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                         final canUpdate = authProvider.can('Categories.Update');
                                         final canDelete = authProvider.can('Categories.Delete');
                                         return DataRow(
-                                          onSelectChanged: (_) => _showFormDialog(context, apiService, authProvider.token, cat),
-                                          mouseCursor: WidgetStateProperty.all(SystemMouseCursors.click),
+                                          onSelectChanged: canUpdate
+                                              ? (_) => _showFormDialog(apiService, authProvider.token, cat)
+                                              : null,
+                                          mouseCursor: WidgetStateProperty.all(
+                                            canUpdate ? SystemMouseCursors.click : SystemMouseCursors.basic,
+                                          ),
                                           color: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
                                             if (states.contains(WidgetState.pressed)) {
                                               return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
@@ -172,7 +187,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                                       padding: EdgeInsets.zero,
                                                       constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                                                       tooltip: 'Chỉnh sửa',
-                                                      onPressed: () => _showFormDialog(context, apiService, authProvider.token, cat),
+                                                      onPressed: () => _showFormDialog(apiService, authProvider.token, cat),
                                                     ),
                                                   if (canDelete)
                                                     IconButton(
@@ -213,6 +228,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           ],
                         ),
                       ),
+                ),
               ),
             ],
           ),
@@ -221,85 +237,20 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _showFormDialog(BuildContext context, ApiService apiService, String? token, Category? existing) {
-    final isEditing = existing != null;
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: isEditing ? existing.name : '');
-
-    showDialog(
+  Future<void> _showFormDialog(ApiService apiService, String? token, Category? existing) async {
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) {
-        final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-        final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
-        final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-
-        return AlertDialog(
-          backgroundColor: cardBg,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-          title: Text(
-            isEditing ? 'Sửa loại sản phẩm: ${existing.name}' : 'Tạo loại sản phẩm mới',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
-          ),
-          content: SizedBox(
-            width: 420,
-            child: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  AppTextField(
-                    controller: nameCtrl,
-                    labelText: 'Tên loại sản phẩm (*)',
-                    validator: (val) {
-                      final v = val?.trim() ?? '';
-                      if (v.isEmpty) return 'Tên loại sản phẩm không được để trống.';
-                      if (v.length > 100) return 'Tên loại sản phẩm tối đa 100 ký tự.';
-                      return null;
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
-            AppButton(
-              label: isEditing ? 'Cập nhật' : 'Tạo mới',
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-
-                final cat = Category(
-                  id: isEditing ? existing.id : '0',
-                  name: nameCtrl.text.trim(),
-                  code: isEditing ? existing.code : 'CAT-${DateTime.now().millisecondsSinceEpoch}',
-                  productCount: isEditing ? existing.productCount : 0,
-                  description: '',
-                  iconName: isEditing ? existing.iconName : 'folder',
-                );
-
-                final res = isEditing
-                    ? await apiService.updateCategory(cat, token: token)
-                    : await apiService.createCategory(cat, token: token);
-
-                if (ctx.mounted) {
-                  if (res) {
-                    Navigator.pop(ctx);
-                    setState(() => _loadCategories());
-                    AppToast.success(context, 'Thao tác thành công!');
-                  } else {
-                    final errMsg = apiService.lastErrorMessage.isNotEmpty
-                        ? apiService.lastErrorMessage
-                        : 'Thao tác thất bại!';
-                    AppToast.error(ctx, errMsg);
-                  }
-                }
-              },
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => _CategoryFormDialog(
+        apiService: apiService,
+        token: token,
+        existing: existing,
+      ),
     );
+
+    if (saved == true && mounted) {
+      setState(() => _loadCategories());
+      AppToast.success(context, 'Thao tác thành công!');
+    }
   }
 
   void _confirmDelete(BuildContext context, ApiService apiService, String? token, Category cat) {
@@ -406,6 +357,125 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Dialog tạo/sửa loại sản phẩm để quản lý vòng đời [TextEditingController] và trạng thái submit.
+class _CategoryFormDialog extends StatefulWidget {
+  final ApiService apiService;
+  final String? token;
+  final Category? existing;
+
+  const _CategoryFormDialog({
+    required this.apiService,
+    required this.token,
+    this.existing,
+  });
+
+  @override
+  State<_CategoryFormDialog> createState() => _CategoryFormDialogState();
+}
+
+class _CategoryFormDialogState extends State<_CategoryFormDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.existing?.name ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_isSubmitting || !(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _isSubmitting = true);
+    final existing = widget.existing;
+    final isEditing = existing != null;
+
+    final cat = Category(
+      id: isEditing ? existing.id : '0',
+      name: _nameCtrl.text.trim(),
+      code: isEditing ? existing.code : 'CAT-${DateTime.now().millisecondsSinceEpoch}',
+      productCount: isEditing ? existing.productCount : 0,
+      description: '',
+      iconName: isEditing ? existing.iconName : 'folder',
+    );
+
+    final res = isEditing
+        ? await widget.apiService.updateCategory(cat, token: widget.token)
+        : await widget.apiService.createCategory(cat, token: widget.token);
+
+    if (!mounted) return;
+
+    if (res) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _isSubmitting = false);
+      final errMsg = widget.apiService.lastErrorMessage.isNotEmpty
+          ? widget.apiService.lastErrorMessage
+          : 'Thao tác thất bại!';
+      AppToast.error(context, errMsg);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final existing = widget.existing;
+    final isEditing = existing != null;
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
+
+    return AlertDialog(
+      backgroundColor: cardBg,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      title: Text(
+        isEditing ? 'Sửa loại sản phẩm: ${existing.name}' : 'Tạo loại sản phẩm mới',
+        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: textPrimary),
+      ),
+      content: SizedBox(
+        width: 420,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppTextField(
+                controller: _nameCtrl,
+                labelText: 'Tên loại sản phẩm (*)',
+                validator: (val) {
+                  final v = val?.trim() ?? '';
+                  if (v.isEmpty) return 'Tên loại sản phẩm không được để trống.';
+                  if (v.length > 100) return 'Tên loại sản phẩm tối đa 100 ký tự.';
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        AppButton(
+          label: 'Hủy',
+          variant: AppButtonVariant.outline,
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+        ),
+        AppButton(
+          label: isEditing ? 'Cập nhật' : 'Tạo mới',
+          isLoading: _isSubmitting,
+          onPressed: _submit,
+        ),
+      ],
     );
   }
 }

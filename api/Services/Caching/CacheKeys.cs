@@ -1,3 +1,4 @@
+using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Products;
 using WebBanHang.Api.DTOs.Promotions;
 using WebBanHang.Api.DTOs.Suppliers;
@@ -43,7 +44,13 @@ public static class CacheKeys
         public static string List(PromotionQueryFilter? filter)
         {
             if (filter is null) return $"{Prefix}:list:all";
-            return $"{Prefix}:list:act_{filter.IsActive}:st_{filter.Status}:from_{filter.FromDate:yyyyMMdd}:to_{filter.ToDate:yyyyMMdd}:q_{Normalize(filter.Search)}";
+            var fromKey = filter.FromDate.HasValue
+                ? DateTimeHelper.NormalizeFilterFromUtc(filter.FromDate.Value).ToString("yyyyMMddHHmmss")
+                : string.Empty;
+            var toKey = filter.ToDate.HasValue
+                ? DateTimeHelper.NormalizeFilterToUtc(filter.ToDate.Value).ToString("yyyyMMddHHmmss")
+                : string.Empty;
+            return $"{Prefix}:list:act_{filter.IsActive}:st_{filter.Status}:from_{fromKey}:to_{toKey}:q_{Normalize(filter.Search)}";
         }
     }
 

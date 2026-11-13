@@ -55,7 +55,10 @@ class PageHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (action != null) action!,
+          if (action != null) ...[
+            const SizedBox(width: 12),
+            action!,
+          ],
         ],
       ),
     );

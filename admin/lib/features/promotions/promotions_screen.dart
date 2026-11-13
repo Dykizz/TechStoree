@@ -19,6 +19,7 @@ import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 
 class PromotionsScreen extends StatefulWidget {
@@ -100,19 +101,18 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<List<Promotion>>(
+    return CachedFutureBuilder<List<Promotion>>(
       future: _promotionsFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         var promotions = snapshot.data ?? [];
 
@@ -273,7 +273,11 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
 
               // Data Table Container
               Flexible(
-                child: DataTableContainer(
+                child: SmoothLoadingWrapper(
+                  isLoading: isLoading,
+                  hasData: hasData,
+                  initialMinHeight: 380,
+                  child: DataTableContainer(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -434,6 +438,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
                         ),
                     ],
                   ),
+                ),
                 ),
               ),
             ],

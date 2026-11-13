@@ -1,3 +1,5 @@
+import '../utils/json_parse_helper.dart';
+
 class ReviewItem {
   final int reviewId;
   final int userId;
@@ -59,28 +61,28 @@ class ReviewItem {
 
   factory ReviewItem.fromJson(Map<String, dynamic> json) {
     return ReviewItem(
-      reviewId: json['reviewId'] is int ? json['reviewId'] : int.tryParse(json['reviewId']?.toString() ?? '0') ?? 0,
-      userId: json['userId'] is int ? json['userId'] : int.tryParse(json['userId']?.toString() ?? '0') ?? 0,
+      reviewId: JsonParseHelper.parseInt(json['reviewId']),
+      userId: JsonParseHelper.parseInt(json['userId']),
       username: json['username']?.toString() ?? '',
       fullName: json['fullName']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
       phone: json['phone']?.toString(),
-      productId: json['productId'] is int ? json['productId'] : int.tryParse(json['productId']?.toString() ?? '0') ?? 0,
+      productId: JsonParseHelper.parseInt(json['productId']),
       productName: json['productName']?.toString() ?? '',
       productImageUrl: json['productImageUrl']?.toString(),
-      orderItemId: json['orderItemId'] is int ? json['orderItemId'] : int.tryParse(json['orderItemId']?.toString() ?? '0') ?? 0,
-      orderId: json['orderId'] is int ? json['orderId'] : int.tryParse(json['orderId']?.toString() ?? '0') ?? 0,
+      orderItemId: JsonParseHelper.parseInt(json['orderItemId']),
+      orderId: JsonParseHelper.parseInt(json['orderId']),
       orderCode: json['orderCode']?.toString() ?? '',
-      variantId: json['variantId'] is int ? json['variantId'] : int.tryParse(json['variantId']?.toString() ?? '0') ?? 0,
+      variantId: JsonParseHelper.parseInt(json['variantId']),
       variantName: json['variantName']?.toString() ?? '',
-      rating: json['rating'] is num ? (json['rating'] as num).toDouble() : double.tryParse(json['rating']?.toString() ?? '5.0') ?? 5.0,
+      rating: JsonParseHelper.parseDouble(json['rating'], 5.0),
       comment: json['comment']?.toString(),
-      imageUrls: (json['imageUrls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      imageUrls: JsonParseHelper.parseStringList(json['imageUrls']),
       replyContent: json['replyContent']?.toString(),
-      repliedAt: json['repliedAt'] != null ? DateTime.tryParse(json['repliedAt'].toString()) : null,
-      isHidden: json['isHidden'] == true,
-      createdAt: json['createdAt'] != null ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now() : DateTime.now(),
-      updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'].toString()) : null,
+      repliedAt: JsonParseHelper.parseNullableDate(json['repliedAt']),
+      isHidden: JsonParseHelper.parseBool(json['isHidden']),
+      createdAt: JsonParseHelper.parseDate(json['createdAt']),
+      updatedAt: JsonParseHelper.parseNullableDate(json['updatedAt']),
     );
   }
 }
@@ -105,27 +107,20 @@ class ReviewStatistics {
   });
 
   factory ReviewStatistics.fromJson(Map<String, dynamic> json) {
-    final distRaw = json['ratingDistribution'] as Map<String, dynamic>? ?? {};
-    final dist = distRaw.map((key, value) => MapEntry(key, value is int ? value : int.tryParse(value?.toString() ?? '0') ?? 0));
-
-    final topList = (json['topRatedProducts'] as List<dynamic>?)
-            ?.map((e) => ProductRatingRanking.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-
-    final lowestList = (json['lowestRatedProducts'] as List<dynamic>?)
-            ?.map((e) => ProductRatingRanking.fromJson(e as Map<String, dynamic>))
-            .toList() ??
-        [];
-
     return ReviewStatistics(
-      totalReviews: json['totalReviews'] is int ? json['totalReviews'] : int.tryParse(json['totalReviews']?.toString() ?? '0') ?? 0,
-      averageRating: json['averageRating'] is num ? (json['averageRating'] as num).toDouble() : double.tryParse(json['averageRating']?.toString() ?? '0.0') ?? 0.0,
-      totalReplied: json['totalReplied'] is int ? json['totalReplied'] : int.tryParse(json['totalReplied']?.toString() ?? '0') ?? 0,
-      totalHidden: json['totalHidden'] is int ? json['totalHidden'] : int.tryParse(json['totalHidden']?.toString() ?? '0') ?? 0,
-      ratingDistribution: dist,
-      topRatedProducts: topList,
-      lowestRatedProducts: lowestList,
+      totalReviews: JsonParseHelper.parseInt(json['totalReviews']),
+      averageRating: JsonParseHelper.parseDouble(json['averageRating']),
+      totalReplied: JsonParseHelper.parseInt(json['totalReplied']),
+      totalHidden: JsonParseHelper.parseInt(json['totalHidden']),
+      ratingDistribution: JsonParseHelper.parseIntMap(json['ratingDistribution']),
+      topRatedProducts: JsonParseHelper.parseJsonList(
+        json['topRatedProducts'],
+        ProductRatingRanking.fromJson,
+      ),
+      lowestRatedProducts: JsonParseHelper.parseJsonList(
+        json['lowestRatedProducts'],
+        ProductRatingRanking.fromJson,
+      ),
     );
   }
 }
@@ -151,13 +146,13 @@ class ProductRatingRanking {
 
   factory ProductRatingRanking.fromJson(Map<String, dynamic> json) {
     return ProductRatingRanking(
-      productId: json['productId'] is int ? json['productId'] : int.tryParse(json['productId']?.toString() ?? '0') ?? 0,
+      productId: JsonParseHelper.parseInt(json['productId']),
       productName: json['productName']?.toString() ?? '',
       productImageUrl: json['productImageUrl']?.toString(),
-      averageRating: json['averageRating'] is num ? (json['averageRating'] as num).toDouble() : double.tryParse(json['averageRating']?.toString() ?? '0.0') ?? 0.0,
-      totalReviews: json['totalReviews'] is int ? json['totalReviews'] : int.tryParse(json['totalReviews']?.toString() ?? '0') ?? 0,
-      positiveReviewCount: json['positiveReviewCount'] is int ? json['positiveReviewCount'] : int.tryParse(json['positiveReviewCount']?.toString() ?? '0') ?? 0,
-      negativeReviewCount: json['negativeReviewCount'] is int ? json['negativeReviewCount'] : int.tryParse(json['negativeReviewCount']?.toString() ?? '0') ?? 0,
+      averageRating: JsonParseHelper.parseDouble(json['averageRating']),
+      totalReviews: JsonParseHelper.parseInt(json['totalReviews']),
+      positiveReviewCount: JsonParseHelper.parseInt(json['positiveReviewCount']),
+      negativeReviewCount: JsonParseHelper.parseInt(json['negativeReviewCount']),
     );
   }
 }
@@ -175,5 +170,6 @@ class ReviewPagedResult {
     required this.pageSize,
   });
 
-  int get totalPages => (totalCount / pageSize).ceil();
+  int get totalPages =>
+      pageSize > 0 ? (totalCount / pageSize).ceil() : (totalCount > 0 ? 1 : 0);
 }

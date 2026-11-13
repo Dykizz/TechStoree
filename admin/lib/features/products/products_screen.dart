@@ -19,6 +19,7 @@ import '../../core/widgets/scrollable_table_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/status_badge.dart';
 import '../../core/widgets/product_price_range.dart';
 import '../../core/widgets/promotion_badge.dart';
@@ -75,6 +76,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
   late Future<List<Product>> _productsFuture;
   late Future<List<Category>> _categoriesFuture;
+  late Future<List<dynamic>> _combinedFuture;
 
   @override
   void initState() {
@@ -100,6 +102,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     void updateFutures() {
       _productsFuture = apiService.getProductsWithVariants(token: token);
       _categoriesFuture = apiService.getCategories(token: token);
+      _combinedFuture = Future.wait([
+        _productsFuture.catchError((_) => <Product>[]),
+        _categoriesFuture.catchError((_) => <Category>[]),
+      ]);
     }
     if (notify && mounted) {
       setState(updateFutures);
@@ -554,7 +560,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
       );
     }
 
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
@@ -564,15 +570,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final surfaceColor = isDark ? AppColors.darkCard : AppColors.lightCard;
     final bgSubtle = isDark ? AppColors.darkBackground : AppColors.lightBackground;
 
-    return FutureBuilder(
-      future: Future.wait([
-        _productsFuture.catchError((_) => <Product>[]),
-        _categoriesFuture.catchError((_) => <Category>[]),
-      ]),
+    return CachedFutureBuilder<List<dynamic>>(
+      future: _combinedFuture,
       builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         final allProducts = (snapshot.data?[0] as List<Product>?) ?? [];
         final dbCategories = (snapshot.data?[1] as List<Category>?) ?? [];
@@ -918,48 +920,53 @@ class _ProductsScreenState extends State<ProductsScreen> {
               const SizedBox(height: AppTokens.space12),
 
               // Display Area
-              filteredProducts.isEmpty
-                  ? const DataTableContainer(
-                      child: EmptyState(
-                        title: 'Không tìm thấy sản phẩm phù hợp',
-                        message: 'Thử đổi từ khóa tìm kiếm hoặc chọn bộ lọc danh mục khác.',
-                        icon: Icons.search_off_rounded,
-                      ),
-                    )
-                  : !_isGridView
-                      ? _buildTableProductsView(
-                          paginatedProducts,
-                          apiService,
-                          authProvider,
-                          authProvider.token,
-                          surfaceColor,
-                          borderColor,
-                          textPrimary,
-                          textSecondary,
-                          isDark,
-                          safePage,
-                          totalPages,
-                          totalItems,
-                        )
-                      : Column(
-                          children: [
-                            _buildGridProductsView(paginatedProducts, apiService, authProvider.token, surfaceColor, borderColor, textPrimary, textSecondary, isDark),
-                            if (totalItems > 0) ...[
-                              const SizedBox(height: AppTokens.space16),
-                              AppPagination(
-                                currentPage: safePage,
-                                totalPages: totalPages,
-                                totalItems: totalItems,
-                                itemsPerPage: _itemsPerPage,
-                                onPageChanged: (page) => setState(() => _currentPage = page),
-                                onItemsPerPageChanged: (size) => setState(() {
-                                  _itemsPerPage = size;
-                                  _currentPage = 1;
-                                }),
-                              ),
-                            ],
-                          ],
+              SmoothLoadingWrapper(
+                isLoading: isLoading,
+                hasData: hasData,
+                initialMinHeight: 400,
+                child: filteredProducts.isEmpty
+                    ? const DataTableContainer(
+                        child: EmptyState(
+                          title: 'Không tìm thấy sản phẩm phù hợp',
+                          message: 'Thử đổi từ khóa tìm kiếm hoặc chọn bộ lọc danh mục khác.',
+                          icon: Icons.search_off_rounded,
                         ),
+                      )
+                    : !_isGridView
+                        ? _buildTableProductsView(
+                            paginatedProducts,
+                            apiService,
+                            authProvider,
+                            authProvider.token,
+                            surfaceColor,
+                            borderColor,
+                            textPrimary,
+                            textSecondary,
+                            isDark,
+                            safePage,
+                            totalPages,
+                            totalItems,
+                          )
+                        : Column(
+                            children: [
+                              _buildGridProductsView(paginatedProducts, apiService, authProvider.token, surfaceColor, borderColor, textPrimary, textSecondary, isDark),
+                              if (totalItems > 0) ...[
+                                const SizedBox(height: AppTokens.space16),
+                                AppPagination(
+                                  currentPage: safePage,
+                                  totalPages: totalPages,
+                                  totalItems: totalItems,
+                                  itemsPerPage: _itemsPerPage,
+                                  onPageChanged: (page) => setState(() => _currentPage = page),
+                                  onItemsPerPageChanged: (size) => setState(() {
+                                    _itemsPerPage = size;
+                                    _currentPage = 1;
+                                  }),
+                                ),
+                              ],
+                            ],
+                          ),
+              ),
             ],
           ),
         );

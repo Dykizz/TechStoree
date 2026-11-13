@@ -3,26 +3,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
 import '../../core/models/invoice.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
-import '../../core/widgets/app_text_field.dart';
-import '../../core/widgets/app_toast.dart';
+import '../../core/utils/date_preset_helper.dart';
 import '../../core/widgets/app_date_range_picker.dart';
-import '../../core/widgets/app_dropdown.dart';
-import '../../core/widgets/app_pagination.dart';
-import '../../core/widgets/app_search_field.dart';
-import '../../core/widgets/data_table_container.dart';
-import '../../core/widgets/empty_state.dart';
 import '../../core/widgets/page_header.dart';
-import '../../core/widgets/scrollable_table_wrapper.dart';
-import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
+import 'widgets/invoice_data_table.dart';
 import 'widgets/invoice_detail_dialog.dart';
+import 'widgets/invoice_filter_panel.dart';
+import 'widgets/invoice_metrics_row.dart';
 import 'widgets/invoice_quick_view_panel.dart';
+import 'widgets/invoice_toolbar.dart';
 
+/// Màn hình Quản lý hóa đơn (được tổ chức theo kiến trúc component-driven)
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
 
@@ -31,10 +27,7 @@ class InvoicesScreen extends StatefulWidget {
 }
 
 class _InvoicesScreenState extends State<InvoicesScreen> {
-  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final _currencyFormatter = NumberFormat('#,###', 'en_US');
-  final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-  final dateFormatDate = DateFormat('dd/MM/yyyy');
 
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _minAmountCtrl = TextEditingController();
@@ -59,21 +52,36 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   List<Invoice> _invoices = [];
   bool _isLoading = true;
+  bool _hasLoadedOnce = false;
   Invoice? _selectedInvoice;
 
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     _loadInvoices();
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
     _amountDebounceTimer?.cancel();
     _searchCtrl.dispose();
     _minAmountCtrl.dispose();
     _maxAmountCtrl.dispose();
     super.dispose();
+  }
+
+  bool _handleKeyEvent(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _selectedInvoice != null &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
+      _closeQuickView();
+      return true;
+    }
+    return false;
   }
 
   Future<void> _loadInvoices() async {
@@ -115,6 +123,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
         _pageSize = result.pageSize;
         if (stats != null) _stats = stats;
         _isLoading = false;
+        _hasLoadedOnce = true;
 
         // Giữ lại hoặc làm mới hóa đơn đang chọn nếu vẫn tồn tại trên trang
         if (_selectedInvoice != null) {
@@ -128,9 +137,9 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   void _toggleQuickView(Invoice inv) {
     setState(() {
       if (_selectedInvoice?.invoiceId == inv.invoiceId) {
-        _selectedInvoice = null; // Bỏ chọn / đóng khung xem nhanh
+        _selectedInvoice = null;
       } else {
-        _selectedInvoice = inv; // Chọn hoặc đổi sang hóa đơn khác
+        _selectedInvoice = inv;
       }
     });
   }
@@ -150,52 +159,27 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
   }
 
   void _applyDatePreset(String preset) {
-    final now = DateTime.now();
-    DateTimeRange? range;
-    if (preset == 'TODAY') {
-      final start = DateTime(now.year, now.month, now.day);
-      final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      range = DateTimeRange(start: start, end: end);
-    } else if (preset == 'YESTERDAY') {
-      final yesterday = now.subtract(const Duration(days: 1));
-      final start = DateTime(yesterday.year, yesterday.month, yesterday.day);
-      final end = DateTime(yesterday.year, yesterday.month, yesterday.day, 23, 59, 59);
-      range = DateTimeRange(start: start, end: end);
-    } else if (preset == 'LAST_7_DAYS') {
-      final start = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
-      final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      range = DateTimeRange(start: start, end: end);
-    } else if (preset == 'THIS_MONTH') {
-      final start = DateTime(now.year, now.month, 1);
-      final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
-      range = DateTimeRange(start: start, end: end);
-    } else if (preset == 'ALL') {
-      range = null;
+    if (preset == 'CUSTOM') {
+      _pickDateRange();
+      return;
     }
 
     setState(() {
       _selectedDatePreset = preset;
-      _selectedDateRange = range;
+      _selectedDateRange = DatePresetHelper.getRangeForPreset(preset);
       _currentPage = 1;
     });
     _loadInvoices();
   }
 
-  double? _parseAmount(String text) {
-    final clean = text.replaceAll(RegExp(r'[^0-9]'), '').trim();
-    return clean.isNotEmpty ? double.tryParse(clean) : null;
-  }
-
   void _onAmountChanged() {
     _amountDebounceTimer?.cancel();
-    _amountDebounceTimer = Timer(const Duration(milliseconds: 500), () {
-      _applyCustomAmount();
-    });
+    _amountDebounceTimer = Timer(const Duration(milliseconds: 500), _applyCustomAmount);
   }
 
   void _applyCustomAmount() {
-    final min = _parseAmount(_minAmountCtrl.text);
-    final max = _parseAmount(_maxAmountCtrl.text);
+    final min = DatePresetHelper.parseAmount(_minAmountCtrl.text);
+    final max = DatePresetHelper.parseAmount(_maxAmountCtrl.text);
 
     // Không kích hoạt nếu khoảng giá không hợp lệ (min > max)
     if (min != null && max != null && min > max) {
@@ -286,1043 +270,185 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
-
-    // Quick Metrics Calculations
-    final paidInvoices = _invoices.where((i) => i.isPaid).toList();
-    final unpaidInvoices = _invoices.where((i) => i.isUnpaid).toList();
-    final cancelledInvoices = _invoices.where((i) => i.isCancelled).toList();
-
-    final paidAmount = paidInvoices.fold<double>(0, (sum, i) => sum + i.totalAmount);
-    final unpaidAmount = unpaidInvoices.fold<double>(0, (sum, i) => sum + i.totalAmount);
-
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape): _closeQuickView,
-      },
-      child: Focus(
-        autofocus: true,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppTokens.space16),
-          child: Column(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppTokens.space16),
+      child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-          // Tiêu đề trang
-          const PageHeader(
-            title: 'Quản lý hóa đơn',
-            subtitle: 'Tra cứu, theo dõi trạng thái thanh toán và in chứng từ hóa đơn bán hàng',
-          ),
+              // 1. Tiêu đề trang
+              const PageHeader(
+                title: 'Quản lý hóa đơn',
+                subtitle: 'Tra cứu, theo dõi trạng thái thanh toán và in chứng từ hóa đơn bán hàng',
+              ),
+              const SizedBox(height: 12),
 
-          const SizedBox(height: 12),
+              // 2. 4 Thẻ KPI thống kê nhanh (click để lọc trạng thái)
+              InvoiceMetricsRow(
+                stats: _stats,
+                invoices: _invoices,
+                totalItems: _totalItems,
+                selectedStatus: _selectedStatus,
+                onStatusSelected: _selectStatus,
+              ),
+              const SizedBox(height: 12),
 
-          // Quick Metric Cards (Có thể click trực tiếp để lọc trạng thái)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cardWidth = (constraints.maxWidth - (3 * 12)) / 4;
-              return Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  _InvoiceMetricCard(
-                    title: 'TỔNG HÓA ĐƠN',
-                    value: '${_stats?.totalInvoices ?? _totalItems}',
-                    subtitle: 'Hóa đơn trong hệ thống',
-                    icon: Icons.receipt_long_rounded,
-                    iconColor: AppColors.primary,
-                    width: cardWidth,
-                    isDark: isDark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                    isSelected: _selectedStatus == 'ALL',
-                    onTap: () => _selectStatus('ALL'),
-                  ),
-                  _InvoiceMetricCard(
-                    title: 'ĐÃ THANH TOÁN',
-                    value: '${_stats?.paidCount ?? paidInvoices.length}',
-                    subtitle: currencyFormat.format(_stats?.paidAmount ?? paidAmount),
-                    icon: Icons.check_circle_outline_rounded,
-                    iconColor: AppColors.success,
-                    width: cardWidth,
-                    isDark: isDark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                    isSelected: _selectedStatus == 'PAID',
-                    onTap: () => _selectStatus('PAID'),
-                  ),
-                  _InvoiceMetricCard(
-                    title: 'CHỜ THANH TOÁN',
-                    value: '${_stats?.unpaidCount ?? unpaidInvoices.length}',
-                    subtitle: currencyFormat.format(_stats?.unpaidAmount ?? unpaidAmount),
-                    icon: Icons.pending_actions_rounded,
-                    iconColor: AppColors.warning,
-                    width: cardWidth,
-                    isDark: isDark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                    isSelected: _selectedStatus == 'UNPAID',
-                    onTap: () => _selectStatus('UNPAID'),
-                  ),
-                  _InvoiceMetricCard(
-                    title: 'ĐÃ HỦY',
-                    value: '${_stats?.cancelledCount ?? cancelledInvoices.length}',
-                    subtitle: 'Đơn bị hủy / hoàn tiền',
-                    icon: Icons.cancel_outlined,
-                    iconColor: AppColors.danger,
-                    width: cardWidth,
-                    isDark: isDark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                    isSelected: _selectedStatus == 'CANCELLED',
-                    onTap: () => _selectStatus('CANCELLED'),
-                  ),
-                ],
-              );
-            },
-          ),
+              // 3. Thanh công cụ Tìm kiếm & Lọc nhanh
+              InvoiceToolbar(
+                searchCtrl: _searchCtrl,
+                invoices: _invoices,
+                selectedDatePreset: _selectedDatePreset,
+                selectedDateRange: _selectedDateRange,
+                selectedSort: _selectedSort,
+                isAdvancedFilterOpen: _isAdvancedFilterOpen,
+                advancedFilterCount: _advancedFilterCount,
+                hasActiveFilters: _hasActiveFilters,
+                onSearchSelected: (code) {
+                  setState(() {
+                    _searchQuery = code;
+                    _currentPage = 1;
+                  });
+                  _loadInvoices();
+                },
+                onSearchSubmitted: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                    _currentPage = 1;
+                  });
+                  _loadInvoices();
+                },
+                onSearchCleared: () {
+                  setState(() {
+                    _searchQuery = '';
+                    _currentPage = 1;
+                  });
+                  _loadInvoices();
+                },
+                onDatePresetChanged: _applyDatePreset,
+                onSortChanged: (val) {
+                  setState(() {
+                    _selectedSort = val;
+                    _currentPage = 1;
+                  });
+                  _loadInvoices();
+                },
+                onToggleAdvancedFilter: () {
+                  setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
+                },
+                onResetFilters: _resetFilters,
+              ),
 
-          const SizedBox(height: 12),
-
-          // 1 Hàng Tinh Gọn: Thanh Tìm Kiếm & Lọc Nhanh
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              children: [
-                // Omni Search Field
-                Expanded(
-                  child: AppSearchField<Invoice>(
-                    controller: _searchCtrl,
-                    hintText: 'Tìm theo Mã HĐ, Đơn hàng, Tên khách hàng...',
-                    items: _invoices,
-                    searchFilter: (inv, q) =>
-                        inv.invoiceCode.toLowerCase().contains(q.toLowerCase()) ||
-                        inv.orderCode.toLowerCase().contains(q.toLowerCase()) ||
-                        inv.customerName.toLowerCase().contains(q.toLowerCase()),
-                    itemLabel: (inv) => '${inv.invoiceCode} - ${inv.customerName}',
-                    itemSubtitle: (inv) => '${currencyFormat.format(inv.totalAmount)} • ${inv.statusLabel}',
-                    onSelected: (inv) {
-                      setState(() {
-                        _searchQuery = inv.invoiceCode;
-                        _currentPage = 1;
-                      });
-                      _loadInvoices();
-                    },
-                    onSubmitted: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                        _currentPage = 1;
-                      });
-                      _loadInvoices();
-                    },
-                    onCleared: () {
-                      setState(() {
-                        _searchQuery = '';
-                        _currentPage = 1;
-                      });
-                      _loadInvoices();
-                    },
-                  ),
+              // 4. Panel lọc nâng cao (Khoảng tiền Min-Max, PTTT, Tag ngày)
+              if (_isAdvancedFilterOpen) ...[
+                const SizedBox(height: 10),
+                InvoiceFilterPanel(
+                  minAmountCtrl: _minAmountCtrl,
+                  maxAmountCtrl: _maxAmountCtrl,
+                  minAmount: _minAmount,
+                  maxAmount: _maxAmount,
+                  selectedPaymentMethod: _selectedPaymentMethod,
+                  selectedDateRange: _selectedDateRange,
+                  advancedFilterCount: _advancedFilterCount,
+                  onClose: () => setState(() => _isAdvancedFilterOpen = false),
+                  onAmountChanged: _onAmountChanged,
+                  onAmountSubmitted: _applyCustomAmount,
+                  onPricePresetSelected: _applyPricePreset,
+                  onPaymentMethodSelected: (method) {
+                    setState(() {
+                      _selectedPaymentMethod = method;
+                      _currentPage = 1;
+                    });
+                    _loadInvoices();
+                  },
+                  onClearDateRange: () {
+                    setState(() {
+                      _selectedDateRange = null;
+                      _selectedDatePreset = 'ALL';
+                      _currentPage = 1;
+                    });
+                    _loadInvoices();
+                  },
                 ),
-
-                const SizedBox(width: 8),
-
-                // Quick Date Preset Dropdown
-                SizedBox(
-                  width: 170,
-                  child: AppDropdown<String>(
-                    value: _selectedDatePreset,
-                    items: const [
-                      DropdownMenuItem(value: 'ALL', child: Text('Thời gian: Tất cả')),
-                      DropdownMenuItem(value: 'TODAY', child: Text('Hôm nay')),
-                      DropdownMenuItem(value: 'YESTERDAY', child: Text('Hôm qua')),
-                      DropdownMenuItem(value: 'LAST_7_DAYS', child: Text('7 ngày qua')),
-                      DropdownMenuItem(value: 'THIS_MONTH', child: Text('Tháng này')),
-                      DropdownMenuItem(value: 'CUSTOM', child: Text('Tùy chọn ngày...')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        if (val == 'CUSTOM') {
-                          _pickDateRange();
-                        } else {
-                          _applyDatePreset(val);
-                        }
-                      }
-                    },
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // Sort Dropdown
-                SizedBox(
-                  width: 195,
-                  child: AppDropdown<String>(
-                    value: _selectedSort,
-                    items: const [
-                      DropdownMenuItem(value: 'createdAt_desc', child: Text('Sắp xếp: Mới nhất')),
-                      DropdownMenuItem(value: 'createdAt_asc', child: Text('Sắp xếp: Cũ nhất')),
-                      DropdownMenuItem(value: 'totalAmount_desc', child: Text('Tổng tiền: Cao → Thấp')),
-                      DropdownMenuItem(value: 'totalAmount_asc', child: Text('Tổng tiền: Thấp → Cao')),
-                      DropdownMenuItem(value: 'invoiceCode_asc', child: Text('Mã HĐ: A → Z')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedSort = val;
-                          _currentPage = 1;
-                        });
-                        _loadInvoices();
-                      }
-                    },
-                  ),
-                ),
-
-                const SizedBox(width: 8),
-
-                // Nút "Bộ lọc"
-                SizedBox(
-                  height: 40,
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
-                    },
-                    icon: Icon(
-                      Icons.tune_rounded,
-                      size: 16,
-                      color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
-                    ),
-                    label: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _advancedFilterCount > 0 ? 'Lọc ($_advancedFilterCount)' : 'Bộ lọc',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          _isAdvancedFilterOpen ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-                          size: 16,
-                          color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? Colors.white : textSecondary,
-                        ),
-                      ],
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : null,
-                      side: BorderSide(
-                        color: (_isAdvancedFilterOpen || _advancedFilterCount > 0) ? AppColors.primary : borderColor,
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-                    ),
-                  ),
-                ),
-
-                // Nút Đặt lại bộ lọc (nếu có active filter)
-                if (_hasActiveFilters) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: IconButton(
-                      tooltip: 'Đặt lại toàn bộ lọc',
-                      onPressed: _resetFilters,
-                      icon: const Icon(Icons.filter_alt_off_rounded, size: 18, color: AppColors.danger),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.danger.withValues(alpha: 0.1),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-                        padding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                ],
               ],
-            ),
-          ),
+              const SizedBox(height: 12),
 
-          // Panel Lọc Nâng Cao (Khoảng tiền Min-Max + Phương thức + Ngày chi tiết)
-          if (_isAdvancedFilterOpen) ...[
-            const SizedBox(height: 10),
-            _buildAdvancedFilterPanel(isDark, cardBg, borderColor, textPrimary, textSecondary),
-          ],
+              // 5. Cấu trúc Master-Detail (Bảng danh sách + Khung xem nhanh)
+              SmoothLoadingWrapper(
+                isLoading: _isLoading,
+                hasData: _hasLoadedOnce,
+                initialMinHeight: 420,
+                child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isCompact = constraints.maxWidth < 680;
+                        final panelWidth = constraints.maxWidth > 1400
+                            ? 430.0
+                            : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
 
-          const SizedBox(height: 12),
+                        final tableContent = InvoiceDataTable(
+                          invoices: _invoices,
+                          selectedInvoice: _selectedInvoice,
+                          totalItems: _totalItems,
+                          totalPages: _totalPages,
+                          currentPage: _currentPage,
+                          pageSize: _pageSize,
+                          onPageChanged: (page) {
+                            setState(() => _currentPage = page);
+                            _loadInvoices();
+                          },
+                          onItemsPerPageChanged: (newSize) {
+                            setState(() {
+                              _pageSize = newSize;
+                              _currentPage = 1;
+                            });
+                            _loadInvoices();
+                          },
+                          onSelectInvoice: _toggleQuickView,
+                        );
 
-          // Bảng dữ liệu hóa đơn (Cấu trúc 2 cột cố định: Bảng danh sách + Khung xem nhanh)
-          _isLoading
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: CircularProgressIndicator(color: AppColors.primary),
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isCompact = constraints.maxWidth < 680;
-                    final panelWidth = constraints.maxWidth > 1400
-                        ? 430.0
-                        : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
+                        final rightPanel = _selectedInvoice != null
+                            ? InvoiceQuickViewPanel(
+                                key: ValueKey('invoice_panel_${_selectedInvoice!.invoiceId}'),
+                                invoice: _selectedInvoice!,
+                                onClose: _closeQuickView,
+                                onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
+                              )
+                            : const InvoiceQuickViewPlaceholder(
+                                key: ValueKey('invoice_quick_view_placeholder'),
+                              );
 
-                    final tableContent = _invoices.isEmpty
-                        ? const DataTableContainer(
-                            child: EmptyState(
-                              title: 'Không tìm thấy hóa đơn nào',
-                              message: 'Không có hóa đơn nào khớp với điều kiện lọc hiện tại.',
-                              icon: Icons.receipt_long_outlined,
-                            ),
-                          )
-                        : _buildInvoicesTable(isDark, textPrimary, textSecondary, borderColor);
+                        if (isCompact) {
+                          if (_selectedInvoice != null) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                tableContent,
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  height: 580,
+                                  child: rightPanel,
+                                ),
+                              ],
+                            );
+                          }
+                          return tableContent;
+                        }
 
-                    final rightPanel = _selectedInvoice != null
-                        ? InvoiceQuickViewPanel(
-                            key: ValueKey('invoice_panel_${_selectedInvoice!.invoiceId}'),
-                            invoice: _selectedInvoice!,
-                            onClose: _closeQuickView,
-                            onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
-                          )
-                        : _buildQuickViewPlaceholder(isDark, cardBg, borderColor, textSecondary);
-
-                    if (isCompact) {
-                      if (_selectedInvoice != null) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            tableContent,
-                            const SizedBox(height: 16),
+                            Expanded(child: tableContent),
+                            const SizedBox(width: 14),
                             SizedBox(
-                              height: 580,
+                              width: panelWidth,
+                              height: 640,
                               child: rightPanel,
                             ),
                           ],
                         );
-                      }
-                      return tableContent;
-                    }
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: tableContent,
-                        ),
-                        const SizedBox(width: 14),
-                        SizedBox(
-                          width: panelWidth,
-                          height: 640,
-                          child: rightPanel,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-        ],
-      ),
-    ),
-  ),
-);
-  }
-
-  Widget _buildQuickViewPlaceholder(
-    bool isDark,
-    Color cardBg,
-    Color borderColor,
-    Color textSecondary,
-  ) {
-    return Container(
-      key: const ValueKey('invoice_quick_view_placeholder'),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: borderColor, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(-2, 4),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: (isDark ? Colors.white : AppColors.primary).withValues(alpha: 0.06),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.receipt_long_outlined,
-                  size: 38,
-                  color: textSecondary.withValues(alpha: 0.45),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Chưa chọn hóa đơn',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: textSecondary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Nhấp vào một hóa đơn trong danh sách\nđể xem nhanh chi tiết tại đây',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.45,
-                  color: textSecondary.withValues(alpha: 0.65),
-                ),
+                      },
+                    ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInvoicesTable(
-    bool isDark,
-    Color textPrimary,
-    Color textSecondary,
-    Color borderColor,
-  ) {
-    return DataTableContainer(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ScrollableTableWrapper(
-            child: DataTable(
-              showCheckboxColumn: false,
-              headingRowHeight: 40,
-              dataRowMinHeight: 48,
-              dataRowMaxHeight: 56,
-              horizontalMargin: 16,
-              columnSpacing: 18,
-              headingRowColor: WidgetStateProperty.all(
-                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              ),
-              dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
-                if (states.contains(WidgetState.hovered)) {
-                  return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF1F5F9);
-                }
-                return null;
-              }),
-              columns: [
-                DataColumn(label: Text('Mã HĐ', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Tổng tiền', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Ngày lập', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-              ],
-              rows: _invoices.map((inv) {
-                final isSelected = _selectedInvoice?.invoiceId == inv.invoiceId;
-                return DataRow(
-                  selected: false,
-                  onSelectChanged: (_) => _toggleQuickView(inv),
-                  color: WidgetStateProperty.resolveWith<Color?>((states) {
-                    if (isSelected) {
-                      return isDark
-                          ? AppColors.primary.withValues(alpha: 0.16)
-                          : const Color(0xFFEFF6FF);
-                    }
-                    if (states.contains(WidgetState.hovered)) {
-                      return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
-                    }
-                    if (states.contains(WidgetState.pressed)) {
-                      return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
-                    }
-                    return null;
-                  }),
-                  cells: [
-                    // Mã HĐ (kèm indicator khi chọn, giữ cố định layout không giật chữ)
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 3.5,
-                            height: 18,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          Text(
-                            inv.invoiceCode,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12.5,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Tổng tiền
-                    DataCell(
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            currencyFormat.format(inv.totalAmount),
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: AppColors.primary),
-                          ),
-                          if (inv.voucherDiscountAmount > 0) ...[
-                            const SizedBox(height: 1),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.confirmation_number_outlined, size: 10, color: AppColors.success),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '-${currencyFormat.format(inv.voucherDiscountAmount)}',
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.success),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    // Trạng thái hóa đơn
-                    DataCell(
-                      StatusBadge(
-                        label: inv.statusLabel,
-                        color: inv.statusColor,
-                      ),
-                    ),
-                    // Ngày lập (2 dòng: Ngày ở trên, Giờ ở dưới)
-                    DataCell(
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            dateFormatDate.format(inv.createdAt),
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary),
-                          ),
-                          Text(
-                            DateFormat('HH:mm').format(inv.createdAt),
-                            style: TextStyle(fontSize: 10, color: textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Thao tác in nhanh
-                    DataCell(
-                      IconButton(
-                        tooltip: 'In hóa đơn',
-                        icon: const Icon(Icons.print_outlined, size: 18),
-                        color: textSecondary,
-                        onPressed: () {
-                          AppToast.info(context, 'Đang chuẩn bị lệnh in cho ${inv.invoiceCode}...');
-                        },
-                        splashRadius: 18,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-          // Phân trang
-          AppPagination(
-            currentPage: _currentPage,
-            totalPages: _totalPages,
-            totalItems: _totalItems,
-            itemsPerPage: _pageSize,
-            onPageChanged: (page) {
-              setState(() => _currentPage = page);
-              _loadInvoices();
-            },
-            onItemsPerPageChanged: (newSize) {
-              setState(() {
-                _pageSize = newSize;
-                _currentPage = 1;
-              });
-              _loadInvoices();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  Widget _buildAdvancedFilterPanel(
-    bool isDark,
-    Color cardBg,
-    Color borderColor,
-    Color textPrimary,
-    Color textSecondary,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.7) : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
-        border: Border.all(color: borderColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Panel
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(Icons.tune_rounded, size: 15, color: AppColors.primary),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Bộ lọc',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: textPrimary,
-                    ),
-                  ),
-                  if (_advancedFilterCount > 0) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$_advancedFilterCount điều kiện đang áp dụng',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              InkWell(
-                onTap: () => setState(() => _isAdvancedFilterOpen = false),
-                borderRadius: BorderRadius.circular(4),
-                child: Padding(
-                  padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.close_rounded, size: 18, color: textSecondary),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-          Divider(color: borderColor, height: 1),
-          const SizedBox(height: 14),
-
-          // 2 Cột: Khoảng tiền (Min-Max) & Hình thức thanh toán
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cột 1: Khoảng tiền
-              Expanded(
-                flex: 6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Khoảng tiền hóa đơn (VNĐ)',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 38,
-                            child: TextField(
-                              controller: _minAmountCtrl,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [CurrencyInputFormatter()],
-                              style: TextStyle(fontSize: 12.5, color: textPrimary),
-                              decoration: InputDecoration(
-                                hintText: 'Từ giá ₫',
-                                hintStyle: TextStyle(fontSize: 12, color: textSecondary),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
-                              ),
-                              onChanged: (_) => _onAmountChanged(),
-                              onSubmitted: (_) => _applyCustomAmount(),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Text('—', style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold)),
-                        ),
-                        Expanded(
-                          child: SizedBox(
-                            height: 38,
-                            child: TextField(
-                              controller: _maxAmountCtrl,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [CurrencyInputFormatter()],
-                              style: TextStyle(fontSize: 12.5, color: textPrimary),
-                              decoration: InputDecoration(
-                                hintText: 'Đến giá ₫',
-                                hintStyle: TextStyle(fontSize: 12, color: textSecondary),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
-                                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: borderColor)),
-                              ),
-                              onChanged: (_) => _onAmountChanged(),
-                              onSubmitted: (_) => _applyCustomAmount(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Quick Price Chips
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _buildPriceChip('Tất cả giá', null, null),
-                        _buildPriceChip('< 1 triệu', null, 1000000),
-                        _buildPriceChip('1tr - 5tr', 1000000, 5000000),
-                        _buildPriceChip('5tr - 20tr', 5000000, 20000000),
-                        _buildPriceChip('> 20 triệu', 20000000, null),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 24),
-
-              // Cột 2: Hình thức thanh toán
-              Expanded(
-                flex: 5,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Phương thức thanh toán',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        _buildPaymentChip('Tất cả', 'ALL'),
-                        _buildPaymentChip('COD (Tiền mặt)', 'COD'),
-                        _buildPaymentChip('Cổng VNPay', 'VNPAY'),
-                        _buildPaymentChip('Chuyển khoản NH', 'BANK_TRANSFER'),
-                      ],
-                    ),
-                    if (_selectedDateRange != null) ...[
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          const Icon(Icons.event_available_rounded, size: 14, color: AppColors.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Thời gian: ${dateFormatDate.format(_selectedDateRange!.start)} - ${dateFormatDate.format(_selectedDateRange!.end)}',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary),
-                          ),
-                          const SizedBox(width: 6),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedDateRange = null;
-                                _selectedDatePreset = 'ALL';
-                                _currentPage = 1;
-                              });
-                              _loadInvoices();
-                            },
-                            child: const Icon(Icons.close_rounded, size: 14, color: AppColors.danger),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPriceChip(String label, double? min, double? max) {
-    final isSelected = _minAmount == min && _maxAmount == max;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    return InkWell(
-      onTap: () => _applyPricePreset(min, max),
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9)),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? AppColors.primary : borderColor),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentChip(String label, String value) {
-    final isSelected = _selectedPaymentMethod == value;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedPaymentMethod = value;
-          _currentPage = 1;
-        });
-        _loadInvoices();
-      },
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : (isDark ? AppColors.darkBackground : const Color(0xFFF1F5F9)),
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? AppColors.primary : borderColor),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InvoiceMetricCard extends StatefulWidget {
-  final String title;
-  final String value;
-  final String subtitle;
-  final IconData icon;
-  final Color iconColor;
-  final double width;
-  final bool isDark;
-  final Color cardBg;
-  final Color borderColor;
-  final Color textPrimary;
-  final Color textSecondary;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _InvoiceMetricCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-    required this.icon,
-    required this.iconColor,
-    required this.width,
-    required this.isDark,
-    required this.cardBg,
-    required this.borderColor,
-    required this.textPrimary,
-    required this.textSecondary,
-    this.isSelected = false,
-    required this.onTap,
-  });
-
-  @override
-  State<_InvoiceMetricCard> createState() => _InvoiceMetricCardState();
-}
-
-class _InvoiceMetricCardState extends State<_InvoiceMetricCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: widget.width,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: widget.cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: (widget.isSelected || _isHovered)
-                  ? widget.iconColor.withValues(alpha: widget.isSelected ? 0.9 : 0.55)
-                  : widget.borderColor.withValues(alpha: widget.isDark ? 0.6 : 0.8),
-              width: widget.isSelected ? 1.6 : (_isHovered ? 1.4 : 1.0),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (widget.isSelected || _isHovered)
-                    ? widget.iconColor.withValues(alpha: widget.isSelected ? (widget.isDark ? 0.28 : 0.16) : (widget.isDark ? 0.20 : 0.12))
-                    : (widget.isDark ? Colors.black.withValues(alpha: 0.25) : const Color(0xFF64748B).withValues(alpha: 0.05)),
-                blurRadius: widget.isSelected ? 16 : (_isHovered ? 14 : 7),
-                offset: (widget.isSelected || _isHovered) ? const Offset(0, 4) : const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Stack(
-            clipBehavior: Clip.antiAlias,
-            children: [
-              // Faint decorative watermark icon in bottom-right corner (giống KPI card Tổng quan)
-              Positioned(
-                right: -6,
-                bottom: -8,
-                child: IgnorePointer(
-                  child: Opacity(
-                    opacity: widget.isDark ? 0.06 : 0.045,
-                    child: Icon(
-                      widget.icon,
-                      size: 58,
-                      color: widget.iconColor,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Card Content
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: widget.iconColor.withValues(alpha: widget.isDark ? 0.18 : 0.10),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: widget.iconColor.withValues(alpha: 0.25),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(widget.icon, size: 18, color: widget.iconColor),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                widget.title,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.4,
-                                  color: widget.textSecondary,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            AnimatedOpacity(
-                              duration: const Duration(milliseconds: 150),
-                              opacity: _isHovered ? 0.9 : 0.35,
-                              child: Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                size: 10,
-                                color: _isHovered ? widget.iconColor : widget.textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.value,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: widget.textPrimary,
-                            letterSpacing: -0.5,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 1),
-                        Text(
-                          widget.subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            color: widget.iconColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+        );
   }
 }

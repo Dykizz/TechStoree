@@ -82,13 +82,6 @@ public class PromotionDetailDto : PromotionBaseDto
     public List<PromotionVariantItemDto> Variants { get; set; } = new();
 }
 
-/// <summary>
-/// Alias cho PromotionDetailDto để tương thích ngược
-/// </summary>
-public class PromotionDto : PromotionDetailDto
-{
-}
-
 public class PromotionVariantItemDto
 {
     /// <summary>

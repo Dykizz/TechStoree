@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.Enums;
@@ -46,7 +47,7 @@ public class AuthService(AppDbContext context, ITokenService tokenService) : IAu
 
         newUser.Customer = new Customer
         {
-            DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
+            DateOfBirth = DateTimeHelper.NormalizeToUtc(dto.DateOfBirth),
             TechInterest = dto.TechInterest?.Trim(),
             Address = dto.Address?.Trim()
         };
