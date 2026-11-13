@@ -211,7 +211,7 @@ public class UserService(AppDbContext context) : IUserService
         {
             newUser.Customer = new Customer
             {
-                DateOfBirth = dto.DateOfBirth.HasValue ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc) : null,
+                DateOfBirth = DateTimeHelper.NormalizeToUtc(dto.DateOfBirth),
                 TechInterest = dto.TechInterest?.Trim(),
                 Address = dto.Address?.Trim()
             };
@@ -277,9 +277,7 @@ public class UserService(AppDbContext context) : IUserService
         user.Phone = dto.Phone?.Trim();
 
         user.Customer ??= new Customer();
-        user.Customer.DateOfBirth = dto.DateOfBirth.HasValue
-            ? DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc)
-            : null;
+        user.Customer.DateOfBirth = DateTimeHelper.NormalizeToUtc(dto.DateOfBirth);
         user.Customer.TechInterest = dto.TechInterest?.Trim();
         user.Customer.Address = dto.Address?.Trim();
 
@@ -341,7 +339,7 @@ public class UserService(AppDbContext context) : IUserService
         user.Customer ??= new Customer();
         if (dto.DateOfBirth.HasValue)
         {
-            user.Customer.DateOfBirth = DateTime.SpecifyKind(dto.DateOfBirth.Value, DateTimeKind.Utc);
+            user.Customer.DateOfBirth = DateTimeHelper.NormalizeToUtc(dto.DateOfBirth.Value);
         }
         if (dto.TechInterest != null)
         {
@@ -470,14 +468,18 @@ public class UserService(AppDbContext context) : IUserService
 
     public async Task<DemographicsReportDto> GetDemographicsReportAsync()
     {
-        // 1. Chỉ lấy nhóm khách hàng từ bảng Customers
-        var customers = await context.Customers
+        // 1. Chỉ lấy tài khoản khách hàng thực sự (vai trò USER, không phải nhân viên/quản trị)
+        var customers = await context.Users
             .AsNoTracking()
-            .Select(c => new
+            .Where(u => u.UserRoles.Any(ur => ur.RoleId == UserRoleTypeExtensions.User) &&
+                        u.UserRoles.All(ur => ur.RoleId == UserRoleTypeExtensions.User) &&
+                        u.Employee == null &&
+                        u.Admin == null)
+            .Select(u => new
             {
-                c.CustomerId,
-                c.DateOfBirth,
-                c.TechInterest
+                u.UserId,
+                DateOfBirth = u.Customer != null ? u.Customer.DateOfBirth : null,
+                TechInterest = u.Customer != null ? u.Customer.TechInterest : null
             })
             .ToListAsync();
 
@@ -501,7 +503,10 @@ public class UserService(AppDbContext context) : IUserService
 
             var dob = c.DateOfBirth.Value;
             var age = now.Year - dob.Year;
-            if (now.DayOfYear < dob.DayOfYear) age--;
+            if (now.Month < dob.Month || (now.Month == dob.Month && now.Day < dob.Day))
+            {
+                age--;
+            }
 
             var group = CustomerAgeGroupTypeExtensions.FromAge(age);
             ageCounts[group]++;
@@ -528,22 +533,21 @@ public class UserService(AppDbContext context) : IUserService
             });
         }
 
-        // 3. Thống kê theo phân khúc sở thích công nghệ chuẩn hóa từ TechInterestType Enum
+        // 3. Thống kê theo phân khúc sở thích công nghệ chuẩn hóa từ TechInterestType Enum (tương thích dữ liệu chữ cũ)
         var interestCounts = Enum.GetValues<TechInterestType>()
             .ToDictionary(type => type, _ => 0);
         int notSetCount = 0;
 
         foreach (var c in customers)
         {
-            if (!string.IsNullOrWhiteSpace(c.TechInterest) &&
-                Enum.TryParse<TechInterestType>(c.TechInterest.Trim(), true, out var matchedType))
-            {
-                interestCounts[matchedType]++;
-            }
-            else
+            if (string.IsNullOrWhiteSpace(c.TechInterest))
             {
                 notSetCount++;
+                continue;
             }
+
+            var matchedType = TechInterestTypeExtensions.ParseInterest(c.TechInterest);
+            interestCounts[matchedType ?? TechInterestType.OTHER]++;
         }
 
         var interestGroups = interestCounts
@@ -558,6 +562,7 @@ public class UserService(AppDbContext context) : IUserService
                     Percentage = totalCustomers > 0 ? Math.Round((double)kv.Value / totalCustomers * 100, 1) : 0
                 };
             })
+            .OrderByDescending(i => i.Count)
             .ToList();
 
         if (notSetCount > 0)
