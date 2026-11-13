@@ -1,49 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/models/app_user.dart';
-import '../../core/models/survey.dart';
-import '../../core/providers/auth_provider.dart';
-import '../../core/providers/theme_provider.dart';
-import '../../core/services/api_service.dart';
-import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_dropdown.dart';
-import '../../core/widgets/app_text_field.dart';
-import '../../core/widgets/app_toast.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/tech_interests.dart';
+import '../../../core/models/app_user.dart';
+import '../../../core/models/survey.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/theme_provider.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/utils/app_date_formatter.dart';
+import '../../../core/widgets/app_button.dart';
+import '../../../core/widgets/app_dropdown.dart';
+import '../../../core/widgets/app_text_field.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../survey_helpers.dart';
 
-class SurveyAssignDialog extends StatefulWidget {
+class SurveyAssignCustomersDialog extends StatefulWidget {
   final SurveyAdminList survey;
   final VoidCallback onAssigned;
 
-  const SurveyAssignDialog({
+  const SurveyAssignCustomersDialog({
     super.key,
     required this.survey,
     required this.onAssigned,
   });
 
   @override
-  State<SurveyAssignDialog> createState() => _SurveyAssignDialogState();
+  State<SurveyAssignCustomersDialog> createState() => _SurveyAssignCustomersDialogState();
 }
 
-class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
+class _SurveyAssignCustomersDialogState extends State<SurveyAssignCustomersDialog> {
   SurveyTargetType _targetType = SurveyTargetType.ALL;
-  String _selectedTechInterest = 'Gaming';
+  List<TechInterestOption> _techInterests = TechInterestCatalog.defaults;
+  String _selectedTechInterest = TechInterestCatalog.defaults.first.key;
   final List<int> _selectedUserIds = [];
   List<AppUser> _allCustomers = [];
   bool _isLoadingUsers = false;
+  String? _usersLoadError;
   bool _isSubmitting = false;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
-
-  static const List<String> techInterestOptions = [
-    'Gaming',
-    'Văn phòng & Học tập',
-    'Lập trình & AI',
-    'Âm thanh & Studio',
-    'Smartwatch & Sức khỏe',
-    'Nhiếp ảnh & Quay phim',
-    'SmartHome & Đồ gia dụng',
-  ];
 
   @override
   void initState() {
@@ -59,20 +54,47 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
   }
 
   Future<void> _fetchCustomers() async {
-    setState(() => _isLoadingUsers = true);
+    setState(() {
+      _isLoadingUsers = true;
+      _usersLoadError = null;
+    });
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     try {
-      // Chỉ lấy tài khoản KHÁCH HÀNG (loại trừ tài khoản nhân viên & quản trị)
-      final users = await apiService.getUsers(token: token, isStaffOnly: false);
+      // Lấy toàn bộ khách hàng đang hoạt động qua mọi trang (loại trừ nhân viên/admin & tài khoản bị khóa)
+      final usersFuture = apiService.getAllUsers(
+        token: token,
+        isStaffOnly: false,
+        isLocked: false,
+        throwOnError: true,
+      );
+      final interestsFuture = apiService
+          .getTechInterests(token: token)
+          .catchError((_) => TechInterestCatalog.defaults);
+      final users = await usersFuture;
+      final interests = await interestsFuture;
       if (mounted) {
         setState(() {
           _allCustomers = users.where((u) => !u.isLocked).toList();
+          if (interests.isNotEmpty) {
+            _techInterests = interests;
+            if (!_techInterests.any((t) => t.key == _selectedTechInterest)) {
+              _selectedTechInterest = _techInterests.first.key;
+            }
+          }
           _isLoadingUsers = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingUsers = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _usersLoadError = extractFriendlySurveyError(
+            e,
+            fallback: 'Không thể tải danh sách khách hàng.',
+          );
+          _isLoadingUsers = false;
+        });
+      }
     }
   }
 
@@ -102,7 +124,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
+              color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Icon(Icons.send_rounded, color: AppColors.primary, size: 20),
@@ -129,11 +151,35 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
       ),
       content: SizedBox(
         width: 560,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             const Divider(),
+            if (widget.survey.isUpcoming && widget.survey.startAt != null) ...[
+              Container(
+                margin: const EdgeInsets.only(top: 6, bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.info.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.schedule_rounded, size: 16, color: AppColors.info),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Khảo sát đang hẹn lịch mở từ ${AppDateFormatter.formatDateTime(widget.survey.startAt!)}. Khách hàng được chọn sẽ chỉ nhận và làm bài từ thời điểm này.',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.info),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
 
             Text(
@@ -144,7 +190,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
 
             AppDropdown<SurveyTargetType>(
               value: _targetType,
-              labelText: 'Hình thức nhắm mục tiêu (Target Type)',
+              labelText: 'Hình thức nhắm mục tiêu',
               items: SurveyTargetType.values.map((type) {
                 return DropdownMenuItem(
                   value: type,
@@ -168,12 +214,14 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
               ),
               const SizedBox(height: 6),
               AppDropdown<String>(
-                value: _selectedTechInterest,
+                value: _techInterests.any((t) => t.key == _selectedTechInterest)
+                    ? _selectedTechInterest
+                    : null,
                 labelText: 'Sở thích công nghệ',
-                items: techInterestOptions.map((interest) {
+                items: _techInterests.map((interest) {
                   return DropdownMenuItem(
-                    value: interest,
-                    child: Text(interest, style: const TextStyle(fontSize: 12)),
+                    value: interest.key,
+                    child: Text(interest.displayName, style: const TextStyle(fontSize: 12)),
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -189,11 +237,15 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Chọn khách hàng (${_selectedUserIds.length} đã chọn):',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                  Expanded(
+                    child: Text(
+                      'Chọn khách hàng (${_selectedUserIds.length} đã chọn):',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton(
                         style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
@@ -237,6 +289,36 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
                   padding: EdgeInsets.all(24),
                   child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
                 )
+              else if (_usersLoadError != null)
+                Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.danger.withValues(alpha: 0.35)),
+                    borderRadius: BorderRadius.circular(6),
+                    color: AppColors.danger.withValues(alpha: 0.05),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _usersLoadError!,
+                        style: const TextStyle(fontSize: 12, color: AppColors.danger),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 10),
+                      AppButton(
+                        label: 'Thử lại',
+                        icon: Icons.refresh_rounded,
+                        variant: AppButtonVariant.outline,
+                        onPressed: _fetchCustomers,
+                      ),
+                    ],
+                  ),
+                )
               else if (filteredCustomers.isEmpty)
                 Container(
                   height: 120,
@@ -252,71 +334,74 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
                   ),
                 )
               else
-                Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: borderColor),
+                Material(
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFAFAFA),
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(6),
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFAFAFA),
+                    side: BorderSide(color: borderColor),
                   ),
-                  child: ListView.separated(
-                    itemCount: filteredCustomers.length,
-                    separatorBuilder: (_, __) => Divider(height: 1, color: borderColor.withOpacity(0.5)),
-                    itemBuilder: (context, index) {
-                      final u = filteredCustomers[index];
-                      final int uid = int.tryParse(u.id) ?? 0;
-                      final isAlreadyAssigned = widget.survey.assignedUserIds.contains(uid);
-                      final isChecked = _selectedUserIds.contains(uid);
+                  clipBehavior: Clip.antiAlias,
+                  child: SizedBox(
+                    height: 200,
+                    child: ListView.separated(
+                      itemCount: filteredCustomers.length,
+                      separatorBuilder: (_, _) => Divider(height: 1, color: borderColor.withValues(alpha: 0.5)),
+                      itemBuilder: (context, index) {
+                        final u = filteredCustomers[index];
+                        final int uid = int.tryParse(u.id) ?? 0;
+                        final isAlreadyAssigned = widget.survey.assignedUserIds.contains(uid);
+                        final isChecked = _selectedUserIds.contains(uid);
 
-                      return CheckboxListTile(
-                        dense: true,
-                        value: isChecked,
-                        title: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                u.fullName,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: textPrimary,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            if (isAlreadyAssigned) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
-                                ),
-                                child: const Text(
-                                  'Đã giao bài',
-                                  style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                        return CheckboxListTile(
+                          dense: true,
+                          value: isChecked,
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  u.fullName,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: textPrimary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (isAlreadyAssigned) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.success.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                                  ),
+                                  child: const Text(
+                                    'Đã giao bài',
+                                    style: TextStyle(fontSize: 10, color: AppColors.success, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                        subtitle: Text(
-                          '${u.email} • ID #${u.id}${u.techInterest != null && u.techInterest!.isNotEmpty ? " • Sở thích: ${u.techInterest}" : ""}',
-                          style: TextStyle(fontSize: 11, color: textSecondary),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onChanged: (bool? val) {
-                          setState(() {
-                            if (val == true) {
-                              if (!_selectedUserIds.contains(uid)) _selectedUserIds.add(uid);
-                            } else {
-                              _selectedUserIds.remove(uid);
-                            }
-                          });
-                        },
-                      );
-                    },
+                          ),
+                          subtitle: Text(
+                            '${u.email} • ID #${u.id}${u.techInterest != null && u.techInterest!.trim().isNotEmpty ? " • Sở thích: ${TechInterestCatalog.displayLabel(u.techInterest, options: _techInterests)}" : ""}',
+                            style: TextStyle(fontSize: 11, color: textSecondary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onChanged: (bool? val) {
+                            setState(() {
+                              if (val == true) {
+                                if (!_selectedUserIds.contains(uid)) _selectedUserIds.add(uid);
+                              } else {
+                                _selectedUserIds.remove(uid);
+                              }
+                            });
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ),
             ],
@@ -325,9 +410,9 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.08),
+                  color: AppColors.info.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.info.withOpacity(0.3)),
+                  border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -346,6 +431,7 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
           ],
         ),
       ),
+    ),
       actions: [
         AppButton(
           label: 'Hủy',
@@ -381,9 +467,9 @@ class _SurveyAssignDialogState extends State<SurveyAssignDialog> {
 
     if (mounted) {
       setState(() => _isSubmitting = false);
-      Navigator.pop(context);
-      widget.onAssigned();
       if (res.success) {
+        Navigator.pop(context);
+        widget.onAssigned();
         AppToast.success(context, res.message.isNotEmpty ? res.message : 'Phân phối khảo sát thành công!');
       } else {
         AppToast.error(context, res.message.isNotEmpty ? res.message : 'Phân phối khảo sát thất bại!');

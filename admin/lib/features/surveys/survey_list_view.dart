@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
@@ -8,6 +6,7 @@ import '../../core/models/survey.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
+import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_dropdown.dart';
 import '../../core/widgets/app_toast.dart';
@@ -19,6 +18,8 @@ import '../../core/widgets/filter_bar.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/status_badge.dart';
 import '../../core/widgets/scrollable_table_wrapper.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
+import 'survey_helpers.dart';
 
 class SurveyListView extends StatefulWidget {
   final Function(SurveyAdminList survey) onViewDetail;
@@ -26,6 +27,7 @@ class SurveyListView extends StatefulWidget {
   final Function(SurveyAdminList survey) onAssign;
   final Function(int surveyId) onViewStats;
   final VoidCallback onCreateNew;
+  final int refreshTrigger;
 
   const SurveyListView({
     super.key,
@@ -34,6 +36,7 @@ class SurveyListView extends StatefulWidget {
     required this.onAssign,
     required this.onViewStats,
     required this.onCreateNew,
+    this.refreshTrigger = 0,
   });
 
   @override
@@ -47,6 +50,7 @@ class _SurveyListViewState extends State<SurveyListView> {
   bool? _hasRewardFilter; // null = Tất cả, true = Có thưởng, false = Không thưởng
   int _currentPage = 1;
   int _itemsPerPage = 10;
+  bool _isActionBusy = false;
 
   late Future<SurveyPagedResult> _surveysFuture;
 
@@ -54,6 +58,14 @@ class _SurveyListViewState extends State<SurveyListView> {
   void initState() {
     super.initState();
     _loadSurveys();
+  }
+
+  @override
+  void didUpdateWidget(covariant SurveyListView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshTrigger != oldWidget.refreshTrigger) {
+      setState(_loadSurveys);
+    }
   }
 
   void _loadSurveys() {
@@ -66,6 +78,7 @@ class _SurveyListViewState extends State<SurveyListView> {
       page: _currentPage,
       pageSize: _itemsPerPage,
       token: token,
+      throwOnError: true,
     );
   }
 
@@ -77,19 +90,18 @@ class _SurveyListViewState extends State<SurveyListView> {
 
   @override
   Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context);
+    final apiService = Provider.of<ApiService>(context, listen: false);
     final authProvider = Provider.of<AuthProvider>(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
 
     final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
     final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
 
-    return FutureBuilder<SurveyPagedResult>(
+    return CachedFutureBuilder<SurveyPagedResult>(
       future: _surveysFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
-        }
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final hasData = snapshot.hasData;
 
         final result = snapshot.data ?? SurveyPagedResult(items: [], totalItems: 0, page: 1, pageSize: 10, totalPages: 0);
         final surveys = result.items;
@@ -180,23 +192,47 @@ class _SurveyListViewState extends State<SurveyListView> {
 
               Flexible(
                 fit: FlexFit.loose,
-                child: DataTableContainer(
-                  child: surveys.isEmpty
-                      ? const EmptyState(
-                          icon: Icons.poll_outlined,
-                          title: 'Không tìm thấy bài khảo sát nào',
-                          message: 'Thử thay đổi từ khóa tìm kiếm hoặc các bộ lọc trạng thái mở/tạm dừng.',
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ScrollableTableWrapper(
+                child: SmoothLoadingWrapper(
+                  isLoading: isLoading || _isActionBusy,
+                  hasData: hasData,
+                  blockInteraction: _isActionBusy,
+                  initialMinHeight: 380,
+                  child: DataTableContainer(
+                    child: snapshot.hasError && !hasData
+                        ? EmptyState(
+                            icon: Icons.error_outline_rounded,
+                            title: 'Không thể tải danh sách khảo sát',
+                            message: extractFriendlySurveyError(snapshot.error),
+                            action: AppButton(
+                              label: 'Thử lại',
+                              icon: Icons.refresh_rounded,
+                              onPressed: () => setState(_loadSurveys),
+                            ),
+                          )
+                        : surveys.isEmpty
+                            ? const EmptyState(
+                                icon: Icons.poll_outlined,
+                                title: 'Không tìm thấy bài khảo sát nào',
+                                message: 'Thử thay đổi từ khóa tìm kiếm hoặc các bộ lọc trạng thái mở/tạm dừng.',
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (snapshot.hasError)
+                                    buildSurveyErrorBanner(
+                                      error: snapshot.error,
+                                      onRetry: () => setState(_loadSurveys),
+                                      actionLabel: 'Thử lại',
+                                      fullBorder: false,
+                                      maxLines: 1,
+                                    ),
+                                  ScrollableTableWrapper(
                                 child: DataTable(
                                       showCheckboxColumn: false,
                                       headingRowHeight: 40,
-                                      dataRowMinHeight: 48,
-                                      dataRowMaxHeight: 48,
+                                      dataRowMinHeight: 52,
+                                      dataRowMaxHeight: 56,
                                       columnSpacing: 14,
                                       horizontalMargin: 14,
                                       headingRowColor: WidgetStateProperty.all(
@@ -260,10 +296,13 @@ class _SurveyListViewState extends State<SurveyListView> {
                                               StatusBadge(
                                                 label: s.isExpired
                                                     ? 'HẾT HẠN'
-                                                    : (s.isActive ? 'ĐANG MỞ' : 'TẠM DỪNG'),
-                                                isSuccess: !s.isExpired && s.isActive,
+                                                    : (!s.isActive
+                                                        ? 'TẠM DỪNG'
+                                                        : (s.isUpcoming ? 'CHỜ MỞ' : 'ĐANG MỞ')),
+                                                isSuccess: !s.isExpired && s.isActive && !s.isUpcoming,
                                                 isDanger: s.isExpired,
                                                 isWarning: !s.isExpired && !s.isActive,
+                                                isInfo: s.isUpcoming,
                                               ),
                                             ),
 
@@ -276,48 +315,48 @@ class _SurveyListViewState extends State<SurveyListView> {
                                             // Response Rate & Progress Bar
                                             DataCell(_buildResponseRateCell(s, textPrimary, textSecondary)),
 
-                                            // Created & Expiry At
-                                            DataCell(
-                                              Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    '${s.createdAt.day}/${s.createdAt.month}/${s.createdAt.year}',
-                                                    style: TextStyle(color: textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
-                                                  ),
-                                                  if (s.expiredAt != null)
+                                              // Created & Expiry At
+                                              DataCell(
+                                                Column(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
                                                     Text(
-                                                      'Hạn: ${s.expiredAt!.day}/${s.expiredAt!.month}/${s.expiredAt!.year}',
-                                                      style: TextStyle(
-                                                        color: s.isExpired ? AppColors.danger : AppColors.warning,
-                                                        fontSize: 10,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
+                                                      AppDateFormatter.formatDate(s.createdAt),
+                                                      style: TextStyle(color: textPrimary, fontSize: 11, fontWeight: FontWeight.w600),
                                                     ),
-                                                ],
+                                                    if (s.startAt != null)
+                                                      Text(
+                                                        'Mở: ${AppDateFormatter.formatDateTime(s.startAt!)}',
+                                                        style: TextStyle(
+                                                          color: s.isUpcoming ? AppColors.info : textSecondary,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    if (s.expiredAt != null)
+                                                      Text(
+                                                        'Hạn: ${AppDateFormatter.formatDate(s.expiredAt!)}',
+                                                        style: TextStyle(
+                                                          color: s.isExpired ? AppColors.danger : AppColors.warning,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
                                               ),
-                                            ),
 
-                                            // Compact Actions: [View] [⋯]
-                                            DataCell(
-                                              Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  IconButton(
-                                                    icon: const Icon(Icons.visibility_outlined, size: 16),
-                                                    tooltip: 'Xem chi tiết',
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                    onPressed: () => widget.onViewDetail(s),
-                                                  ),
-                                                  PopupMenuButton<String>(
-                                                    icon: const Icon(Icons.more_vert_rounded, size: 16),
-                                                    tooltip: 'Thao tác khác',
-                                                    padding: EdgeInsets.zero,
-                                                    constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                    onSelected: (val) => _handleRowAction(val, s, apiService, authProvider.token),
-                                                    itemBuilder: (ctx) => [
+                                              // Compact Actions: [⋯] (nhấn trực tiếp vào dòng để xem chi tiết)
+                                              DataCell(
+                                                PopupMenuButton<String>(
+                                                  icon: const Icon(Icons.more_vert_rounded, size: 16),
+                                                  tooltip: 'Thao tác',
+                                                  enabled: !_isActionBusy,
+                                                  padding: EdgeInsets.zero,
+                                                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                                  onSelected: (val) => _handleRowAction(val, s, apiService, authProvider.token),
+                                                  itemBuilder: (ctx) => [
                                                       if (authProvider.can('Surveys.Update'))
                                                         const PopupMenuItem(
                                                           value: 'EDIT',
@@ -399,9 +438,7 @@ class _SurveyListViewState extends State<SurveyListView> {
                                                         ),
                                                     ],
                                                   ),
-                                                ],
                                               ),
-                                            ),
                                           ],
                                         );
                                       }).toList(),
@@ -432,6 +469,7 @@ class _SurveyListViewState extends State<SurveyListView> {
                         ),
                       ),
               ),
+              ),
             ],
           ),
         );
@@ -446,9 +484,9 @@ class _SurveyListViewState extends State<SurveyListView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.1),
+        color: AppColors.success.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.success.withOpacity(0.3), width: 0.8),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3), width: 0.8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -486,7 +524,7 @@ class _SurveyListViewState extends State<SurveyListView> {
             child: LinearProgressIndicator(
               value: rate / 100,
               minHeight: 4,
-              backgroundColor: Colors.grey.withOpacity(0.2),
+              backgroundColor: Colors.grey.withValues(alpha: 0.2),
               valueColor: AlwaysStoppedAnimation<Color>(
                 rate >= 75 ? AppColors.success : (rate >= 40 ? AppColors.primary : AppColors.warning),
               ),
@@ -498,80 +536,15 @@ class _SurveyListViewState extends State<SurveyListView> {
   }
 
   Future<void> _handleRowAction(String action, SurveyAdminList s, ApiService apiService, String? token) async {
+    if (_isActionBusy) return;
+
     switch (action) {
-      case 'EDIT':
-        final detail = await apiService.getSurveyById(s.surveyId, token: token);
-        if (detail != null) {
-          widget.onEdit(detail);
-        }
-        break;
       case 'ASSIGN':
         widget.onAssign(s);
-        break;
+        return;
       case 'STATS':
         widget.onViewStats(s.surveyId);
-        break;
-      case 'EXPORT':
-        final (bytes, filename) = await apiService.exportSurveyCsv(s.surveyId, token: token);
-        if (bytes != null && bytes.isNotEmpty) {
-          String? targetPath;
-          try {
-            final savedUri = await FilePicker.saveFile(
-              dialogTitle: 'Chọn nơi lưu báo cáo khảo sát CSV',
-              fileName: filename,
-              bytes: bytes,
-              type: FileType.custom,
-              allowedExtensions: ['csv'],
-            );
-            if (savedUri != null) {
-              final file = File.fromUri(savedUri);
-              if (!await file.exists() || await file.length() == 0) {
-                await file.writeAsBytes(bytes);
-              }
-              targetPath = file.path;
-            }
-          } catch (pickerErr) {
-            debugPrint('FilePicker error: $pickerErr');
-          }
-
-          if (targetPath == null) {
-            final userProfile = Platform.environment['USERPROFILE'] ?? 'C:\\Users\\Public';
-            final downloadsDir = Directory('$userProfile\\Downloads');
-            final saveDir = await downloadsDir.exists() ? downloadsDir.path : userProfile;
-            final fallbackFile = File('$saveDir\\$filename');
-            await fallbackFile.writeAsBytes(bytes);
-            targetPath = fallbackFile.path;
-          }
-
-          if (!mounted) return;
-          AppToast.success(context, 'Đã xuất file báo cáo thành công: $filename (lưu tại $targetPath)');
-        } else {
-          if (!mounted) return;
-          AppToast.error(context, 'Không thể tải báo cáo khảo sát.');
-        }
-        break;
-      case 'CLONE':
-        final res = await apiService.cloneSurvey(s.surveyId, token: token);
-        if (mounted) {
-          _loadSurveys();
-          if (res.success) {
-            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
-          } else {
-            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
-          }
-        }
-        break;
-      case 'TOGGLE':
-        final res = await apiService.toggleSurveyActive(s.surveyId, token: token);
-        if (mounted) {
-          _loadSurveys();
-          if (res) {
-            AppToast.success(context, 'Đã đổi trạng thái khảo sát!');
-          } else {
-            AppToast.error(context, 'Đổi trạng thái thất bại!');
-          }
-        }
-        break;
+        return;
       case 'DELETE':
         if (s.hasResponses) {
           AppToast.warning(context, 'Không thể xóa khảo sát đã có phản hồi!');
@@ -592,18 +565,84 @@ class _SurveyListViewState extends State<SurveyListView> {
             ],
           ),
         );
-        if (confirm == true) {
+        if (confirm != true || !mounted) return;
+        setState(() => _isActionBusy = true);
+        try {
           final res = await apiService.deleteSurvey(s.surveyId, token: token);
-          if (mounted) {
-            _loadSurveys();
-            if (res.success) {
-              AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
-            } else {
-              AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
-            }
+          if (!mounted) return;
+          setState(_loadSurveys);
+          if (res.success) {
+            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thành công!');
+          } else {
+            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa khảo sát thất bại!');
           }
+        } finally {
+          if (mounted) setState(() => _isActionBusy = false);
         }
-        break;
+        return;
+      case 'EDIT':
+        setState(() => _isActionBusy = true);
+        try {
+          final detail = await apiService.getSurveyById(s.surveyId, token: token);
+          if (!mounted) return;
+          if (detail != null) {
+            widget.onEdit(detail);
+          } else {
+            final errMsg = apiService.lastErrorMessage.isNotEmpty
+                ? apiService.lastErrorMessage
+                : 'Không thể tải chi tiết bài khảo sát để chỉnh sửa.';
+            AppToast.error(context, errMsg);
+          }
+        } finally {
+          if (mounted) setState(() => _isActionBusy = false);
+        }
+        return;
+      case 'EXPORT':
+        setState(() => _isActionBusy = true);
+        try {
+          await exportSurveyCsvReport(
+            context: context,
+            surveyId: s.surveyId,
+            apiService: apiService,
+            token: token,
+          );
+        } finally {
+          if (mounted) setState(() => _isActionBusy = false);
+        }
+        return;
+      case 'CLONE':
+        setState(() => _isActionBusy = true);
+        try {
+          final res = await apiService.cloneSurvey(s.surveyId, token: token);
+          if (!mounted) return;
+          setState(_loadSurveys);
+          if (res.success) {
+            AppToast.success(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thành công!');
+          } else {
+            AppToast.error(context, res.message.isNotEmpty ? res.message : 'Nhân bản khảo sát thất bại!');
+          }
+        } finally {
+          if (mounted) setState(() => _isActionBusy = false);
+        }
+        return;
+      case 'TOGGLE':
+        setState(() => _isActionBusy = true);
+        try {
+          final res = await apiService.toggleSurveyActive(s.surveyId, token: token);
+          if (!mounted) return;
+          if (res) {
+            setState(_loadSurveys);
+            AppToast.success(context, 'Đã đổi trạng thái khảo sát!');
+          } else {
+            final errMsg = apiService.lastErrorMessage.isNotEmpty
+                ? apiService.lastErrorMessage
+                : 'Đổi trạng thái thất bại!';
+            AppToast.error(context, errMsg);
+          }
+        } finally {
+          if (mounted) setState(() => _isActionBusy = false);
+        }
+        return;
     }
   }
 }
