@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Primary Accent (Enterprise Muted Blue / Slate accent)
   static const Color primary = Color(0xFF2563EB); 
-  static const Color primaryHover = Color(0xFF1D4ED8); 
   static const Color primaryLight = Color(0xFFF1F5F9); 
 
   // Muted Semantic Status Colors with 1px border tints
@@ -43,17 +42,6 @@ class AppColors {
   static const Color chartRevenue = Color(0xFF2563EB); // Enterprise Royal Blue
   static const Color chartCost = Color(0xFFF97316);    // Enterprise Warm Orange
 
-  // Backward compatibility
+  // Secondary neutral accent
   static const Color secondary = Color(0xFF475569);
-  static const Color accent = Color(0xFF2563EB);
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-  static const LinearGradient successGradient = LinearGradient(
-    colors: [Color(0xFF15803D), Color(0xFF166534)],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
 }

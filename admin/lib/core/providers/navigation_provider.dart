@@ -14,13 +14,6 @@ class NavigationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setSidebarCollapsed(bool value) {
-    if (_isSidebarCollapsed != value) {
-      _isSidebarCollapsed = value;
-      notifyListeners();
-    }
-  }
-
   void setIndex(int index) {
     if (_currentIndex != index) {
       _currentIndex = index;

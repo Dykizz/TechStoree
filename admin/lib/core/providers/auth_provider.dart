@@ -76,15 +76,6 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin =>
       _userRoles.any((r) => r.trim().toUpperCase() == 'ADMIN') ||
       _userRole.trim().toUpperCase() == 'ADMIN';
-  bool get isSalesStaff =>
-      _userRoles.any((r) => r.trim().toUpperCase() == 'SALES_STAFF') ||
-      _userRole.trim().toUpperCase() == 'SALES_STAFF';
-  bool get isWarehouseStaff =>
-      _userRoles.any((r) => r.trim().toUpperCase() == 'WAREHOUSE_STAFF') ||
-      _userRole.trim().toUpperCase() == 'WAREHOUSE_STAFF';
-  bool get isSurveyStaff =>
-      _userRoles.any((r) => r.trim().toUpperCase() == 'SURVEY_STAFF') ||
-      _userRole.trim().toUpperCase() == 'SURVEY_STAFF';
 
   /// Xóa thông báo lỗi khi người dùng chỉnh sửa lại form đăng nhập
   void clearError() {
