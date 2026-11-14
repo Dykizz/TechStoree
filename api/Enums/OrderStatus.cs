@@ -4,8 +4,8 @@ namespace WebBanHang.Api.Enums;
 
 /// <summary>
 /// Trạng thái tiến trình của đơn đặt hàng:
-/// PENDING (Chờ xác nhận), CONFIRMED (Đã xác nhận), SHIPPING (Đang vận chuyển), 
-/// DELIVERED (Đã giao hàng thành công), CANCELLED (Đã hủy đơn)
+/// PENDING (Chờ xử lý), CONFIRMED (Đã xác nhận), SHIPPING (Đang vận chuyển), 
+/// DELIVERED (Đã giao hàng), CANCELLED (Đã hủy), RETURNED (Hoàn hàng)
 /// </summary>
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum OrderStatus

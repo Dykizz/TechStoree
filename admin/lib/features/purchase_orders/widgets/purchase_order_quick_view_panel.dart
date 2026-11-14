@@ -6,7 +6,7 @@ import '../../../core/constants/app_tokens.dart';
 import '../../../core/models/purchase_order.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/widgets/app_button.dart';
-import '../../../core/widgets/status_badge.dart';
+import 'purchase_order_status_badge.dart';
 
 /// Khung xem nhanh thông tin phiếu nhập hàng (Purchase Order Quick View Panel)
 /// Chuẩn thiết kế Adaptive Master-Detail Panel
@@ -14,34 +14,23 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
   final PurchaseOrder purchaseOrder;
   final List<PurchaseOrderItem> items;
   final bool isLoadingItems;
+  final String? itemsError;
+  final VoidCallback? onRetryItems;
   final VoidCallback onClose;
   final VoidCallback onViewFullDetail;
   final VoidCallback? onEdit;
-  final VoidCallback? onComplete;
-  final VoidCallback? onCancel;
 
   const PurchaseOrderQuickViewPanel({
     super.key,
     required this.purchaseOrder,
     required this.items,
     this.isLoadingItems = false,
+    this.itemsError,
+    this.onRetryItems,
     required this.onClose,
     required this.onViewFullDetail,
     this.onEdit,
-    this.onComplete,
-    this.onCancel,
   });
-
-  Widget _renderStatusBadge(String status) {
-    final s = status.toUpperCase();
-    if (s == 'COMPLETE' || s == 'COMPLETED') {
-      return const StatusBadge(label: 'COMPLETE', isSuccess: true);
-    } else if (s == 'CANCLE' || s == 'CANCELLED') {
-      return const StatusBadge(label: 'CANCLE', isDanger: true);
-    } else {
-      return const StatusBadge(label: 'DRAFT', isWarning: true);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +45,6 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
     final subCardBg = isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
 
     final displayItems = items.isNotEmpty ? items : purchaseOrder.items;
-    final totalQuantity = displayItems.fold<int>(0, (sum, i) => sum + i.quantity);
 
     return Container(
       decoration: BoxDecoration(
@@ -72,11 +60,12 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Header Panel
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+            padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: borderColor, width: 1)),
               color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9).withValues(alpha: 0.6),
@@ -112,7 +101,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          _renderStatusBadge(purchaseOrder.status),
+                          PurchaseOrderStatusBadge(status: purchaseOrder.status),
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -139,30 +128,33 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
             ),
           ),
 
-          // 2. Scrollable Body Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          // 2. Scrollable Body Content (co gọn theo nội dung khi ít hàng, tự cuộn khi vượt maxHeight)
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(14),
+              children: [
                   // --- SECTION: DANH SÁCH MẶT HÀNG NHẬP ---
                   Row(
                     children: [
                       const Icon(Icons.format_list_bulleted_rounded, size: 14, color: AppColors.primary),
                       const SizedBox(width: 6),
-                      Text(
-                        'MẶT HÀNG NHẬP (${displayItems.length})',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
-                          letterSpacing: 0.5,
+                      Expanded(
+                        child: Text(
+                          'MẶT HÀNG NHẬP (${displayItems.length})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   if (isLoadingItems)
                     Container(
@@ -186,6 +178,47 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                             'Đang tải chi tiết mặt hàng...',
                             style: TextStyle(fontSize: 11.5, color: AppColors.primary),
                           ),
+                        ],
+                      ),
+                    )
+                  else if (itemsError != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: subCardBg,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: AppColors.danger.withValues(alpha: 0.35),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            size: 20,
+                            color: AppColors.danger,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            itemsError!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                          if (onRetryItems != null) ...[
+                            const SizedBox(height: 8),
+                            AppButton(
+                              label: 'Thử lại',
+                              icon: Icons.refresh_rounded,
+                              variant: AppButtonVariant.secondary,
+                              onPressed: onRetryItems,
+                            ),
+                          ],
                         ],
                       ),
                     )
@@ -218,20 +251,20 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final item = displayItems[index];
                           return Padding(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Icon linh kiện/thiết bị
                                 Container(
-                                  width: 36,
-                                  height: 36,
+                                  width: 34,
+                                  height: 34,
                                   decoration: BoxDecoration(
                                     color: isDark ? const Color(0xFF0F172A) : Colors.white,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: borderColor, width: 0.8),
                                   ),
-                                  child: const Icon(Icons.devices_other_rounded, size: 18, color: AppColors.primary),
+                                  child: const Icon(Icons.devices_other_rounded, size: 17, color: AppColors.primary),
                                 ),
                                 const SizedBox(width: 10),
 
@@ -282,11 +315,11 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                       ),
                     ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // --- SECTION: TỔNG KẾT TÀI CHÍNH NHẬP HÀNG ---
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: subCardBg,
                       borderRadius: BorderRadius.circular(6),
@@ -296,22 +329,25 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                       children: [
                         _buildSummaryLine('Số dòng sản phẩm', '${displayItems.length} mặt hàng', textSecondary, textPrimary),
                         const SizedBox(height: 6),
-                        _buildSummaryLine('Tổng số lượng nhập', '$totalQuantity chiếc/cái', textSecondary, textPrimary),
-                        const SizedBox(height: 8),
                         Divider(height: 1, color: borderColor),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'TỔNG CHI PHÍ NHẬP',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary,
-                                letterSpacing: 0.3,
+                            Expanded(
+                              child: Text(
+                                'TỔNG CHI PHÍ NHẬP',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               currencyFormat.format(purchaseOrder.totalCost),
                               style: const TextStyle(
@@ -326,28 +362,32 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // --- SECTION: NHÀ CUNG CẤP & THÔNG TIN LẬP PHIẾU ---
                   Row(
                     children: [
                       const Icon(Icons.business_outlined, size: 14, color: AppColors.primary),
                       const SizedBox(width: 6),
-                      Text(
-                        'THÔNG TIN ĐỐI TÁC & LẬP PHIẾU',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: textPrimary,
-                          letterSpacing: 0.5,
+                      Expanded(
+                        child: Text(
+                          'THÔNG TIN ĐỐI TÁC & LẬP PHIẾU',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                            color: textPrimary,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: subCardBg,
                       borderRadius: BorderRadius.circular(6),
@@ -362,7 +402,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         _buildInfoRow(
                           icon: Icons.person_outline_rounded,
                           label: 'Người lập phiếu',
@@ -370,7 +410,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                           textPrimary: textPrimary,
                           textSecondary: textSecondary,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         _buildInfoRow(
                           icon: Icons.calendar_today_outlined,
                           label: 'Ngày tạo phiếu',
@@ -379,7 +419,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                           textSecondary: textSecondary,
                         ),
                         if (purchaseOrder.approvedByName != null && purchaseOrder.approvedByName!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildInfoRow(
                             icon: Icons.verified_user_outlined,
                             label: 'Người phê duyệt',
@@ -389,7 +429,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                           ),
                         ],
                         if (purchaseOrder.receivedByName != null && purchaseOrder.receivedByName!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildInfoRow(
                             icon: Icons.assignment_turned_in_outlined,
                             label: 'Người nhận hàng',
@@ -399,7 +439,7 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                           ),
                         ],
                         if (purchaseOrder.note.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildInfoRow(
                             icon: Icons.notes_rounded,
                             label: 'Ghi chú',
@@ -414,11 +454,10 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
                 ],
               ),
             ),
-          ),
 
           // 3. Footer Action Buttons
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: borderColor, width: 1)),
               color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9).withValues(alpha: 0.6),
@@ -454,10 +493,15 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 11.5, color: labelColor, fontWeight: FontWeight.w400),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11.5, color: labelColor, fontWeight: FontWeight.w400),
+          ),
         ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: TextStyle(fontSize: 12, color: valueColor, fontWeight: FontWeight.w600),
@@ -495,6 +539,78 @@ class PurchaseOrderQuickViewPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Khung giữ chỗ bên phải khi người dùng chưa chọn phiếu nhập nào để xem nhanh
+class PurchaseOrderQuickViewPlaceholder extends StatelessWidget {
+  const PurchaseOrderQuickViewPlaceholder({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final borderColor =
+        isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
+    final textSecondary =
+        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(-2, 4),
+          ),
+        ],
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : AppColors.primary)
+                      .withValues(alpha: 0.06),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 38,
+                  color: textSecondary.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Chưa chọn phiếu nhập',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Nhấp vào một phiếu nhập trong danh sách\nđể xem nhanh chi tiết tại đây',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  height: 1.45,
+                  color: textSecondary.withValues(alpha: 0.65),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

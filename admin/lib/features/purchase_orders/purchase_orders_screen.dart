@@ -1,30 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
 import '../../core/models/purchase_order.dart';
 import '../../core/models/supplier.dart';
 import '../../core/providers/auth_provider.dart';
-import '../../core/providers/theme_provider.dart';
 import '../../core/services/api_service.dart';
-import '../../core/utils/app_date_formatter.dart';
 import '../../core/widgets/app_button.dart';
-import '../../core/widgets/app_dropdown.dart';
-import '../../core/widgets/app_pagination.dart';
-import '../../core/widgets/app_search_field.dart';
-import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
-import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../../core/widgets/empty_state.dart';
-import '../../core/widgets/filter_bar.dart';
+import '../../core/widgets/master_detail_quick_view_layout.dart';
 import '../../core/widgets/page_header.dart';
-import '../../core/widgets/scrollable_table_wrapper.dart';
-import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/smooth_loading_wrapper.dart';
+import 'dialog/purchase_order_detail_dialog.dart';
+import 'dialog/purchase_order_form_dialog.dart';
+import 'widgets/purchase_order_data_table.dart';
+import 'widgets/purchase_order_filter_bar.dart';
 import 'widgets/purchase_order_quick_view_panel.dart';
 
+/// Màn hình chính quản lý phiếu nhập hàng: bộ lọc, bảng dữ liệu, panel xem nhanh và các thao tác tạo/sửa/duyệt phiếu.
 class PurchaseOrdersScreen extends StatefulWidget {
   const PurchaseOrdersScreen({super.key});
 
@@ -33,7 +29,6 @@ class PurchaseOrdersScreen extends StatefulWidget {
 }
 
 class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
-  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
   final TextEditingController _searchCtrl = TextEditingController();
 
   String _searchQuery = '';
@@ -44,538 +39,227 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
 
   PurchaseOrder? _selectedPo;
   bool _isLoadingPoItems = false;
+  String? _quickViewError;
+  int _quickViewRequestId = 0;
+  bool _isActionBusy = false;
   final Map<int, List<PurchaseOrderItem>> _poItemsCache = {};
 
-  late Future<List<PurchaseOrder>> _ordersFuture;
+  late Future<PurchaseOrderPagedResult> _ordersFuture;
   late Future<List<Supplier>> _suppliersFuture;
+  Object? _ordersError;
+  int _ordersRequestId = 0;
 
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleKeyEvent);
     _loadData();
   }
 
-  void _loadData() {
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _ordersFuture = apiService.getPurchaseOrders(token: token);
-    _suppliersFuture = apiService.getSuppliers(token: token);
-    _selectedPo = null;
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKeyEvent);
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
-  Future<void> _toggleQuickView(PurchaseOrder po, ApiService apiService, String? token) async {
-    if (_selectedPo?.purchaseOrderId == po.purchaseOrderId) {
+  bool _handleKeyEvent(KeyEvent event) {
+    if (!mounted) return false;
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        (_selectedPo != null || _isLoadingPoItems || _quickViewError != null) &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
+      _closeQuickView();
+      return true;
+    }
+    return false;
+  }
+
+  void _clearQuickViewState() {
+    _quickViewRequestId++;
+    _selectedPo = null;
+    _isLoadingPoItems = false;
+    _quickViewError = null;
+  }
+
+  void _loadData({bool reloadSuppliers = true}) {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    final reqId = ++_ordersRequestId;
+    _ordersError = null;
+    _ordersFuture = _fetchOrders(
+      reqId,
+      apiService.getPurchaseOrdersPaged(
+        page: _currentPage,
+        pageSize: _itemsPerPage,
+        status: _selectedStatus,
+        supplierId: _selectedSupplierId,
+        search: _searchQuery,
+        token: token,
+        throwOnError: true,
+      ),
+    )..ignore();
+    if (reloadSuppliers) {
+      _suppliersFuture = apiService.getSuppliers(token: token);
+    }
+    _clearQuickViewState();
+  }
+
+  Future<PurchaseOrderPagedResult> _fetchOrders(
+    int reqId,
+    Future<PurchaseOrderPagedResult> request,
+  ) async {
+    try {
+      final result = await request;
+      if (mounted && _ordersRequestId == reqId) {
+        if (result.items.isEmpty &&
+            result.totalPages > 0 &&
+            _currentPage > result.totalPages) {
+          // Trang hiện tại vừa rỗng do xóa/duyệt phần tử cuối -> tự động lùi về trang cuối hợp lệ.
+          setState(() {
+            _currentPage = result.totalPages;
+            _loadData(reloadSuppliers: false);
+          });
+          return result;
+        }
+        if (_ordersError != null) {
+          setState(() => _ordersError = null);
+        }
+      }
+      return result;
+    } catch (e) {
+      if (mounted && _ordersRequestId == reqId) {
+        setState(() => _ordersError = e);
+      }
+      rethrow;
+    }
+  }
+
+  String _extractFriendlyError(Object? error) {
+    if (error == null) return 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.';
+    var msg = error.toString().trim();
+    const prefix = 'Exception:';
+    if (msg.startsWith(prefix)) {
+      msg = msg.substring(prefix.length).trim();
+    }
+    return msg.isNotEmpty
+        ? msg
+        : 'Đã xảy ra lỗi khi tải dữ liệu. Vui lòng thử lại.';
+  }
+
+  Future<void> _fetchQuickViewItems(
+    PurchaseOrder po,
+    ApiService apiService,
+    String? token,
+  ) async {
+    final reqId = ++_quickViewRequestId;
+    setState(() {
+      _isLoadingPoItems = true;
+      _quickViewError = null;
+    });
+
+    try {
+      final fullPo = await apiService.getPurchaseOrderById(
+        po.purchaseOrderId,
+        token: token,
+      );
+      if (!mounted || reqId != _quickViewRequestId) return;
+
+      if (fullPo == null) {
+        setState(() {
+          _isLoadingPoItems = false;
+          _quickViewError = 'Không thể tải chi tiết mặt hàng. Vui lòng thử lại.';
+        });
+        return;
+      }
+
       setState(() {
-        _selectedPo = null;
+        _poItemsCache[po.purchaseOrderId] = fullPo.items;
+        _selectedPo = fullPo;
+        _isLoadingPoItems = false;
+        _quickViewError = null;
+      });
+    } catch (_) {
+      if (!mounted || reqId != _quickViewRequestId) return;
+      setState(() {
+        _isLoadingPoItems = false;
+        _quickViewError = 'Lỗi kết nối khi tải chi tiết mặt hàng.';
+      });
+    }
+  }
+
+  Future<void> _toggleQuickView(
+    PurchaseOrder po,
+    ApiService apiService,
+    String? token,
+  ) async {
+    if (_selectedPo?.purchaseOrderId == po.purchaseOrderId) {
+      _closeQuickView();
+      return;
+    }
+
+    if (_poItemsCache.containsKey(po.purchaseOrderId)) {
+      _quickViewRequestId++;
+      setState(() {
+        _selectedPo = po;
+        _isLoadingPoItems = false;
+        _quickViewError = null;
       });
       return;
     }
 
     setState(() {
       _selectedPo = po;
+      _quickViewError = null;
     });
-
-    if (!_poItemsCache.containsKey(po.purchaseOrderId)) {
-      setState(() {
-        _isLoadingPoItems = true;
-      });
-      try {
-        final fullPo = await apiService.getPurchaseOrderById(po.purchaseOrderId, token: token);
-        if (mounted && fullPo != null) {
-          _poItemsCache[po.purchaseOrderId] = fullPo.items;
-        }
-      } catch (_) {
-        // Fallback or ignore
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoadingPoItems = false;
-          });
-        }
-      }
-    }
+    await _fetchQuickViewItems(po, apiService, token);
   }
 
   void _closeQuickView() {
-    if (_selectedPo != null) {
-      setState(() => _selectedPo = null);
+    if (_selectedPo != null || _isLoadingPoItems || _quickViewError != null) {
+      setState(_clearQuickViewState);
     }
   }
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
-  }
+  void _confirmStatusChange(
+    BuildContext context,
+    ApiService apiService,
+    String? token,
+    PurchaseOrder po,
+    String targetStatus,
+  ) {
+    if (_isActionBusy) return;
 
-  @override
-  Widget build(BuildContext context) {
-    final apiService = Provider.of<ApiService>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context);
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-
-    return CachedFutureBuilder<List<Supplier>>(
-      future: _suppliersFuture,
-      builder: (context, supplierSnap) {
-        final suppliers = supplierSnap.data ?? [];
-
-        return CachedFutureBuilder<List<PurchaseOrder>>(
-          future: _ordersFuture,
-          builder: (context, snapshot) {
-            final isLoading = snapshot.connectionState == ConnectionState.waiting;
-            final hasData = snapshot.hasData;
-
-            var orders = snapshot.data ?? [];
-
-            // Filters
-            if (_searchQuery.isNotEmpty) {
-              orders = orders.where((o) =>
-                o.poCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                o.supplierName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                o.createdByName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                o.note.toLowerCase().contains(_searchQuery.toLowerCase())
-              ).toList();
-            }
-
-            if (_selectedStatus != 'Tất cả') {
-              orders = orders.where((o) => o.status.toUpperCase() == _selectedStatus.toUpperCase()).toList();
-            }
-
-            if (_selectedSupplierId > 0) {
-              orders = orders.where((o) => o.supplierId == _selectedSupplierId).toList();
-            }
-
-            final totalItems = orders.length;
-            final totalPages = (totalItems / _itemsPerPage).ceil();
-            final safePage = totalPages > 0 ? _currentPage.clamp(1, totalPages) : 1;
-            final startIndex = (safePage - 1) * _itemsPerPage;
-            final endIndex = (startIndex + _itemsPerPage).clamp(0, totalItems);
-            final paginatedOrders = orders.sublist(startIndex, endIndex);
-
-            return CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.escape): _closeQuickView,
-              },
-              child: Focus(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AppTokens.space16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      PageHeader(
-                        title: 'Quản lý phiếu nhập hàng',
-                        subtitle: 'Theo dõi đợt nhập hàng từ nhà cung cấp theo từng biến thể sản phẩm',
-                        action: authProvider.can('PurchaseOrders.Create')
-                            ? AppButton(
-                                label: 'Tạo phiếu nhập hàng mới',
-                                icon: Icons.add_rounded,
-                                variant: AppButtonVariant.primary,
-                                onPressed: () => _showCreateOrEditDialog(context, apiService, authProvider.token, suppliers: suppliers),
-                              )
-                            : null,
-                      ),
-
-                      // Filter Controls
-                      FilterBar(
-                        searchField: AppSearchField<PurchaseOrder>(
-                          controller: _searchCtrl,
-                          hintText: 'Tìm kiếm mã PO, nhà cung cấp, người tạo...',
-                          items: orders,
-                          searchFilter: (po, q) => po.poCode.toLowerCase().contains(q.toLowerCase()) ||
-                              po.supplierName.toLowerCase().contains(q.toLowerCase()) ||
-                              po.note.toLowerCase().contains(q.toLowerCase()),
-                          itemLabel: (po) => '${po.poCode} - ${po.supplierName}',
-                          itemSubtitle: (po) => '${currencyFormat.format(po.totalCost)} • ${po.status}',
-                          onSelected: (po) => setState(() {
-                            _searchQuery = po.poCode;
-                            _selectedPo = null;
-                            _currentPage = 1;
-                          }),
-                          onSubmitted: (val) => setState(() {
-                            _searchQuery = val;
-                            _selectedPo = null;
-                            _currentPage = 1;
-                          }),
-                          onCleared: () => setState(() {
-                            _searchQuery = '';
-                            _selectedPo = null;
-                            _currentPage = 1;
-                          }),
-                        ),
-                        filters: [
-                          AppDropdown<int>(
-                            value: _selectedSupplierId,
-                            items: [
-                              const DropdownMenuItem(value: 0, child: Text('Tất cả nhà cung cấp')),
-                              ...suppliers.map((s) {
-                                final sId = int.tryParse(s.id) ?? 0;
-                                final label = !s.isActive ? '${s.name} [Ngừng HT]' : s.name;
-                                return DropdownMenuItem(value: sId, child: Text(label, overflow: TextOverflow.ellipsis));
-                              }),
-                            ],
-                            onChanged: (val) => setState(() {
-                              _selectedSupplierId = val ?? 0;
-                              _selectedPo = null;
-                              _currentPage = 1;
-                            }),
-                          ),
-                          AppDropdown<String>(
-                            value: _selectedStatus,
-                            items: const [
-                              DropdownMenuItem(value: 'Tất cả', child: Text('Tất cả trạng thái')),
-                              DropdownMenuItem(value: 'DRAFT', child: Text('DRAFT (Bản nháp)')),
-                              DropdownMenuItem(value: 'COMPLETE', child: Text('COMPLETE (Đã hoàn thành)')),
-                              DropdownMenuItem(value: 'CANCLE', child: Text('CANCLE (Đã hủy)')),
-                            ],
-                            onChanged: (val) => setState(() {
-                              _selectedStatus = val ?? 'Tất cả';
-                              _selectedPo = null;
-                              _currentPage = 1;
-                            }),
-                          ),
-                        ],
-                      ),
-
-                      // Adaptive Split Layout
-                      SmoothLoadingWrapper(
-                        isLoading: isLoading,
-                        hasData: hasData,
-                        initialMinHeight: 380,
-                        child: orders.isEmpty
-                            ? const DataTableContainer(
-                                child: EmptyState(
-                                  title: 'Chưa có phiếu nhập hàng nào',
-                                  message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
-                                  icon: Icons.inventory_2_outlined,
-                                ),
-                              )
-                            : LayoutBuilder(
-                              builder: (context, constraints) {
-                                final table = _buildPurchaseOrdersTable(
-                                  paginatedOrders: paginatedOrders,
-                                  totalItems: totalItems,
-                                  safePage: safePage,
-                                  totalPages: totalPages,
-                                  isDark: isDark,
-                                  textPrimary: textPrimary,
-                                  textSecondary: textSecondary,
-                                  apiService: apiService,
-                                  authProvider: authProvider,
-                                  suppliers: suppliers,
-                                );
-
-                                if (_selectedPo == null) {
-                                  return table;
-                                }
-
-                                final isCompact = constraints.maxWidth < 680;
-                                final panelWidth = constraints.maxWidth > 1400
-                                    ? 430.0
-                                    : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
-
-                                final currentItems = _poItemsCache[_selectedPo!.purchaseOrderId] ?? _selectedPo!.items;
-
-                                final quickView = PurchaseOrderQuickViewPanel(
-                                  purchaseOrder: _selectedPo!,
-                                  items: currentItems,
-                                  isLoadingItems: _isLoadingPoItems,
-                                  onClose: _closeQuickView,
-                                  onViewFullDetail: () => _showDetailDialog(
-                                    context,
-                                    apiService,
-                                    authProvider.token,
-                                    _selectedPo!.purchaseOrderId,
-                                  ),
-                                  onEdit: (_selectedPo!.isDraft && authProvider.can('PurchaseOrders.Update'))
-                                      ? () => _showCreateOrEditDialog(
-                                            context,
-                                            apiService,
-                                            authProvider.token,
-                                            suppliers: suppliers,
-                                            existingPoId: _selectedPo!.purchaseOrderId,
-                                          )
-                                      : null,
-                                  onComplete: (_selectedPo!.isDraft && authProvider.can('PurchaseOrders.Update'))
-                                      ? () => _confirmStatusChange(context, apiService, authProvider.token, _selectedPo!, 'COMPLETE')
-                                      : null,
-                                  onCancel: (_selectedPo!.isDraft && authProvider.can('PurchaseOrders.Update'))
-                                      ? () => _confirmStatusChange(context, apiService, authProvider.token, _selectedPo!, 'CANCLE')
-                                      : null,
-                                );
-
-                                if (isCompact) {
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      table,
-                                      const SizedBox(height: 16),
-                                      SizedBox(
-                                        height: 600,
-                                        child: quickView,
-                                      ),
-                                    ],
-                                  );
-                                }
-
-                                return Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: table,
-                                    ),
-                                    const SizedBox(width: 14),
-                                    SizedBox(
-                                      width: panelWidth,
-                                      height: 640,
-                                      child: quickView,
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildPurchaseOrdersTable({
-    required List<PurchaseOrder> paginatedOrders,
-    required int totalItems,
-    required int safePage,
-    required int totalPages,
-    required bool isDark,
-    required Color textPrimary,
-    required Color textSecondary,
-    required ApiService apiService,
-    required AuthProvider authProvider,
-    required List<Supplier> suppliers,
-  }) {
-    return DataTableContainer(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ScrollableTableWrapper(
-            child: DataTable(
-              showCheckboxColumn: false,
-              headingRowHeight: 40,
-              dataRowMinHeight: 48,
-              dataRowMaxHeight: 56,
-              columnSpacing: 16,
-              horizontalMargin: 14,
-              headingRowColor: WidgetStateProperty.all(
-                isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-              ),
-              columns: [
-                DataColumn(label: Text('Mã PO', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Nhà cung cấp', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Tổng chi phí', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Ngày tạo', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-                DataColumn(label: Text('Thao tác', style: TextStyle(fontWeight: FontWeight.w800, color: textPrimary, fontSize: 12))),
-              ],
-              rows: paginatedOrders.map((po) {
-                final isSelected = _selectedPo?.purchaseOrderId == po.purchaseOrderId;
-                return DataRow(
-                  selected: false,
-                  onSelectChanged: (_) => _toggleQuickView(po, apiService, authProvider.token),
-                  color: WidgetStateProperty.resolveWith<Color?>((states) {
-                    if (isSelected) {
-                      return isDark
-                          ? AppColors.primary.withValues(alpha: 0.16)
-                          : const Color(0xFFEFF6FF);
-                    }
-                    if (states.contains(WidgetState.hovered)) {
-                      return isDark ? const Color(0xFF1E293B).withValues(alpha: 0.6) : const Color(0xFFF8FAFC);
-                    }
-                    if (states.contains(WidgetState.pressed)) {
-                      return isDark ? AppColors.primary.withValues(alpha: 0.22) : const Color(0xFFDBEAFE);
-                    }
-                    return null;
-                  }),
-                  cells: [
-                    // Mã PO kèm indicator vạch dọc khi active (cố định layout không giật vị trí chữ)
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 3.5,
-                            height: 18,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected ? AppColors.primary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          Text(
-                            po.poCode,
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary, fontSize: 12.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Nhà cung cấp
-                    DataCell(
-                      Text(
-                        po.supplierName,
-                        style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Tổng chi phí (kèm số dòng hàng bên dưới)
-                    DataCell(
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            currencyFormat.format(po.totalCost),
-                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800, fontSize: 12.5),
-                          ),
-                          Text(
-                            '${po.totalItems} dòng hàng',
-                            style: TextStyle(color: textSecondary, fontSize: 10.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Trạng thái
-                    DataCell(_renderStatusBadge(po.status)),
-                    // Ngày tạo (2 dòng: Ngày ở trên, Giờ ở dưới)
-                    DataCell(
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            AppDateFormatter.formatDate(po.createdAt),
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary),
-                          ),
-                          Text(
-                            AppDateFormatter.formatTime(po.createdAt),
-                            style: TextStyle(fontSize: 10, color: textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Thao tác
-                    DataCell(
-                      po.isDraft && authProvider.can('PurchaseOrders.Update')
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Tooltip(
-                                  message: 'Chỉnh sửa phiếu nháp',
-                                  child: IconButton(
-                                    icon: Icon(Icons.edit_outlined, size: 16, color: textSecondary),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                    onPressed: () => _showCreateOrEditDialog(
-                                      context,
-                                      apiService,
-                                      authProvider.token,
-                                      suppliers: suppliers,
-                                      existingPoId: po.purchaseOrderId,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Tooltip(
-                                  message: 'Hoàn thành phiếu (COMPLETE)',
-                                  child: IconButton(
-                                    icon: const Icon(Icons.check_circle_outline, size: 16, color: AppColors.success),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                    onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'COMPLETE'),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Tooltip(
-                                  message: 'Hủy phiếu nhập (CANCLE)',
-                                  child: IconButton(
-                                    icon: const Icon(Icons.cancel_outlined, size: 16, color: AppColors.danger),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                    onPressed: () => _confirmStatusChange(context, apiService, authProvider.token, po, 'CANCLE'),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Tooltip(
-                              message: 'Xem chi tiết',
-                              child: IconButton(
-                                icon: Icon(Icons.visibility_outlined, size: 17, color: textSecondary),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                                onPressed: () => _showDetailDialog(context, apiService, authProvider.token, po.purchaseOrderId),
-                              ),
-                            ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-          if (totalItems > 0)
-            AppPagination(
-              currentPage: safePage,
-              totalPages: totalPages,
-              totalItems: totalItems,
-              itemsPerPage: _itemsPerPage,
-              onPageChanged: (page) => setState(() {
-                _currentPage = page;
-                _selectedPo = null;
-              }),
-              onItemsPerPageChanged: (size) => setState(() {
-                _itemsPerPage = size;
-                _currentPage = 1;
-                _selectedPo = null;
-              }),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _renderStatusBadge(String status) {
-    final s = status.toUpperCase();
-    if (s == 'COMPLETE' || s == 'COMPLETED') {
-      return const StatusBadge(label: 'COMPLETE', isSuccess: true);
-    } else if (s == 'CANCLE' || s == 'CANCELLED') {
-      return const StatusBadge(label: 'CANCLE', isDanger: true);
-    } else {
-      return const StatusBadge(label: 'DRAFT', isWarning: true);
-    }
-  }
-
-  // --- Confirm Status Change ---
-  void _confirmStatusChange(BuildContext context, ApiService apiService, String? token, PurchaseOrder po, String targetStatus) {
     final isCompleting = targetStatus == 'COMPLETE';
-    final actionLabel = isCompleting ? 'Hoàn thành (COMPLETE)' : 'Hủy phiếu (CANCLE)';
+    final dialogTitle = isCompleting
+        ? 'Xác nhận Hoàn thành (COMPLETE)'
+        : 'Xác nhận xóa phiếu nháp';
     final message = isCompleting
         ? 'Chốt phiếu nhập "${po.poCode}"? Sau khi hoàn thành, số lượng tồn kho của các biến thể sẽ được cộng vào hệ thống.'
-        : 'Bạn có chắc muốn hủy phiếu nhập "${po.poCode}"? Phiếu nhập sẽ chuyển sang trạng thái CANCLE và tồn kho giữ nguyên.';
+        : 'Bạn có chắc muốn xóa vĩnh viễn phiếu nháp "${po.poCode}"? Thao tác này không thể hoàn tác và tồn kho giữ nguyên.';
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusMd),
+        ),
         title: Row(
           children: [
-            Icon(isCompleting ? Icons.check_circle_outline : Icons.warning_amber_rounded, color: isCompleting ? AppColors.success : AppColors.danger, size: 20),
+            Icon(
+              isCompleting
+                  ? Icons.check_circle_outline
+                  : Icons.warning_amber_rounded,
+              color: isCompleting ? AppColors.success : AppColors.danger,
+              size: 20,
+            ),
             const SizedBox(width: AppTokens.space8),
-            Text('Xác nhận $actionLabel', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Expanded(
+              child: Text(
+                dialogTitle,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+            ),
           ],
         ),
         content: Text(message, style: const TextStyle(fontSize: 13)),
@@ -586,36 +270,12 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
             onPressed: () => Navigator.pop(ctx),
           ),
           AppButton(
-            label: isCompleting ? 'Hoàn thành' : 'Hủy phiếu',
-            variant: isCompleting ? AppButtonVariant.primary : AppButtonVariant.danger,
+            label: isCompleting ? 'Hoàn thành' : 'Xóa phiếu nháp',
+            variant:
+                isCompleting ? AppButtonVariant.primary : AppButtonVariant.danger,
             onPressed: () async {
               Navigator.pop(ctx);
-              final updatedPo = PurchaseOrder(
-                purchaseOrderId: po.purchaseOrderId,
-                poCode: po.poCode,
-                supplierId: po.supplierId,
-                supplierName: po.supplierName,
-                createdByUserId: po.createdByUserId,
-                createdByName: po.createdByName,
-                status: targetStatus,
-                note: po.note,
-                createdAt: po.createdAt,
-                totalCost: po.totalCost,
-                totalItems: po.totalItems,
-                items: po.items,
-              );
-              final res = (targetStatus == 'CANCLE' || targetStatus == 'CANCEL')
-                  ? await apiService.deletePurchaseOrder(po.purchaseOrderId, token: token)
-                  : await apiService.updatePurchaseOrder(po.purchaseOrderId, updatedPo, token: token);
-              if (context.mounted) {
-                if (res.success) {
-                  _poItemsCache.remove(po.purchaseOrderId);
-                  setState(() => _loadData());
-                  AppToast.success(context, res.message.isNotEmpty ? res.message : 'Thao tác thành công!');
-                } else {
-                  AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
-                }
-              }
+              await _executeStatusChange(apiService, token, po, targetStatus);
             },
           ),
         ],
@@ -623,1129 +283,470 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     );
   }
 
-  // --- Show Detail Dialog ---
-  void _showDetailDialog(BuildContext context, ApiService apiService, String? token, int poId) async {
-    final po = await apiService.getPurchaseOrderById(poId, token: token);
-    if (!context.mounted || po == null) return;
+  Future<void> _executeStatusChange(
+    ApiService apiService,
+    String? token,
+    PurchaseOrder po,
+    String targetStatus,
+  ) async {
+    if (_isActionBusy) return;
+    setState(() => _isActionBusy = true);
 
-    final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    try {
+      final isDeletingDraft =
+          targetStatus == 'DELETE' ||
+          targetStatus == 'CANCLE' ||
+          targetStatus == 'CANCEL';
+      late final ApiResult res;
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTokens.radiusMd)),
-        title: Row(
-          children: [
-            const Icon(Icons.receipt_long_outlined, color: AppColors.primary, size: 18),
-            const SizedBox(width: AppTokens.space8),
-            Text('Chi Tiết Phiếu Nhập: ${po.poCode}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-            const Spacer(),
-            _renderStatusBadge(po.status),
-          ],
-        ),
-        content: SizedBox(
-          width: 720,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildInfoItem('Nhà cung cấp', po.supplierName, textPrimary, textSecondary)),
-                    Expanded(child: _buildInfoItem('Ngày tạo', AppDateFormatter.formatDateTime(po.createdAt), textPrimary, textSecondary)),
-                    const Spacer(), // Balance layout
-                  ],
-                ),
-                const SizedBox(height: AppTokens.space12),
-                
-                // Thông tin người tạo phiếu
-                Container(
-                  padding: const EdgeInsets.all(AppTokens.space12),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(AppTokens.space8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppTokens.radiusSm),
-                        ),
-                        child: const Icon(Icons.person_outline_rounded, size: 18, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: AppTokens.space12),
-                      _buildInfoItem(
-                        'Người tạo phiếu (Yêu cầu)',
-                        po.createdByName.isNotEmpty ? po.createdByName : 'Thủ kho',
-                        textPrimary,
-                        textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-                if (po.note.isNotEmpty) ...[
-                  const SizedBox(height: AppTokens.space8),
-                  _buildInfoItem('Ghi chú phiếu nhập', po.note, textPrimary, textSecondary),
-                ],
-                const SizedBox(height: AppTokens.space12),
-                const Divider(),
-                const SizedBox(height: AppTokens.space8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('DANH SÁCH CHI TIẾT CÁC BIẾN THỂ NHẬP KHO', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary)),
-                    Text('Tổng dòng hàng: ${po.items.length}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                  ],
-                ),
-                const SizedBox(height: AppTokens.space8),
+      if (isDeletingDraft) {
+        res = await apiService.deletePurchaseOrder(
+          po.purchaseOrderId,
+          token: token,
+        );
+      } else {
+        // Danh sách PO từ GET /purchase-orders không trả items nên cần lấy từ cache hoặc chi tiết trước khi PUT.
+        var itemsToSubmit = po.items.isNotEmpty
+            ? po.items
+            : (_poItemsCache[po.purchaseOrderId] ?? const <PurchaseOrderItem>[]);
+        var sourcePo = po;
 
-                DataTableContainer(
-                  isScrollableTable: true,
-                  child: DataTable(
-                    columnSpacing: 14,
-                    horizontalMargin: 12,
-                    headingRowHeight: 36,
-                    dataRowMinHeight: 40,
-                    dataRowMaxHeight: 44,
-                    columns: const [
-                      DataColumn(label: Text('Sản phẩm', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
-                      DataColumn(label: Text('Biến thể', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
-                      DataColumn(label: Text('Đơn giá nhập', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
-                      DataColumn(label: Text('Số lượng', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
-                      DataColumn(label: Text('Thành tiền', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11))),
-                    ],
-                    rows: po.items.map((item) {
-                      return DataRow(cells: [
-                        DataCell(Text(item.productName.isNotEmpty ? item.productName : item.fullName, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: textPrimary))),
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(item.variantName.isNotEmpty ? item.variantName : 'Biến thể #${item.variantId}', style: const TextStyle(fontSize: 10.5, color: AppColors.primary, fontWeight: FontWeight.w500)),
-                          ),
-                        ),
-                        DataCell(Text(currencyFormat.format(item.importPrice), style: TextStyle(fontSize: 11.5, color: textPrimary))),
-                        DataCell(Text('${item.quantity}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textPrimary))),
-                        DataCell(Text(currencyFormat.format(item.totalPrice), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary))),
-                      ]);
-                    }).toList(),
-                  ),
-                ),
+        if (itemsToSubmit.isEmpty) {
+          final fullPo = await apiService.getPurchaseOrderById(
+            po.purchaseOrderId,
+            token: token,
+          );
+          if (!mounted) return;
+          if (fullPo != null) {
+            sourcePo = fullPo;
+            itemsToSubmit = fullPo.items;
+            _poItemsCache[po.purchaseOrderId] = fullPo.items;
+          }
+        }
 
-                const SizedBox(height: AppTokens.space12),
-                const Divider(),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: Text(
-                    'TỔNG CHI PHÍ PHIẾU NHẬP: ${currencyFormat.format(po.totalCost)}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          if (po.isDraft) ...[
-            AppButton(
-              label: 'Hủy phiếu (CANCLE)',
-              variant: AppButtonVariant.danger,
-              onPressed: () {
-                Navigator.pop(ctx);
-                _confirmStatusChange(context, apiService, token, po, 'CANCLE');
-              },
-            ),
-            AppButton(
-              label: 'Hoàn thành & Nhập kho (COMPLETE)',
-              variant: AppButtonVariant.primary,
-              onPressed: () {
-                Navigator.pop(ctx);
-                _confirmStatusChange(context, apiService, token, po, 'COMPLETE');
-              },
-            ),
-          ],
-          AppButton(
-            label: 'Đóng',
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.pop(ctx),
-          ),
-        ],
-      ),
-    );
+        if (itemsToSubmit.isEmpty) {
+          if (mounted) {
+            AppToast.error(
+              context,
+              'Không thể tải danh sách mặt hàng của phiếu "${po.poCode}". Vui lòng thử lại.',
+            );
+          }
+          return;
+        }
+
+        final updatedPo = PurchaseOrder(
+          purchaseOrderId: sourcePo.purchaseOrderId,
+          poCode: sourcePo.poCode,
+          supplierId: sourcePo.supplierId,
+          supplierName: sourcePo.supplierName,
+          createdByUserId: sourcePo.createdByUserId,
+          createdByName: sourcePo.createdByName,
+          status: targetStatus,
+          note: sourcePo.note,
+          createdAt: sourcePo.createdAt,
+          totalCost: sourcePo.totalCost,
+          totalItems: itemsToSubmit.length,
+          items: itemsToSubmit,
+        );
+        res = await apiService.updatePurchaseOrder(
+          sourcePo.purchaseOrderId,
+          updatedPo,
+          token: token,
+        );
+      }
+
+      if (!mounted) return;
+      if (res.success) {
+        _poItemsCache.remove(po.purchaseOrderId);
+        setState(() => _loadData());
+        AppToast.success(
+          context,
+          res.message.isNotEmpty ? res.message : 'Thao tác thành công!',
+        );
+      } else {
+        AppToast.error(
+          context,
+          res.message.isNotEmpty ? res.message : 'Thao tác thất bại!',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(context, _extractFriendlyError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isActionBusy = false);
+      }
+    }
   }
 
-  Widget _buildInfoItem(String label, String value, Color textPrimary, Color textSecondary) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: TextStyle(fontSize: 11, color: textSecondary)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary)),
-      ],
-    );
+  Future<void> _openDetailDialog(
+    BuildContext context,
+    ApiService apiService,
+    AuthProvider authProvider,
+    int poId,
+  ) async {
+    if (_isActionBusy) return;
+    setState(() => _isActionBusy = true);
+
+    try {
+      final token = authProvider.token;
+      final po = await apiService.getPurchaseOrderById(poId, token: token);
+      if (!mounted) return;
+      if (po == null) {
+        AppToast.error(this.context, 'Không thể tải chi tiết phiếu nhập.');
+        return;
+      }
+
+      final canUpdate = po.isDraft && authProvider.can('PurchaseOrders.Update');
+      showDialog(
+        context: this.context,
+        builder: (_) => PurchaseOrderDetailDialog(
+          purchaseOrder: po,
+          onCancel: canUpdate
+              ? () => _confirmStatusChange(
+                    this.context,
+                    apiService,
+                    token,
+                    po,
+                    'DELETE',
+                  )
+              : null,
+          onComplete: canUpdate
+              ? () => _confirmStatusChange(
+                    this.context,
+                    apiService,
+                    token,
+                    po,
+                    'COMPLETE',
+                  )
+              : null,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(this.context, _extractFriendlyError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isActionBusy = false);
+      }
+    }
   }
 
-  // --- Create / Edit Dialog ---
-  void _showCreateOrEditDialog(
+  Future<void> _openCreateOrEditDialog(
     BuildContext context,
     ApiService apiService,
     String? token, {
     required List<Supplier> suppliers,
     int? existingPoId,
   }) async {
-    final products = await apiService.getProductsWithVariants(token: token);
-    PurchaseOrder? existingPo;
-    if (existingPoId != null && existingPoId > 0) {
-      existingPo = await apiService.getPurchaseOrderById(existingPoId, token: token);
-    }
+    if (_isActionBusy) return;
+    setState(() => _isActionBusy = true);
 
-    if (!context.mounted) return;
+    try {
+      final isEditing = existingPoId != null && existingPoId > 0;
+      final productsFuture = apiService.getProductsWithVariants(token: token);
+      final poFuture = isEditing
+          ? apiService.getPurchaseOrderById(existingPoId, token: token)
+          : Future<PurchaseOrder?>.value(null);
+      final suppliersFuture = suppliers.isEmpty
+          ? apiService.getSuppliers(token: token)
+          : Future<List<Supplier>>.value(suppliers);
 
-    final isEditing = existingPoId != null && existingPoId > 0;
-    final availableSuppliers = isEditing
-        ? suppliers.where((s) => s.isActive || int.tryParse(s.id) == existingPo?.supplierId).toList()
-        : suppliers.where((s) => s.isActive).toList();
-    if (availableSuppliers.isEmpty) {
-      AppToast.warning(context, 'Không có Nhà cung cấp nào đang hợp tác để lập phiếu nhập hàng.');
-      return;
-    }
+      final products = await productsFuture;
+      final existingPo = await poFuture;
+      final effectiveSuppliers = await suppliersFuture;
 
-    List<_VariantSelectOption> variantOptions = [];
-    for (var p in products) {
-      if (p.variants.isNotEmpty) {
-        for (var v in p.variants) {
-          final vId = v.variantId ?? 0;
-          if (vId > 0) {
-            final vName = v.variantName;
-            variantOptions.add(_VariantSelectOption(
-              variantId: vId,
-              productId: int.tryParse(p.id) ?? 0,
-              productName: p.name,
-              variantName: vName,
-              fullName: '${p.name} ($vName)',
-              defaultPrice: v.price > 0 ? v.price : p.price,
-              stockQuantity: v.stockQuantity,
-              imageUrl: v.imageUrl?.isNotEmpty == true ? v.imageUrl : p.imageUrl,
-            ));
-          }
-        }
-      } else {
-        final pId = int.tryParse(p.id) ?? 0;
-        if (pId > 0) {
-          variantOptions.add(_VariantSelectOption(
-            variantId: pId,
-            productId: pId,
-            productName: p.name,
-            variantName: 'Biến thể mặc định',
-            fullName: p.name,
-            defaultPrice: p.price,
-            stockQuantity: p.stock,
-            imageUrl: p.imageUrl,
-          ));
-        }
-      }
-    }
+      if (!mounted) return;
 
-    if (variantOptions.isEmpty) {
-      AppToast.warning(context, 'Chưa có danh sách biến thể sản phẩm hợp lệ trong hệ thống.');
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _PurchaseOrderFormDialog(
-        existingPo: existingPo,
-        suppliers: availableSuppliers,
-        variantOptions: variantOptions,
-        apiService: apiService,
-        token: token,
-        onSaved: () {
-          if (existingPoId != null) {
-            _poItemsCache.remove(existingPoId);
-          }
-          setState(() => _loadData());
-        },
-      ),
-    );
-  }
-}
-
-class _VariantSelectOption {
-  final int variantId;
-  final int productId;
-  final String productName;
-  final String variantName;
-  final String fullName;
-  final double defaultPrice;
-  final int stockQuantity;
-  final String? imageUrl;
-
-  _VariantSelectOption({
-    required this.variantId,
-    required this.productId,
-    required this.productName,
-    required this.variantName,
-    required this.fullName,
-    required this.defaultPrice,
-    required this.stockQuantity,
-    this.imageUrl,
-  });
-}
-
-class _POItemRowInput {
-  _VariantSelectOption selectedVariant;
-  final TextEditingController importPriceCtrl;
-  final TextEditingController quantityCtrl;
-
-  _POItemRowInput({
-    required this.selectedVariant,
-    double importPrice = 0,
-    int quantity = 1,
-  })  : importPriceCtrl = TextEditingController(
-          text: importPrice > 0
-              ? NumberFormat('#,###', 'en_US').format(importPrice.toInt())
-              : (selectedVariant.defaultPrice > 0
-                  ? NumberFormat('#,###', 'en_US').format(selectedVariant.defaultPrice.toInt())
-                  : ''),
-        ),
-        quantityCtrl = TextEditingController(text: quantity > 0 ? quantity.toString() : '1');
-
-  double get importPrice {
-    final clean = importPriceCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
-    return double.tryParse(clean) ?? 0;
-  }
-
-  int get quantity {
-    final clean = quantityCtrl.text.replaceAll(',', '').replaceAll('.', '').trim();
-    return int.tryParse(clean) ?? 1;
-  }
-
-  double get totalPrice => importPrice * quantity;
-
-  void dispose() {
-    importPriceCtrl.dispose();
-    quantityCtrl.dispose();
-  }
-}
-
-class _PurchaseOrderFormDialog extends StatefulWidget {
-  final PurchaseOrder? existingPo;
-  final List<Supplier> suppliers;
-  final List<_VariantSelectOption> variantOptions;
-  final ApiService apiService;
-  final String? token;
-  final VoidCallback onSaved;
-
-  const _PurchaseOrderFormDialog({
-    required this.existingPo,
-    required this.suppliers,
-    required this.variantOptions,
-    required this.apiService,
-    required this.token,
-    required this.onSaved,
-  });
-
-  @override
-  State<_PurchaseOrderFormDialog> createState() => _PurchaseOrderFormDialogState();
-}
-
-class _PurchaseOrderFormDialogState extends State<_PurchaseOrderFormDialog> {
-  final currencyFormat = NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
-
-  late int _selectedSupplierId;
-  late String _selectedStatus;
-  late final TextEditingController _noteCtrl;
-  late final TextEditingController _searchCtrl;
-  late final FocusNode _searchFocusNode;
-
-  final List<_POItemRowInput> _itemRows = [];
-  String _searchQuery = '';
-  bool _showDropdown = false;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final isEditing = widget.existingPo != null;
-    final po = widget.existingPo;
-
-    _selectedSupplierId = isEditing
-        ? po!.supplierId
-        : (int.tryParse(widget.suppliers.first.id) ?? 1);
-
-    // Khi tạo mới: Mặc định là DRAFT (chỉ có DRAFT hoặc COMPLETE)
-    _selectedStatus = isEditing ? po!.status : 'DRAFT';
-
-    _noteCtrl = TextEditingController(text: isEditing ? po!.note : '');
-    _searchCtrl = TextEditingController();
-    _searchFocusNode = FocusNode();
-
-    // Khởi tạo mặt hàng: Nếu chỉnh sửa thì nạp items cũ, nếu tạo mới thì ban đầu để RỖNG
-    if (isEditing && po!.items.isNotEmpty) {
-      for (var item in po.items) {
-        final opt = widget.variantOptions.firstWhere(
-          (o) => o.variantId == item.variantId,
-          orElse: () => _VariantSelectOption(
-            variantId: item.variantId,
-            productId: item.productId ?? 0,
-            productName: item.productName,
-            variantName: item.variantName,
-            fullName: item.fullName,
-            defaultPrice: item.importPrice,
-            stockQuantity: 0,
-          ),
+      if (isEditing && existingPo == null) {
+        AppToast.error(
+          this.context,
+          'Không thể tải thông tin phiếu nhập để chỉnh sửa.',
         );
-        _itemRows.add(_POItemRowInput(
-          selectedVariant: opt,
-          importPrice: item.importPrice,
-          quantity: item.quantity,
-        ));
-      }
-    }
-
-    _searchCtrl.addListener(() {
-      final q = _searchCtrl.text.trim();
-      if (_searchQuery != q) {
-        setState(() {
-          _searchQuery = q;
-          _showDropdown = q.isNotEmpty;
-        });
-      }
-    });
-
-    _searchFocusNode.addListener(() {
-      if (_searchFocusNode.hasFocus && _searchCtrl.text.trim().isNotEmpty) {
-        setState(() {
-          _showDropdown = true;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _noteCtrl.dispose();
-    _searchCtrl.dispose();
-    _searchFocusNode.dispose();
-    for (var r in _itemRows) {
-      r.dispose();
-    }
-    super.dispose();
-  }
-
-  void _addVariantToPo(_VariantSelectOption variant) {
-    final existingIdx = _itemRows.indexWhere((r) => r.selectedVariant.variantId == variant.variantId);
-    setState(() {
-      if (existingIdx != -1) {
-        final row = _itemRows[existingIdx];
-        final currentQty = row.quantity;
-        row.quantityCtrl.text = (currentQty + 1).toString();
-      } else {
-        _itemRows.add(_POItemRowInput(
-          selectedVariant: variant,
-          importPrice: variant.defaultPrice,
-          quantity: 1,
-        ));
-      }
-      _searchCtrl.clear();
-      _searchQuery = '';
-      _showDropdown = false;
-    });
-  }
-
-  double get _totalCalc {
-    double total = 0;
-    for (var r in _itemRows) {
-      total += r.totalPrice;
-    }
-    return total;
-  }
-
-  int get _totalQuantity {
-    int qty = 0;
-    for (var r in _itemRows) {
-      qty += r.quantity;
-    }
-    return qty;
-  }
-
-  Future<void> _handleSave() async {
-    if (_itemRows.isEmpty) {
-      AppToast.warning(context, 'Vui lòng thêm ít nhất 1 mặt hàng vào phiếu nhập.');
-      return;
-    }
-
-    // Kiểm tra trùng lặp và tính hợp lệ của đơn giá & số lượng
-    final seenVariantIds = <int>{};
-    for (var r in _itemRows) {
-      if (seenVariantIds.contains(r.selectedVariant.variantId)) {
-        AppToast.warning(context, 'Phát hiện biến thể "${r.selectedVariant.fullName}" bị chọn trùng lặp. Vui lòng gộp số lượng vào 1 dòng.');
-        return;
-      }
-      seenVariantIds.add(r.selectedVariant.variantId);
-
-      if (r.importPrice <= 0) {
-        AppToast.error(context, 'Đơn giá nhập của "${r.selectedVariant.fullName}" phải lớn hơn 0.');
         return;
       }
 
-      if (r.quantity <= 0) {
-        AppToast.error(context, 'Số lượng nhập của "${r.selectedVariant.fullName}" phải lớn hơn 0.');
+      final availableSuppliers = isEditing
+          ? effectiveSuppliers
+              .where(
+                (s) =>
+                    s.isActive || int.tryParse(s.id) == existingPo?.supplierId,
+              )
+              .toList()
+          : effectiveSuppliers.where((s) => s.isActive).toList();
+      if (availableSuppliers.isEmpty) {
+        AppToast.warning(
+          this.context,
+          'Không có Nhà cung cấp nào đang hợp tác để lập phiếu nhập hàng.',
+        );
         return;
       }
-    }
 
-    setState(() => _isSaving = true);
-
-    final isEditing = widget.existingPo != null;
-    List<PurchaseOrderItem> poItems = _itemRows.map((r) => PurchaseOrderItem(
-      variantId: r.selectedVariant.variantId,
-      productId: r.selectedVariant.productId,
-      productName: r.selectedVariant.productName,
-      variantName: r.selectedVariant.variantName,
-      importPrice: r.importPrice,
-      quantity: r.quantity,
-    )).toList();
-
-    final po = PurchaseOrder(
-      purchaseOrderId: isEditing ? widget.existingPo!.purchaseOrderId : 0,
-      poCode: isEditing ? widget.existingPo!.poCode : '',
-      supplierId: _selectedSupplierId,
-      status: _selectedStatus,
-      note: _noteCtrl.text.trim(),
-      createdAt: isEditing ? widget.existingPo!.createdAt : DateTime.now(),
-      totalCost: _totalCalc,
-      totalItems: poItems.length,
-      items: poItems,
-    );
-
-    ApiResult result;
-    if (isEditing) {
-      if (_selectedStatus == 'CANCLE' || _selectedStatus == 'CANCEL') {
-        result = await widget.apiService.deletePurchaseOrder(widget.existingPo!.purchaseOrderId, token: widget.token);
-      } else {
-        result = await widget.apiService.updatePurchaseOrder(widget.existingPo!.purchaseOrderId, po, token: widget.token);
+      final variantOptions =
+          PurchaseOrderFormDialog.buildVariantOptions(products);
+      if (variantOptions.isEmpty) {
+        AppToast.warning(
+          this.context,
+          'Chưa có danh sách biến thể sản phẩm hợp lệ trong hệ thống.',
+        );
+        return;
       }
-    } else {
-      result = await widget.apiService.createPurchaseOrder(po, token: widget.token);
-    }
 
-    if (mounted) {
-      setState(() => _isSaving = false);
-      if (result.success) {
-        Navigator.pop(context);
-        widget.onSaved();
-        AppToast.success(context, result.message.isNotEmpty ? result.message : 'Lưu phiếu nhập thành công!');
-      } else {
-        AppToast.error(context, result.message.isNotEmpty ? result.message : 'Lưu phiếu nhập thất bại!');
+      showDialog(
+        context: this.context,
+        barrierDismissible: false,
+        builder: (_) => PurchaseOrderFormDialog(
+          existingPo: existingPo,
+          suppliers: availableSuppliers,
+          variantOptions: variantOptions,
+          apiService: apiService,
+          token: token,
+          onSaved: () {
+            if (existingPoId != null) {
+              _poItemsCache.remove(existingPoId);
+            }
+            setState(() => _loadData());
+          },
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        AppToast.error(this.context, _extractFriendlyError(e));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isActionBusy = false);
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final cardBg = isDark ? AppColors.darkCard : AppColors.lightCard;
-    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary;
-    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    final borderColor = isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder;
-    final isEditing = widget.existingPo != null;
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context);
+    final canUpdate = authProvider.can('PurchaseOrders.Update');
 
-    final matchingVariants = _searchQuery.isEmpty
-        ? <_VariantSelectOption>[]
-        : widget.variantOptions.where((v) {
-            final q = _searchQuery.toLowerCase();
-            return v.productName.toLowerCase().contains(q) ||
-                v.variantName.toLowerCase().contains(q) ||
-                v.fullName.toLowerCase().contains(q) ||
-                v.variantId.toString().contains(q);
-          }).toList();
+    return CachedFutureBuilder<List<Supplier>>(
+      future: _suppliersFuture,
+      builder: (context, supplierSnap) {
+        final suppliers = supplierSnap.data ?? [];
 
-    return AlertDialog(
-      backgroundColor: cardBg,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.note_add_outlined, color: AppColors.primary, size: 20),
-              const SizedBox(width: AppTokens.space8),
-              Text(
-                isEditing ? 'Sửa Phiếu Nhập Hàng (${widget.existingPo?.poCode})' : 'Tạo Phiếu Nhập Hàng Mới',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textPrimary),
-              ),
-            ],
-          ),
-          IconButton(
-            icon: Icon(Icons.close_rounded, size: 20, color: textSecondary),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-        ],
-      ),
-      content: Container(
-        width: 860,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Thông tin chung: Nhà cung cấp & Trạng thái
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Nhà cung cấp (*)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary)),
-                        const SizedBox(height: 6),
-                        AppDropdown<int>(
-                          value: widget.suppliers.any((s) => int.tryParse(s.id) == _selectedSupplierId)
-                              ? _selectedSupplierId
-                              : (int.tryParse(widget.suppliers.first.id) ?? 1),
-                          items: widget.suppliers.map((s) {
-                            final sId = int.tryParse(s.id) ?? 1;
-                            final label = !s.isActive ? '${s.name} [Ngừng HT]' : s.name;
-                            return DropdownMenuItem<int>(
-                              value: sId,
-                              child: Text(label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _selectedSupplierId = val);
-                          },
-                        ),
-                      ],
-                    ),
+        return CachedFutureBuilder<PurchaseOrderPagedResult>(
+          future: _ordersFuture,
+          builder: (context, snapshot) {
+            final isLoading =
+                snapshot.connectionState == ConnectionState.waiting;
+            final hasData = snapshot.hasData;
+            final pagedResult = snapshot.data;
+            final paginatedOrders = pagedResult?.items ?? const <PurchaseOrder>[];
+            final totalItems = pagedResult?.totalCount ?? 0;
+            final totalPages = pagedResult?.totalPages ?? 0;
+            final safePage =
+                totalPages > 0 ? _currentPage.clamp(1, totalPages) : 1;
+            final activeError = snapshot.error ?? _ordersError;
+            final hasError = !isLoading && activeError != null;
+
+            final Widget leftContent;
+            if (hasError && (!hasData || paginatedOrders.isEmpty)) {
+              leftContent = DataTableContainer(
+                child: EmptyState(
+                  title: 'Không thể tải danh sách phiếu nhập hàng',
+                  message: _extractFriendlyError(activeError),
+                  icon: Icons.error_outline_rounded,
+                  action: AppButton(
+                    label: 'Thử lại',
+                    icon: Icons.refresh_rounded,
+                    onPressed: () => setState(() => _loadData()),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Trạng thái (*)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: textPrimary)),
-                        const SizedBox(height: 6),
-                        AppDropdown<String>(
-                          value: _selectedStatus,
-                          items: isEditing
-                              ? const [
-                                  DropdownMenuItem(
-                                    value: 'DRAFT',
-                                    child: Text('DRAFT (Bản nháp)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5)),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'COMPLETE',
-                                    child: Text('COMPLETE (Nhập kho)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5)),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'CANCLE',
-                                    child: Text('CANCLE (Hủy phiếu)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, color: AppColors.danger)),
-                                  ),
-                                ]
-                              : const [
-                                  // Khi tạo mới: CHỈ CÓ DRAFT hoặc COMPLETE
-                                  DropdownMenuItem(
-                                    value: 'DRAFT',
-                                    child: Text('DRAFT (Bản nháp - Lưu tạm)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5)),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'COMPLETE',
-                                    child: Text('COMPLETE (Hoàn thành & Nhập kho ngay)', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5)),
-                                  ),
-                                ],
-                          onChanged: (val) {
-                            if (val != null) setState(() => _selectedStatus = val);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 2. Ghi chú
-              AppTextField(
-                controller: _noteCtrl,
-                labelText: 'Ghi chú phiếu nhập (Số hóa đơn, đợt nhập, người phụ trách...)',
-                hintText: 'Nhập thông tin chứng từ lô hàng...',
-              ),
-              const SizedBox(height: 16),
-              Divider(height: 1, color: borderColor),
-              const SizedBox(height: 14),
-
-              // 3. Tìm kiếm sản phẩm theo biến thể có dropdown gợi ý
-              Text(
-                'Tìm kiếm sản phẩm & biến thể để thêm vào phiếu nhập (*)',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: textPrimary),
-              ),
-              const SizedBox(height: 6),
-              AppTextField(
-                controller: _searchCtrl,
-                focusNode: _searchFocusNode,
-                labelText: 'Tìm kiếm sản phẩm hoặc biến thể...',
-                hintText: 'Gõ tên sản phẩm, biến thể (ASUS, Sony, RAM, Màu...), mã ID...',
-                prefixIcon: Icons.search_rounded,
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            _searchCtrl.clear();
-                            _searchQuery = '';
-                            _showDropdown = false;
-                          });
-                        },
-                      )
-                    : null,
-              ),
-
-              // Dropdown gợi ý biến thể sản phẩm
-              if (_showDropdown && _searchQuery.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.only(top: 4, bottom: 8),
-                  constraints: const BoxConstraints(maxHeight: 230),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.5), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: matchingVariants.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          child: Row(
-                            children: [
-                              Icon(Icons.info_outline, size: 16, color: textSecondary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Không tìm thấy biến thể sản phẩm khớp với "$_searchQuery"',
-                                  style: TextStyle(fontSize: 12, color: textSecondary, fontStyle: FontStyle.italic),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(7)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Gợi ý sản phẩm & biến thể (${matchingVariants.length}):',
-                                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11.5, color: textPrimary),
-                                  ),
-                                  InkWell(
-                                    onTap: () => setState(() => _showDropdown = false),
-                                    child: Icon(Icons.close, size: 14, color: textSecondary),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Flexible(
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                padding: EdgeInsets.zero,
-                                itemCount: matchingVariants.length,
-                                separatorBuilder: (ctx, index) => Divider(height: 1, color: borderColor.withValues(alpha: 0.5)),
-                                itemBuilder: (ctx, idx) {
-                                  final item = matchingVariants[idx];
-                                  final existingRow = _itemRows.where((r) => r.selectedVariant.variantId == item.variantId).firstOrNull;
-                                  final isAdded = existingRow != null;
-
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                                    leading: ClipRRect(
-                                      borderRadius: BorderRadius.circular(4),
-                                      child: item.imageUrl != null && item.imageUrl!.isNotEmpty
-                                          ? Image.network(
-                                              item.imageUrl!,
-                                              width: 36,
-                                              height: 36,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (context, error, stackTrace) => Container(
-                                                width: 36,
-                                                height: 36,
-                                                color: Colors.black12,
-                                                child: const Icon(Icons.devices, size: 16),
-                                              ),
-                                            )
-                                          : Container(
-                                              width: 36,
-                                              height: 36,
-                                              color: Colors.black12,
-                                              child: const Icon(Icons.devices, size: 16),
-                                            ),
-                                    ),
-                                    title: Text(
-                                      item.fullName,
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
-                                    ),
-                                    subtitle: Row(
-                                      children: [
-                                        Text('Giá niêm yết: ${currencyFormat.format(item.defaultPrice)}', style: TextStyle(fontSize: 11, color: textSecondary)),
-                                        const SizedBox(width: 8),
-                                        Text('| Tồn kho hiện tại: ${item.stockQuantity}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primary)),
-                                      ],
-                                    ),
-                                    trailing: isAdded
-                                        ? Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Chip(
-                                                label: Text('Đã thêm (${existingRow.quantity})', style: const TextStyle(fontSize: 10.5, color: AppColors.success, fontWeight: FontWeight.bold)),
-                                                backgroundColor: AppColors.success.withValues(alpha: 0.12),
-                                                side: BorderSide.none,
-                                                padding: EdgeInsets.zero,
-                                                visualDensity: VisualDensity.compact,
-                                                avatar: const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.success),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              IconButton(
-                                                icon: const Icon(Icons.add_circle, size: 18, color: AppColors.primary),
-                                                tooltip: 'Thêm +1 số lượng',
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                onPressed: () => _addVariantToPo(item),
-                                              ),
-                                            ],
-                                          )
-                                        : ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: AppColors.primary,
-                                              foregroundColor: Colors.white,
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                              visualDensity: VisualDensity.compact,
-                                              elevation: 0,
-                                            ),
-                                            icon: const Icon(Icons.add_rounded, size: 13),
-                                            label: const Text('Thêm vào phiếu', style: TextStyle(fontSize: 11)),
-                                            onPressed: () => _addVariantToPo(item),
-                                          ),
-                                    onTap: () => _addVariantToPo(item),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
-              const SizedBox(height: 12),
-
-              // 4. Danh sách các mặt hàng nhập kho
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'DANH SÁCH MẶT HÀNG NHẬP KHO (${_itemRows.length}):',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: AppColors.primary),
-                  ),
-                  if (_itemRows.isNotEmpty)
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          for (var r in _itemRows) {
-                            r.dispose();
-                          }
-                          _itemRows.clear();
-                        });
-                      },
-                      child: const Text('Bỏ tất cả mặt hàng', style: TextStyle(fontSize: 11.5, color: AppColors.danger)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-
-              // Bảng hoặc danh sách các dòng mặt hàng
-              if (_itemRows.isEmpty)
-                Container(
-                  height: 140,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inventory_2_outlined, size: 30, color: textSecondary.withValues(alpha: 0.6)),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Chưa có mặt hàng nào trong phiếu nhập',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textSecondary),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Gõ từ khóa vào ô tìm kiếm ở trên để chọn và thêm sản phẩm vào phiếu nhập',
-                          style: TextStyle(fontSize: 11.5, color: textSecondary.withValues(alpha: 0.8)),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ..._itemRows.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final row = entry.value;
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Row(
-                      children: [
-                        // STT
-                        Text('#${index + 1}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 11, color: textSecondary)),
-                        const SizedBox(width: 8),
-
-                        // Thumbnail
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: row.selectedVariant.imageUrl != null && row.selectedVariant.imageUrl!.isNotEmpty
-                              ? Image.network(
-                                  row.selectedVariant.imageUrl!,
-                                  width: 36,
-                                  height: 36,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    width: 36,
-                                    height: 36,
-                                    color: Colors.black12,
-                                    child: const Icon(Icons.devices, size: 16),
-                                  ),
-                                )
-                              : Container(
-                                  width: 36,
-                                  height: 36,
-                                  color: Colors.black12,
-                                  child: const Icon(Icons.devices, size: 16),
-                                ),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Tên sản phẩm & biến thể
-                        Expanded(
-                          flex: 4,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                row.selectedVariant.fullName,
-                                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: textPrimary),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Giá niêm yết: ${currencyFormat.format(row.selectedVariant.defaultPrice)}',
-                                style: TextStyle(fontSize: 11, color: textSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Badge Tồn kho hiện tại
-                        Container(
-                          width: 80,
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Tồn hiện tại', style: TextStyle(fontSize: 9.5, color: textSecondary)),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${row.selectedVariant.stockQuantity}',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Đơn giá nhập với CurrencyInputFormatter (TỰ ĐỘNG THÊM DẤU PHẨY)
-                        Expanded(
-                          flex: 3,
-                          child: AppTextField(
-                            controller: row.importPriceCtrl,
-                            labelText: 'Đơn giá nhập (*)',
-                            hintText: 'VD: 15,000,000',
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [CurrencyInputFormatter()],
-                            suffixIcon: Container(
-                              padding: const EdgeInsets.only(right: 8),
-                              alignment: Alignment.centerRight,
-                              width: 20,
-                              child: Text('₫', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textSecondary)),
-                            ),
-                            onChanged: (_) => setState(() {}),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Số lượng nhập với nút - và +
-                        SizedBox(
-                          width: 110,
-                          child: Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 18),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                onPressed: row.quantity > 1
-                                    ? () {
-                                        setState(() {
-                                          row.quantityCtrl.text = (row.quantity - 1).toString();
-                                        });
-                                      }
-                                    : null,
-                              ),
-                              Expanded(
-                                child: AppTextField(
-                                  controller: row.quantityCtrl,
-                                  keyboardType: TextInputType.number,
-                                  labelText: 'SL',
-                                  onChanged: (_) => setState(() {}),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 18, color: AppColors.primary),
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                onPressed: () {
-                                  setState(() {
-                                    row.quantityCtrl.text = (row.quantity + 1).toString();
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-
-                        // Thành tiền của dòng
-                        SizedBox(
-                          width: 110,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('Thành tiền', style: TextStyle(fontSize: 9.5, color: textSecondary)),
-                              const SizedBox(height: 2),
-                              Text(
-                                currencyFormat.format(row.totalPrice),
-                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: AppColors.primary),
-                                textAlign: TextAlign.right,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-
-                        // Nút xóa dòng
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.danger, size: 18),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-                          tooltip: 'Xóa khỏi phiếu',
-                          onPressed: () {
-                            setState(() {
-                              row.dispose();
-                              _itemRows.removeAt(index);
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                  );
+              );
+            } else if (paginatedOrders.isEmpty) {
+              leftContent = const DataTableContainer(
+                child: EmptyState(
+                  title: 'Chưa có phiếu nhập hàng nào',
+                  message: 'Không tìm thấy phiếu nhập khớp với bộ lọc.',
+                  icon: Icons.inventory_2_outlined,
+                ),
+              );
+            } else {
+              leftContent = PurchaseOrderDataTable(
+                paginatedOrders: paginatedOrders,
+                selectedPoId: _selectedPo?.purchaseOrderId,
+                totalItems: totalItems,
+                safePage: safePage,
+                totalPages: totalPages,
+                itemsPerPage: _itemsPerPage,
+                canUpdate: canUpdate,
+                errorMessage: hasError ? _extractFriendlyError(activeError) : null,
+                onRetry: () => setState(() => _loadData(reloadSuppliers: false)),
+                onRowTap: (po) => _toggleQuickView(
+                  po,
+                  apiService,
+                  authProvider.token,
+                ),
+                onEdit: (po) => _openCreateOrEditDialog(
+                  context,
+                  apiService,
+                  authProvider.token,
+                  suppliers: suppliers,
+                  existingPoId: po.purchaseOrderId,
+                ),
+                onComplete: (po) => _confirmStatusChange(
+                  context,
+                  apiService,
+                  authProvider.token,
+                  po,
+                  'COMPLETE',
+                ),
+                onCancel: (po) => _confirmStatusChange(
+                  context,
+                  apiService,
+                  authProvider.token,
+                  po,
+                  'DELETE',
+                ),
+                onViewDetail: (po) => _openDetailDialog(
+                  context,
+                  apiService,
+                  authProvider,
+                  po.purchaseOrderId,
+                ),
+                onPageChanged: (page) => setState(() {
+                  _currentPage = page;
+                  _loadData(reloadSuppliers: false);
                 }),
+                onItemsPerPageChanged: (size) => setState(() {
+                  _itemsPerPage = size;
+                  _currentPage = 1;
+                  _loadData(reloadSuppliers: false);
+                }),
+              );
+            }
 
-              const SizedBox(height: 10),
-              Divider(height: 1, color: borderColor),
-              const SizedBox(height: 10),
+            final Widget rightPanel;
+            if (_selectedPo != null) {
+              final selectedPo = _selectedPo!;
+              final currentItems =
+                  _poItemsCache[selectedPo.purchaseOrderId] ?? selectedPo.items;
+              rightPanel = PurchaseOrderQuickViewPanel(
+                key: ValueKey('po_panel_${selectedPo.purchaseOrderId}'),
+                purchaseOrder: selectedPo,
+                items: currentItems,
+                isLoadingItems: _isLoadingPoItems,
+                itemsError: _quickViewError,
+                onRetryItems: () => _fetchQuickViewItems(
+                  selectedPo,
+                  apiService,
+                  authProvider.token,
+                ),
+                onClose: _closeQuickView,
+                onViewFullDetail: () => _openDetailDialog(
+                  context,
+                  apiService,
+                  authProvider,
+                  selectedPo.purchaseOrderId,
+                ),
+                onEdit: (selectedPo.isDraft && canUpdate)
+                    ? () => _openCreateOrEditDialog(
+                          context,
+                          apiService,
+                          authProvider.token,
+                          suppliers: suppliers,
+                          existingPoId: selectedPo.purchaseOrderId,
+                        )
+                    : null,
+              );
+            } else {
+              rightPanel = const PurchaseOrderQuickViewPlaceholder(
+                key: ValueKey('po_quick_view_placeholder'),
+              );
+            }
 
-              // 5. Tổng kết chi phí & mặt hàng
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            return MasterDetailQuickViewLayout(
+              padding: const EdgeInsets.all(AppTokens.space16),
+              initialHeaderHeight: 145.0,
+              hasSelection: _selectedPo != null,
+              headerSection: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Tổng mặt hàng: ${_itemRows.length} biến thể | Tổng số lượng: $_totalQuantity sản phẩm',
-                    style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w500),
+                  PageHeader(
+                    title: 'Quản lý phiếu nhập hàng',
+                    subtitle:
+                        'Theo dõi đợt nhập hàng từ nhà cung cấp theo từng biến thể sản phẩm',
+                    action: authProvider.can('PurchaseOrders.Create')
+                        ? AppButton(
+                            label: 'Tạo phiếu nhập hàng mới',
+                            icon: Icons.add_rounded,
+                            variant: AppButtonVariant.primary,
+                            onPressed: _isActionBusy
+                                ? null
+                                : () => _openCreateOrEditDialog(
+                                      context,
+                                      apiService,
+                                      authProvider.token,
+                                      suppliers: suppliers,
+                                    ),
+                          )
+                        : null,
                   ),
-                  Text(
-                    'TỔNG TIỀN NHẬP: ${currencyFormat.format(_totalCalc)}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.primary),
+                  PurchaseOrderFilterBar(
+                    searchController: _searchCtrl,
+                    searchItems: paginatedOrders,
+                    suppliers: suppliers,
+                    selectedSupplierId: _selectedSupplierId,
+                    selectedStatus: _selectedStatus,
+                    onSearchSelected: (po) {
+                      _searchCtrl.value = TextEditingValue(
+                        text: po.poCode,
+                        selection: TextSelection.collapsed(
+                          offset: po.poCode.length,
+                        ),
+                      );
+                      setState(() {
+                        _searchQuery = po.poCode;
+                        _currentPage = 1;
+                        _loadData(reloadSuppliers: false);
+                      });
+                    },
+                    onSearchSubmitted: (val) => setState(() {
+                      _searchQuery = val.trim();
+                      _currentPage = 1;
+                      _loadData(reloadSuppliers: false);
+                    }),
+                    onSearchCleared: () => setState(() {
+                      _searchQuery = '';
+                      _currentPage = 1;
+                      _loadData(reloadSuppliers: false);
+                    }),
+                    onSupplierChanged: (val) => setState(() {
+                      _selectedSupplierId = val ?? 0;
+                      _currentPage = 1;
+                      _loadData(reloadSuppliers: false);
+                    }),
+                    onStatusChanged: (val) => setState(() {
+                      _selectedStatus = val ?? 'Tất cả';
+                      _currentPage = 1;
+                      _loadData(reloadSuppliers: false);
+                    }),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        AppButton(
-          label: 'Hủy bỏ',
-          variant: AppButtonVariant.outline,
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
-        ),
-        AppButton(
-          label: isEditing ? 'Cập nhật phiếu nhập' : 'Tạo phiếu nhập hàng',
-          variant: AppButtonVariant.primary,
-          isLoading: _isSaving,
-          onPressed: _isSaving ? null : _handleSave,
-        ),
-      ],
+              bodyWrapper: (child) => SmoothLoadingWrapper(
+                isLoading: isLoading || _isActionBusy,
+                hasData: hasData,
+                blockInteraction: _isActionBusy,
+                initialMinHeight: 420,
+                child: child,
+              ),
+              leftTable: leftContent,
+              rightPanel: rightPanel,
+            );
+          },
+        );
+      },
     );
   }
 }
-

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_tokens.dart';
+import '../../../core/constants/order_status.dart';
 import '../../../core/providers/theme_provider.dart';
 
 /// Thanh Tab trạng thái đơn hàng nằm ngang kèm bộ đếm số lượng theo thời gian thực
@@ -43,13 +44,7 @@ class OrderStatusTabs extends StatelessWidget {
             final isSelected = selectedStatus == key;
             final count = statusCounts[key] ?? 0;
 
-            Color tabAccent = AppColors.primary;
-            if (key == 'PENDING') tabAccent = AppColors.warning;
-            if (key == 'CONFIRMED') tabAccent = const Color(0xFF0284C7);
-            if (key == 'SHIPPING') tabAccent = const Color(0xFF6366F1);
-            if (key == 'DELIVERED') tabAccent = AppColors.success;
-            if (key == 'RETURNED') tabAccent = const Color(0xFFF97316);
-            if (key == 'CANCELLED') tabAccent = AppColors.danger;
+            final tabAccent = OrderStatusCatalog.accentColorOf(key);
 
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),

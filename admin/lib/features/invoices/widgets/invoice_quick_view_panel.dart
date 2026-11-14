@@ -49,11 +49,12 @@ class InvoiceQuickViewPanel extends StatelessWidget {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // 1. Header Panel
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+            padding: const EdgeInsets.fromLTRB(14, 11, 10, 11),
             decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: borderColor, width: 1)),
               color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9).withValues(alpha: 0.6),
@@ -115,13 +116,12 @@ class InvoiceQuickViewPanel extends StatelessWidget {
             ),
           ),
 
-          // 2. Scrollable Body Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          // 2. Scrollable Body Content (co gọn theo nội dung khi ít hàng, tự cuộn khi vượt maxHeight)
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(14),
+              children: [
                   // --- SECTION: DANH SÁCH SẢN PHẨM ---
                   Row(
                     children: [
@@ -138,7 +138,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   if (invoice.items.isEmpty)
                     Container(
@@ -169,14 +169,14 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                         itemBuilder: (context, index) {
                           final item = invoice.items[index];
                           return Padding(
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Thumbnail sản phẩm
                                 Container(
-                                  width: 40,
-                                  height: 40,
+                                  width: 36,
+                                  height: 36,
                                   decoration: BoxDecoration(
                                     color: isDark ? const Color(0xFF0F172A) : Colors.white,
                                     borderRadius: BorderRadius.circular(6),
@@ -251,11 +251,11 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                       ),
                     ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // --- SECTION: TỔNG KẾT TÀI CHÍNH ---
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: subCardBg,
                       borderRadius: BorderRadius.circular(6),
@@ -265,7 +265,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                       children: [
                         _buildSummaryLine('Tạm tính tiền hàng', currencyFormat.format(invoice.subtotalAmount), textSecondary, textPrimary),
                         if (invoice.voucherDiscountAmount > 0) ...[
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 5),
                           _buildSummaryLine(
                             'Giảm giá voucher ${invoice.voucherCode != null ? "(${invoice.voucherCode})" : ""}',
                             '-${currencyFormat.format(invoice.voucherDiscountAmount)}',
@@ -274,21 +274,26 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                             isBold: true,
                           ),
                         ],
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Divider(height: 1, color: borderColor),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'TỔNG THANH TOÁN',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: textPrimary,
-                                letterSpacing: 0.3,
+                            Expanded(
+                              child: Text(
+                                'TỔNG THANH TOÁN',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                  letterSpacing: 0.3,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Text(
                               currencyFormat.format(invoice.totalAmount),
                               style: const TextStyle(
@@ -299,11 +304,19 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Phương thức', style: TextStyle(fontSize: 11, color: textSecondary)),
+                            Expanded(
+                              child: Text(
+                                'Phương thức',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: textSecondary),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -322,7 +335,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
                   // --- SECTION: THÔNG TIN NGƯỜI MUA & NHẬN HÀNG ---
                   Row(
@@ -340,10 +353,10 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: subCardBg,
                       borderRadius: BorderRadius.circular(6),
@@ -359,7 +372,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           textSecondary: textSecondary,
                           borderColor: borderColor,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         _buildCustomerInfoRow(
                           icon: Icons.phone_outlined,
                           label: 'Số điện thoại',
@@ -368,7 +381,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           textSecondary: textSecondary,
                           borderColor: borderColor,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         _buildCustomerInfoRow(
                           icon: Icons.location_on_outlined,
                           label: 'Địa chỉ giao',
@@ -377,7 +390,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           textSecondary: textSecondary,
                           borderColor: borderColor,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         _buildCustomerInfoRow(
                           icon: Icons.calendar_today_outlined,
                           label: 'Ngày lập HĐ',
@@ -387,7 +400,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           borderColor: borderColor,
                         ),
                         if (invoice.paidAt != null) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildCustomerInfoRow(
                             icon: Icons.check_circle_outline_rounded,
                             label: 'Ngày thanh toán',
@@ -398,7 +411,7 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                           ),
                         ],
                         if (invoice.note != null && invoice.note!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           _buildCustomerInfoRow(
                             icon: Icons.notes_rounded,
                             label: 'Ghi chú',
@@ -414,11 +427,10 @@ class InvoiceQuickViewPanel extends StatelessWidget {
                 ],
               ),
             ),
-          ),
 
           // 3. Footer Action Buttons
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               border: Border(top: BorderSide(color: borderColor, width: 1)),
               color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.4) : const Color(0xFFF1F5F9).withValues(alpha: 0.6),
@@ -454,14 +466,19 @@ class InvoiceQuickViewPanel extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11.5,
-            color: labelColor,
-            fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: labelColor,
+              fontWeight: isBold ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
         ),
+        const SizedBox(width: 8),
         Text(
           value,
           style: TextStyle(

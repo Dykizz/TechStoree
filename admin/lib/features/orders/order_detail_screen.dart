@@ -12,7 +12,7 @@ import '../../core/widgets/app_toast.dart';
 import '../../core/widgets/data_table_container.dart';
 import '../../core/widgets/smooth_loading_wrapper.dart';
 import '../invoices/widgets/invoice_detail_dialog.dart';
-import '../../core/widgets/status_badge.dart';
+import '../../core/widgets/order_status_badge.dart';
 import 'widgets/packing_slip_dialog.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -76,18 +76,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       await _confirmNextStep(
         targetStatus: 'SHIPPING',
         dialogTitle: 'Xuất kho & Giao cho ĐVVC',
-        dialogMessage: 'Xác nhận đơn hàng ${_currentOrder.orderCode} đã đóng gói xong và bắt đầu chuyển giao cho đơn vị vận chuyển (SHIPPING)?',
+        dialogMessage: 'Xác nhận đơn hàng ${_currentOrder.orderCode} đã đóng gói xong và chuyển sang trạng thái Đang vận chuyển (SHIPPING)?',
         confirmLabel: 'Xác nhận giao hàng',
-        successMsg: 'Chuyển trạng thái giao hàng thành công!',
+        successMsg: 'Chuyển trạng thái Đang vận chuyển thành công!',
         icon: Icons.local_shipping_outlined,
       );
     } else if (status == 'SHIPPING') {
       await _confirmNextStep(
         targetStatus: 'DELIVERED',
         dialogTitle: 'Xác nhận giao hàng thành công',
-        dialogMessage: 'Xác nhận đơn hàng ${_currentOrder.orderCode} đã được giao thành công tới tay người nhận (DELIVERED)?',
+        dialogMessage: 'Xác nhận đơn hàng ${_currentOrder.orderCode} đã giao hàng thành công tới tay người nhận (DELIVERED)?',
         confirmLabel: 'Xác nhận đã giao',
-        successMsg: 'Cập nhật giao hàng thành công!',
+        successMsg: 'Cập nhật trạng thái Đã giao hàng thành công!',
         icon: Icons.task_alt_rounded,
       );
     }
@@ -578,7 +578,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 _currentOrder.orderCode,
                                 style: TextStyle(color: textPrimary, fontWeight: FontWeight.w800, fontSize: 20),
                               ),
-                              _buildOrderStatusBadge(_currentOrder.orderStatus),
+                              OrderStatusBadge(status: _currentOrder.orderStatus),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -1220,7 +1220,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         'isFail': false,
       },
       {
-        'title': 'Xác nhận đơn',
+        'title': 'Đã xác nhận',
         'subtitle': isCancelled ? 'Không thực hiện' : (step2Done ? 'Đã duyệt đơn' : 'Chờ duyệt'),
         'icon': Icons.assignment_turned_in_outlined,
         'done': step2Done,
@@ -1237,8 +1237,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       },
       {
         'title': isCancelled
-            ? 'Đã hủy đơn'
-            : (isReturned ? 'Hoàn hàng' : 'Giao thành công'),
+            ? 'Đã hủy'
+            : (isReturned ? 'Hoàn hàng' : 'Đã giao hàng'),
         'subtitle': isCancelled
             ? (_currentOrder.cancelledAt != null ? dateFormat.format(_currentOrder.cancelledAt!) : 'Đã hủy hoàn kho')
             : (isReturned
@@ -1414,24 +1414,5 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         color: lineColor,
       ),
     );
-  }
-
-  Widget _buildOrderStatusBadge(String status) {
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        return const StatusBadge(label: 'Chờ xử lý', isWarning: true);
-      case 'CONFIRMED':
-        return const StatusBadge(label: 'Đã xác nhận', isInfo: true);
-      case 'SHIPPING':
-        return const StatusBadge(label: 'Đang giao', isInfo: true);
-      case 'DELIVERED':
-        return const StatusBadge(label: 'Đã giao', isSuccess: true);
-      case 'RETURNED':
-        return const StatusBadge(label: 'Hoàn hàng', isDanger: true);
-      case 'CANCELLED':
-        return const StatusBadge(label: 'Đã hủy', isDanger: true);
-      default:
-        return StatusBadge(label: status);
-    }
   }
 }

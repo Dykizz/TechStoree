@@ -42,133 +42,140 @@ class AppPagination extends StatelessWidget {
         color: backgroundColor,
         border: Border(top: BorderSide(color: borderColor, width: 1)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left: Result Count
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Hiển thị ', style: TextStyle(color: textSecondary, fontSize: 12)),
-              Text('$startItem-$endItem', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
-              Text(' trong số ', style: TextStyle(color: textSecondary, fontSize: 12)),
-              Text('$totalItems', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
-              Text(' kết quả', style: TextStyle(color: textSecondary, fontSize: 12)),
-            ],
-          ),
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            // Left: Result Count
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text('Hiển thị ', style: TextStyle(color: textSecondary, fontSize: 12)),
+                Text('$startItem-$endItem', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                Text(' trong số ', style: TextStyle(color: textSecondary, fontSize: 12)),
+                Text('$totalItems', style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12)),
+                Text(' kết quả', style: TextStyle(color: textSecondary, fontSize: 12)),
+              ],
+            ),
 
-          // Right: Page size selector + Page navigation buttons
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (onItemsPerPageChanged != null) ...[
-                Container(
-                  height: 28,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      value: itemsPerPageOptions.contains(itemsPerPage) ? itemsPerPage : itemsPerPageOptions.first,
-                      dropdownColor: backgroundColor,
-                      icon: Icon(Icons.arrow_drop_down, color: textSecondary, size: 16),
-                      style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
-                      items: itemsPerPageOptions
-                          .map((val) => DropdownMenuItem<int>(
-                                value: val,
-                                child: Text('$val / trang'),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null && onItemsPerPageChanged != null) {
-                          onItemsPerPageChanged!(val);
-                        }
-                      },
+            // Right: Page size selector + Page navigation buttons
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              runSpacing: 6,
+              children: [
+                if (onItemsPerPageChanged != null) ...[
+                  Container(
+                    height: 28,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: itemsPerPageOptions.contains(itemsPerPage) ? itemsPerPage : itemsPerPageOptions.first,
+                        dropdownColor: backgroundColor,
+                        icon: Icon(Icons.arrow_drop_down, color: textSecondary, size: 16),
+                        style: TextStyle(color: textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+                        items: itemsPerPageOptions
+                            .map((val) => DropdownMenuItem<int>(
+                                  value: val,
+                                  child: Text('$val / trang'),
+                                ))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null && onItemsPerPageChanged != null) {
+                            onItemsPerPageChanged!(val);
+                          }
+                        },
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                ],
+
+                _buildPageButton(
+                  context,
+                  icon: Icons.first_page_rounded,
+                  isEnabled: currentPage > 1,
+                  onTap: () => onPageChanged(1),
+                  borderColor: borderColor,
+                  isDark: isDark,
                 ),
-                const SizedBox(width: 12),
-              ],
+                const SizedBox(width: 4),
+                _buildPageButton(
+                  context,
+                  icon: Icons.chevron_left_rounded,
+                  isEnabled: currentPage > 1,
+                  onTap: () => onPageChanged(currentPage - 1),
+                  borderColor: borderColor,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 4),
 
-              _buildPageButton(
-                context,
-                icon: Icons.first_page_rounded,
-                isEnabled: currentPage > 1,
-                onTap: () => onPageChanged(1),
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const SizedBox(width: 4),
-              _buildPageButton(
-                context,
-                icon: Icons.chevron_left_rounded,
-                isEnabled: currentPage > 1,
-                onTap: () => onPageChanged(currentPage - 1),
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const SizedBox(width: 4),
+                ..._generatePageNumbers().map((pageNumber) {
+                  if (pageNumber == -1) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Text('...', style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold, fontSize: 11)),
+                    );
+                  }
 
-              ..._generatePageNumbers().map((pageNumber) {
-                if (pageNumber == -1) {
+                  final isSelected = pageNumber == currentPage;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Text('...', style: TextStyle(color: textSecondary, fontWeight: FontWeight.bold, fontSize: 11)),
-                  );
-                }
-
-                final isSelected = pageNumber == currentPage;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: InkWell(
-                    onTap: () => onPageChanged(pageNumber),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF)),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: isSelected ? AppColors.primary : borderColor),
-                      ),
-                      child: Text(
-                        '$pageNumber',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : textPrimary,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          fontSize: 11,
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: InkWell(
+                      onTap: () => onPageChanged(pageNumber),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF0F172A) : const Color(0xFFFFFFFF)),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: isSelected ? AppColors.primary : borderColor),
+                        ),
+                        child: Text(
+                          '$pageNumber',
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : textPrimary,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 11,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
 
-              const SizedBox(width: 4),
-              _buildPageButton(
-                context,
-                icon: Icons.chevron_right_rounded,
-                isEnabled: currentPage < totalPages,
-                onTap: () => onPageChanged(currentPage + 1),
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const SizedBox(width: 4),
-              _buildPageButton(
-                context,
-                icon: Icons.last_page_rounded,
-                isEnabled: currentPage < totalPages,
-                onTap: () => onPageChanged(totalPages),
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-            ],
-          ),
-        ],
+                const SizedBox(width: 4),
+                _buildPageButton(
+                  context,
+                  icon: Icons.chevron_right_rounded,
+                  isEnabled: currentPage < totalPages,
+                  onTap: () => onPageChanged(currentPage + 1),
+                  borderColor: borderColor,
+                  isDark: isDark,
+                ),
+                const SizedBox(width: 4),
+                _buildPageButton(
+                  context,
+                  icon: Icons.last_page_rounded,
+                  isEnabled: currentPage < totalPages,
+                  onTap: () => onPageChanged(totalPages),
+                  borderColor: borderColor,
+                  isDark: isDark,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

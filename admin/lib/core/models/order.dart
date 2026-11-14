@@ -1,3 +1,4 @@
+import '../constants/order_status.dart';
 import '../utils/json_parse_helper.dart';
 
 class OrderItem {
@@ -82,7 +83,7 @@ class Order {
   final String receiverPhone;
   final String shippingAddress;
   final String? notes;
-  final String orderStatus; // PENDING, CONFIRMED, SHIPPING, DELIVERED, CANCELLED
+  final String orderStatus; // PENDING, CONFIRMED, SHIPPING, DELIVERED, CANCELLED, RETURNED
   final String paymentMethod; // COD, VNPAY, BANK_TRANSFER
   final String paymentStatus; // PENDING, PAID, FAILED, REFUNDED
   final double subtotalAmount;
@@ -146,24 +147,7 @@ class Order {
   // Business Rule: Can cancel/return when orderStatus is PENDING, CONFIRMED, or SHIPPING
   bool get canCancel => orderStatus == 'PENDING' || orderStatus == 'CONFIRMED' || orderStatus == 'SHIPPING';
 
-  String get orderStatusDisplay {
-    switch (orderStatus.toUpperCase()) {
-      case 'PENDING':
-        return 'Chờ xử lý';
-      case 'CONFIRMED':
-        return 'Đã xác nhận';
-      case 'SHIPPING':
-        return 'Đang vận chuyển';
-      case 'DELIVERED':
-        return 'Đã giao hàng';
-      case 'CANCELLED':
-        return 'Đã hủy';
-      case 'RETURNED':
-        return 'Hoàn hàng / Giao thất bại';
-      default:
-        return orderStatus;
-    }
-  }
+  String get orderStatusDisplay => OrderStatusCatalog.labelOf(orderStatus);
 
   String get paymentStatusDisplay {
     switch (paymentStatus.toUpperCase()) {

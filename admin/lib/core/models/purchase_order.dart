@@ -59,7 +59,7 @@ class PurchaseOrder {
   final String createdByName;
   final double totalCost;
   final int totalItems;
-  final String status; // 'DRAFT', 'COMPLETE', 'CANCLE'
+  final String status; // 'DRAFT', 'COMPLETE'
   final String note;
   final DateTime createdAt;
   final String? approvedByName;
@@ -136,4 +136,22 @@ class PurchaseOrder {
       'items': items.map((i) => i.toCreateJson()).toList(),
     };
   }
+}
+
+/// Kết quả phân trang danh sách phiếu nhập hàng trả về từ API.
+class PurchaseOrderPagedResult {
+  final List<PurchaseOrder> items;
+  final int totalCount;
+  final int page;
+  final int pageSize;
+
+  PurchaseOrderPagedResult({
+    required this.items,
+    required this.totalCount,
+    required this.page,
+    required this.pageSize,
+  });
+
+  int get totalPages =>
+      pageSize > 0 ? (totalCount / pageSize).ceil() : (totalCount > 0 ? 1 : 0);
 }
