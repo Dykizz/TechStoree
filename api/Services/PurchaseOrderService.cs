@@ -107,12 +107,15 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
         // 3. Kiểm tra tính hợp lệ của các biến thể
         var variants = await ValidateAndGetVariantsAsync(dto.Items.Select(i => i.VariantId));
 
-        // 4. Sinh mã phiếu tự động: PO-yyyyMMdd-XXX
-        var today = DateTime.UtcNow.Date;
-        var tomorrow = today.AddDays(1);
-        var countToday = await context.PurchaseOrders
-            .CountAsync(p => p.CreatedAt >= today && p.CreatedAt < tomorrow);
-        var poCode = $"PO-{DateTime.UtcNow:yyyyMMdd}-{(countToday + 1):D3}";
+        // 4. Sinh mã phiếu tự động: PO-yyyyMMdd-XXXXXX (tránh trùng khi xóa phiếu nháp hoặc tạo đồng thời)
+        var now = DateTime.UtcNow;
+        string poCode;
+        do
+        {
+            var suffix = Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+            poCode = $"PO-{now:yyyyMMdd}-{suffix}";
+        }
+        while (await context.PurchaseOrders.AnyAsync(p => p.PoCode == poCode));
 
         // 5. Xác định trạng thái tạo mới qua Enum (DRAFT hoặc COMPLETED)
         var isCompleted = dto.Status == PurchaseOrderStatus.COMPLETED;
@@ -129,7 +132,7 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
                 TotalCost = totalCost,
                 Status = dto.Status,
                 Note = dto.Note,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             };
 
             var variantMap = variants.ToDictionary(v => v.VariantId);
