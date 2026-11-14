@@ -9,6 +9,7 @@ import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/utils/date_preset_helper.dart';
 import '../../core/widgets/app_date_range_picker.dart';
+import '../../core/widgets/master_detail_quick_view_layout.dart';
 import '../../core/widgets/page_header.dart';
 import '../../core/widgets/smooth_loading_wrapper.dart';
 import 'widgets/invoice_data_table.dart';
@@ -270,185 +271,151 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    final tableContent = InvoiceDataTable(
+      invoices: _invoices,
+      selectedInvoice: _selectedInvoice,
+      totalItems: _totalItems,
+      totalPages: _totalPages,
+      currentPage: _currentPage,
+      pageSize: _pageSize,
+      onPageChanged: (page) {
+        setState(() => _currentPage = page);
+        _loadInvoices();
+      },
+      onItemsPerPageChanged: (newSize) {
+        setState(() {
+          _pageSize = newSize;
+          _currentPage = 1;
+        });
+        _loadInvoices();
+      },
+      onSelectInvoice: _toggleQuickView,
+    );
+
+    final rightPanel = _selectedInvoice != null
+        ? InvoiceQuickViewPanel(
+            key: ValueKey('invoice_panel_${_selectedInvoice!.invoiceId}'),
+            invoice: _selectedInvoice!,
+            onClose: _closeQuickView,
+            onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
+          )
+        : const InvoiceQuickViewPlaceholder(
+            key: ValueKey('invoice_quick_view_placeholder'),
+          );
+
+    return MasterDetailQuickViewLayout(
       padding: const EdgeInsets.all(AppTokens.space16),
-      child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Tiêu đề trang
-              const PageHeader(
-                title: 'Quản lý hóa đơn',
-                subtitle: 'Tra cứu, theo dõi trạng thái thanh toán và in chứng từ hóa đơn bán hàng',
-              ),
-              const SizedBox(height: 12),
-
-              // 2. 4 Thẻ KPI thống kê nhanh (click để lọc trạng thái)
-              InvoiceMetricsRow(
-                stats: _stats,
-                invoices: _invoices,
-                totalItems: _totalItems,
-                selectedStatus: _selectedStatus,
-                onStatusSelected: _selectStatus,
-              ),
-              const SizedBox(height: 12),
-
-              // 3. Thanh công cụ Tìm kiếm & Lọc nhanh
-              InvoiceToolbar(
-                searchCtrl: _searchCtrl,
-                invoices: _invoices,
-                selectedDatePreset: _selectedDatePreset,
-                selectedDateRange: _selectedDateRange,
-                selectedSort: _selectedSort,
-                isAdvancedFilterOpen: _isAdvancedFilterOpen,
-                advancedFilterCount: _advancedFilterCount,
-                hasActiveFilters: _hasActiveFilters,
-                onSearchSelected: (code) {
-                  setState(() {
-                    _searchQuery = code;
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                onSearchSubmitted: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                onSearchCleared: () {
-                  setState(() {
-                    _searchQuery = '';
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                onDatePresetChanged: _applyDatePreset,
-                onSortChanged: (val) {
-                  setState(() {
-                    _selectedSort = val;
-                    _currentPage = 1;
-                  });
-                  _loadInvoices();
-                },
-                onToggleAdvancedFilter: () {
-                  setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
-                },
-                onResetFilters: _resetFilters,
-              ),
-
-              // 4. Panel lọc nâng cao (Khoảng tiền Min-Max, PTTT, Tag ngày)
-              if (_isAdvancedFilterOpen) ...[
-                const SizedBox(height: 10),
-                InvoiceFilterPanel(
-                  minAmountCtrl: _minAmountCtrl,
-                  maxAmountCtrl: _maxAmountCtrl,
-                  minAmount: _minAmount,
-                  maxAmount: _maxAmount,
-                  selectedPaymentMethod: _selectedPaymentMethod,
-                  selectedDateRange: _selectedDateRange,
-                  advancedFilterCount: _advancedFilterCount,
-                  onClose: () => setState(() => _isAdvancedFilterOpen = false),
-                  onAmountChanged: _onAmountChanged,
-                  onAmountSubmitted: _applyCustomAmount,
-                  onPricePresetSelected: _applyPricePreset,
-                  onPaymentMethodSelected: (method) {
-                    setState(() {
-                      _selectedPaymentMethod = method;
-                      _currentPage = 1;
-                    });
-                    _loadInvoices();
-                  },
-                  onClearDateRange: () {
-                    setState(() {
-                      _selectedDateRange = null;
-                      _selectedDatePreset = 'ALL';
-                      _currentPage = 1;
-                    });
-                    _loadInvoices();
-                  },
-                ),
-              ],
-              const SizedBox(height: 12),
-
-              // 5. Cấu trúc Master-Detail (Bảng danh sách + Khung xem nhanh)
-              SmoothLoadingWrapper(
-                isLoading: _isLoading,
-                hasData: _hasLoadedOnce,
-                initialMinHeight: 420,
-                child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final isCompact = constraints.maxWidth < 680;
-                        final panelWidth = constraints.maxWidth > 1400
-                            ? 430.0
-                            : (constraints.maxWidth > 1150 ? 400.0 : 370.0);
-
-                        final tableContent = InvoiceDataTable(
-                          invoices: _invoices,
-                          selectedInvoice: _selectedInvoice,
-                          totalItems: _totalItems,
-                          totalPages: _totalPages,
-                          currentPage: _currentPage,
-                          pageSize: _pageSize,
-                          onPageChanged: (page) {
-                            setState(() => _currentPage = page);
-                            _loadInvoices();
-                          },
-                          onItemsPerPageChanged: (newSize) {
-                            setState(() {
-                              _pageSize = newSize;
-                              _currentPage = 1;
-                            });
-                            _loadInvoices();
-                          },
-                          onSelectInvoice: _toggleQuickView,
-                        );
-
-                        final rightPanel = _selectedInvoice != null
-                            ? InvoiceQuickViewPanel(
-                                key: ValueKey('invoice_panel_${_selectedInvoice!.invoiceId}'),
-                                invoice: _selectedInvoice!,
-                                onClose: _closeQuickView,
-                                onViewFullDetail: () => _showInvoiceDetail(_selectedInvoice!),
-                              )
-                            : const InvoiceQuickViewPlaceholder(
-                                key: ValueKey('invoice_quick_view_placeholder'),
-                              );
-
-                        if (isCompact) {
-                          if (_selectedInvoice != null) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                tableContent,
-                                const SizedBox(height: 16),
-                                SizedBox(
-                                  height: 580,
-                                  child: rightPanel,
-                                ),
-                              ],
-                            );
-                          }
-                          return tableContent;
-                        }
-
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: tableContent),
-                            const SizedBox(width: 14),
-                            SizedBox(
-                              width: panelWidth,
-                              height: 640,
-                              child: rightPanel,
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-              ),
-            ],
+      initialHeaderHeight: 230.0,
+      hasSelection: _selectedInvoice != null,
+      headerSection: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Tiêu đề trang
+          const PageHeader(
+            title: 'Quản lý hóa đơn',
+            subtitle: 'Tra cứu, theo dõi trạng thái thanh toán và in chứng từ hóa đơn bán hàng',
           ),
-        );
+          const SizedBox(height: 12),
+
+          // 2. 4 Thẻ KPI thống kê nhanh (click để lọc trạng thái)
+          InvoiceMetricsRow(
+            stats: _stats,
+            invoices: _invoices,
+            totalItems: _totalItems,
+            selectedStatus: _selectedStatus,
+            onStatusSelected: _selectStatus,
+          ),
+          const SizedBox(height: 12),
+
+          // 3. Thanh công cụ Tìm kiếm & Lọc nhanh
+          InvoiceToolbar(
+            searchCtrl: _searchCtrl,
+            invoices: _invoices,
+            selectedDatePreset: _selectedDatePreset,
+            selectedDateRange: _selectedDateRange,
+            selectedSort: _selectedSort,
+            isAdvancedFilterOpen: _isAdvancedFilterOpen,
+            advancedFilterCount: _advancedFilterCount,
+            hasActiveFilters: _hasActiveFilters,
+            onSearchSelected: (code) {
+              setState(() {
+                _searchQuery = code;
+                _currentPage = 1;
+              });
+              _loadInvoices();
+            },
+            onSearchSubmitted: (val) {
+              setState(() {
+                _searchQuery = val;
+                _currentPage = 1;
+              });
+              _loadInvoices();
+            },
+            onSearchCleared: () {
+              setState(() {
+                _searchQuery = '';
+                _currentPage = 1;
+              });
+              _loadInvoices();
+            },
+            onDatePresetChanged: _applyDatePreset,
+            onSortChanged: (val) {
+              setState(() {
+                _selectedSort = val;
+                _currentPage = 1;
+              });
+              _loadInvoices();
+            },
+            onToggleAdvancedFilter: () {
+              setState(() => _isAdvancedFilterOpen = !_isAdvancedFilterOpen);
+            },
+            onResetFilters: _resetFilters,
+          ),
+
+          // 4. Panel lọc nâng cao (Khoảng tiền Min-Max, PTTT, Tag ngày)
+          if (_isAdvancedFilterOpen) ...[
+            const SizedBox(height: 10),
+            InvoiceFilterPanel(
+              minAmountCtrl: _minAmountCtrl,
+              maxAmountCtrl: _maxAmountCtrl,
+              minAmount: _minAmount,
+              maxAmount: _maxAmount,
+              selectedPaymentMethod: _selectedPaymentMethod,
+              selectedDateRange: _selectedDateRange,
+              advancedFilterCount: _advancedFilterCount,
+              onClose: () => setState(() => _isAdvancedFilterOpen = false),
+              onAmountChanged: _onAmountChanged,
+              onAmountSubmitted: _applyCustomAmount,
+              onPricePresetSelected: _applyPricePreset,
+              onPaymentMethodSelected: (method) {
+                setState(() {
+                  _selectedPaymentMethod = method;
+                  _currentPage = 1;
+                });
+                _loadInvoices();
+              },
+              onClearDateRange: () {
+                setState(() {
+                  _selectedDateRange = null;
+                  _selectedDatePreset = 'ALL';
+                  _currentPage = 1;
+                });
+                _loadInvoices();
+              },
+            ),
+          ],
+          const SizedBox(height: 12),
+        ],
+      ),
+      bodyWrapper: (child) => SmoothLoadingWrapper(
+        isLoading: _isLoading,
+        hasData: _hasLoadedOnce,
+        initialMinHeight: 420,
+        child: child,
+      ),
+      leftTable: tableContent,
+      rightPanel: rightPanel,
+    );
   }
 }
