@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_tokens.dart';
+import '../../core/constants/order_status.dart';
 import '../../core/models/order.dart';
 import '../../core/providers/auth_provider.dart';
 import '../../core/services/api_service.dart';
@@ -63,15 +64,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _isLoading = true;
   Order? _selectedOrderForDetail;
 
-  static const List<Map<String, String>> _statusTabs = [
-    {'key': 'ALL', 'label': 'Tất cả'},
-    {'key': 'PENDING', 'label': 'Chờ xử lý'},
-    {'key': 'CONFIRMED', 'label': 'Đã xác nhận'},
-    {'key': 'SHIPPING', 'label': 'Vận chuyển'},
-    {'key': 'DELIVERED', 'label': 'Đã giao'},
-    {'key': 'RETURNED', 'label': 'Hoàn hàng'},
-    {'key': 'CANCELLED', 'label': 'Đã hủy'},
-  ];
+  static final List<Map<String, String>> _statusTabs = OrderStatusCatalog.buildFilterTabs();
 
   Map<String, int> _statusCounts = {
     'ALL': 0,
@@ -306,7 +299,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             Text('Xuất kho & Giao hàng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ],
         ),
-        content: Text('Chuyển đơn hàng ${_currentOrderCode(order)} sang trạng thái Vận chuyển (SHIPPING) để giao bên vận chuyển?'),
+        content: Text('Chuyển đơn hàng ${_currentOrderCode(order)} sang trạng thái Đang vận chuyển (SHIPPING)?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy bỏ')),
           ElevatedButton(
@@ -326,7 +319,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final res = await apiService.updateOrderStatus(order.orderId, status: 'SHIPPING', token: token);
     if (mounted) {
       if (res.success) {
-        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Chuyển trạng thái giao hàng thành công!');
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Chuyển trạng thái Đang vận chuyển thành công!');
         _loadOrders();
       } else {
         AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');
@@ -346,7 +339,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             Text('Xác nhận đã giao hàng', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
           ],
         ),
-        content: Text('Xác nhận đơn hàng ${_currentOrderCode(order)} đã giao thành công tới người nhận (DELIVERED)?'),
+        content: Text('Xác nhận đơn hàng ${_currentOrderCode(order)} đã giao hàng thành công tới người nhận (DELIVERED)?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy bỏ')),
           ElevatedButton(
@@ -366,7 +359,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final res = await apiService.updateOrderStatus(order.orderId, status: 'DELIVERED', token: token);
     if (mounted) {
       if (res.success) {
-        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Cập nhật trạng thái giao thành công!');
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Cập nhật trạng thái Đã giao hàng thành công!');
         _loadOrders();
       } else {
         AppToast.error(context, res.message.isNotEmpty ? res.message : 'Thao tác thất bại!');

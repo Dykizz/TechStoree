@@ -154,7 +154,7 @@ public static class AppPermissions
         new(PurchaseOrders.Create, MPurchaseOrders, "Tạo đơn nhập hàng", "Lập phiếu nhập hàng mới và chi tiết sản phẩm nhập"),
         new(PurchaseOrders.Update, MPurchaseOrders, "Cập nhật đơn nhập hàng", "Cập nhật trạng thái phiếu nhập kho (Hoàn tất, hủy...)"),
         new(Orders.View, MOrders, "Xem đơn bán hàng", "Xem tất cả đơn hàng của khách hàng"),
-        new(Orders.UpdateStatus, MOrders, "Cập nhật đơn hàng", "Chuyển trạng thái đơn hàng (Đã xác nhận, Đang giao, Đã giao...)"),
+        new(Orders.UpdateStatus, MOrders, "Cập nhật đơn hàng", "Chuyển trạng thái đơn hàng (Đã xác nhận, Đang vận chuyển, Đã giao hàng...)"),
         new(Orders.Cancel, MOrders, "Hủy đơn hàng", "Hủy đơn hàng của khách hàng", Reserved: true),
         new(Promotions.View, MPromotions, "Xem khuyến mãi", "Xem danh sách chiến dịch khuyến mãi", Reserved: true),
         new(Promotions.Create, MPromotions, "Tạo khuyến mãi", "Tạo chương trình khuyến mãi mới"),

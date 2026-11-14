@@ -10,6 +10,7 @@ import '../../../core/widgets/app_pagination.dart';
 import '../../../core/widgets/data_table_container.dart';
 import '../../../core/widgets/smooth_loading_wrapper.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/order_status_badge.dart';
 import '../../../core/widgets/scrollable_table_wrapper.dart';
 import '../../../core/widgets/status_badge.dart';
 
@@ -141,7 +142,7 @@ class OrderDataTable extends StatelessWidget {
                         ],
                       ),
                     ),
-                    DataCell(_buildOrderStatusBadge(order.orderStatus)),
+                    DataCell(OrderStatusBadge(status: order.orderStatus)),
                     DataCell(_buildPaymentStatusBadge(order.paymentStatus)),
                     DataCell(
                       Text(
@@ -211,49 +212,6 @@ class OrderDataTable extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildOrderStatusBadge(String status) {
-    Color bg;
-    Color fg;
-    String label;
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        bg = AppColors.warning.withAlpha(30);
-        fg = AppColors.warning;
-        label = 'Chờ xử lý';
-        break;
-      case 'CONFIRMED':
-        bg = const Color(0xFF0284C7).withAlpha(30);
-        fg = const Color(0xFF0284C7);
-        label = 'Đã xác nhận';
-        break;
-      case 'SHIPPING':
-        bg = const Color(0xFF6366F1).withAlpha(30);
-        fg = const Color(0xFF6366F1);
-        label = 'Đang giao';
-        break;
-      case 'DELIVERED':
-        bg = AppColors.success.withAlpha(30);
-        fg = AppColors.success;
-        label = 'Đã giao';
-        break;
-      case 'RETURNED':
-        bg = const Color(0xFFF97316).withAlpha(30);
-        fg = const Color(0xFFF97316);
-        label = 'Hoàn hàng';
-        break;
-      case 'CANCELLED':
-        bg = AppColors.danger.withAlpha(30);
-        fg = AppColors.danger;
-        label = 'Đã hủy';
-        break;
-      default:
-        bg = Colors.grey.withAlpha(30);
-        fg = Colors.grey;
-        label = status;
-    }
-    return StatusBadge(label: label, color: fg, backgroundColor: bg);
   }
 
   Widget _buildPaymentStatusBadge(String status) {

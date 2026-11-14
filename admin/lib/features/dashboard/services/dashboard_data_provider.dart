@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/order_status.dart';
 import '../../../core/models/order.dart';
 import '../../../core/models/product.dart';
 import '../../../core/models/purchase_order.dart';
@@ -551,26 +552,26 @@ class DashboardDataProvider {
   // --- Order & Payment Status Distribution ---
 
   List<StatusDistributionItem> _buildOrderStatusDistribution(List<Order> orders) {
-    final Map<String, ({String name, Color color})> statuses = {
-      'PENDING': (name: 'Chờ xử lý', color: AppColors.warning),
-      'CONFIRMED': (name: 'Đã xác nhận', color: AppColors.info),
-      'SHIPPING': (name: 'Đang vận chuyển', color: AppColors.primary),
-      'DELIVERED': (name: 'Đã giao hàng', color: AppColors.success),
-      'CANCELLED': (name: 'Đã hủy', color: AppColors.danger),
+    final Map<String, Color> chartColors = {
+      'PENDING': AppColors.warning,
+      'CONFIRMED': AppColors.info,
+      'SHIPPING': AppColors.primary,
+      'DELIVERED': AppColors.success,
+      'CANCELLED': AppColors.danger,
     };
 
     final totalCount = orders.length;
     final List<StatusDistributionItem> items = [];
 
-    statuses.forEach((code, meta) {
+    chartColors.forEach((code, color) {
       final count = orders.where((o) => o.orderStatus.toUpperCase() == code).length;
       final pct = totalCount > 0 ? (count / totalCount) * 100 : 0.0;
       items.add(StatusDistributionItem(
         statusCode: code,
-        displayName: meta.name,
+        displayName: OrderStatusCatalog.labelOf(code),
         count: count,
         percentage: pct,
-        color: meta.color,
+        color: color,
       ));
     });
 

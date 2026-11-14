@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/models/order.dart';
+import '../../../core/widgets/order_status_badge.dart';
 import '../../../core/widgets/status_badge.dart';
 
 class RecentOrdersWidget extends StatelessWidget {
@@ -135,7 +136,7 @@ class RecentOrdersWidget extends StatelessWidget {
                         ),
                       ),
                       DataCell(
-                        _buildOrderBadge(order.orderStatusDisplay, order.orderStatus),
+                        OrderStatusBadge(status: order.orderStatus),
                       ),
                       DataCell(
                         _buildPaymentBadge(order.paymentStatusDisplay, order.paymentStatus),
@@ -154,22 +155,6 @@ class RecentOrdersWidget extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Widget _buildOrderBadge(String label, String status) {
-    switch (status.toUpperCase()) {
-      case 'DELIVERED':
-        return StatusBadge(label: label, isSuccess: true);
-      case 'SHIPPING':
-      case 'CONFIRMED':
-        return StatusBadge(label: label, isInfo: true);
-      case 'PENDING':
-        return StatusBadge(label: label, isWarning: true);
-      case 'CANCELLED':
-        return StatusBadge(label: label, isDanger: true);
-      default:
-        return StatusBadge(label: label);
-    }
   }
 
   Widget _buildPaymentBadge(String label, String status) {
