@@ -597,15 +597,20 @@ public static class DbInitializer
                 string.Join(", ", defaultTargets));
         }
 
-        // 4. ADMIN luôn được cấp toàn quyền trên mọi quyền hiện có, kể cả quyền mới bổ sung sau này.
-        //    Đây là chủ ý thiết kế: ADMIN là vai trò siêu quản trị, không phụ thuộc cấu hình thủ công.
+        // 4. ADMIN chỉ tự động cấp toàn quyền chuẩn khi chưa từng có cấu hình quyền nào (DB mới / lần đầu),
+        //    không tự cấp bù lại các quyền tác nghiệp mà Quản trị viên đã chủ động tắt khi restart.
+        //    Riêng cặp quyền quản trị phân quyền (Roles.View, Roles.Update) luôn được bảo vệ cho ADMIN.
         var adminExistingPerms = await context.RolePermissions
             .Where(rp => rp.RoleId == "ADMIN")
             .Select(rp => rp.PermissionId)
             .ToListAsync();
         var adminPermSet = new HashSet<string>(adminExistingPerms, StringComparer.OrdinalIgnoreCase);
 
-        var adminNewRolePerms = allPermIds
+        IEnumerable<string> requiredAdminPerms = adminExistingPerms.Count == 0
+            ? AppPermissions.Catalog.Select(m => m.Id).Where(allPermSet.Contains)
+            : new[] { AppPermissions.Roles.View, AppPermissions.Roles.Update }.Where(allPermSet.Contains);
+
+        var adminNewRolePerms = requiredAdminPerms
             .Where(pid => !adminPermSet.Contains(pid))
             .Select(pid => new RolePermission
             {
@@ -620,7 +625,7 @@ public static class DbInitializer
             context.RolePermissions.AddRange(adminNewRolePerms);
             await context.SaveChangesAsync();
             logger.LogInformation(
-                "✅ [DbInitializer] Đã cấp thêm {Count} quyền mới cho vai trò ADMIN.",
+                "✅ [DbInitializer] Đã cấp {Count} quyền khởi tạo/bảo vệ cho vai trò ADMIN.",
                 adminNewRolePerms.Count);
         }
 

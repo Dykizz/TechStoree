@@ -34,7 +34,8 @@ public static class MappingExtensions
             .Where(ur => ur.Role != null)
             .SelectMany(ur => ur.Role!.RolePermissions)
             .Select(rp => rp.PermissionId)
-            .Distinct()
+            .Where(pid => AppPermissions.ById.ContainsKey(pid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList() ?? new List<string>();
     }
 

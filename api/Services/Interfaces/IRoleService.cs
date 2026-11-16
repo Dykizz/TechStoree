@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Roles;
+using WebBanHang.Api.DTOs.Users;
 
 namespace WebBanHang.Api.Services.Interfaces;
 
@@ -6,6 +7,8 @@ public interface IRoleService
 {
     Task<List<ModulePermissionsDto>> GetAllPermissionsGroupedAsync();
     Task<List<RoleDto>> GetRolesAsync();
+    Task<List<RoleDto>> GetAssignableRolesAsync();
+    Task<List<UserDto>> GetUsersByRoleAsync(string roleId);
     Task<RoleDetailDto> GetRoleByIdAsync(string roleId);
     Task<RoleDetailDto> CreateRoleAsync(CreateRoleDto dto);
     Task<RoleDetailDto> UpdateRoleAsync(string roleId, UpdateRoleDto dto);
