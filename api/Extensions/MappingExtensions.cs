@@ -180,7 +180,11 @@ public static class MappingExtensions
     // PRODUCT & VARIANT MAPPINGS
     // ==========================================
 
-    public static ProductVariantDto ToVariantDto(this ProductVariant variant, DateTime? currentTime = null)
+    public static ProductVariantDto ToVariantDto(
+        this ProductVariant variant,
+        DateTime? currentTime = null,
+        bool includeCostInfo = false,
+        decimal? lastImportPrice = null)
     {
         return new ProductVariantDto
         {
@@ -189,6 +193,8 @@ public static class MappingExtensions
             ProductName = variant.Product?.ProductName ?? string.Empty,
             VariantName = variant.VariantName,
             Price = variant.Price,
+            CostPrice = includeCostInfo ? variant.CostPrice : null,
+            LastImportPrice = includeCostInfo ? lastImportPrice : null,
             Promotion = variant.ToVariantPromotionDto(currentTime),
             StockQuantity = variant.StockQuantity,
             ImageUrl = variant.GetDisplayImageUrl(),
@@ -257,7 +263,12 @@ public static class MappingExtensions
     public static ProductBaseDto ToProductBaseDto(this Product product, bool onlyActiveVariants = false, DateTime? currentTime = null) =>
         product.PopulateProductBase(new ProductBaseDto(), onlyActiveVariants, currentTime);
 
-    public static ProductDetailDto ToProductDetailDto(this Product product, bool onlyActiveVariants = false, DateTime? currentTime = null)
+    public static ProductDetailDto ToProductDetailDto(
+        this Product product,
+        bool onlyActiveVariants = false,
+        DateTime? currentTime = null,
+        bool includeCostInfo = false,
+        IReadOnlyDictionary<int, decimal>? lastImportPriceMap = null)
     {
         var detail = product.PopulateProductBase(new ProductDetailDto(), onlyActiveVariants, currentTime);
         var variants = product.Variants;
@@ -270,7 +281,15 @@ public static class MappingExtensions
         detail.VariantAttributes = product.VariantAttributes != null 
             ? new List<string>(product.VariantAttributes) 
             : new List<string>();
-        detail.Variants = variants?.Select(v => v.ToVariantDto(currentTime)).ToList() ?? new List<ProductVariantDto>();
+        detail.Variants = variants?.Select(v =>
+        {
+            decimal? lastImport = null;
+            if (includeCostInfo && lastImportPriceMap != null && lastImportPriceMap.TryGetValue(v.VariantId, out var price))
+            {
+                lastImport = price;
+            }
+            return v.ToVariantDto(currentTime, includeCostInfo, lastImport);
+        }).ToList() ?? new List<ProductVariantDto>();
 
         return detail;
     }
@@ -536,7 +555,7 @@ public static class MappingExtensions
     // ORDER MAPPINGS (SNAPSHOT AUDITING)
     // ==========================================
 
-    public static OrderItemDto ToOrderItemDto(this OrderItem item)
+    public static OrderItemDto ToOrderItemDto(this OrderItem item, bool includeCostInfo = false)
     {
         return new OrderItemDto
         {
@@ -548,6 +567,7 @@ public static class MappingExtensions
             ImageUrl = item.ImageUrl,
             OriginalPrice = item.OriginalPrice,
             UnitPrice = item.UnitPrice,
+            CostPrice = includeCostInfo ? item.CostPrice : null,
             PromotionId = item.PromotionId,
             PromotionName = item.PromotionName,
             PromotionDiscount = item.PromotionDiscount,
@@ -556,7 +576,7 @@ public static class MappingExtensions
         };
     }
 
-    public static T PopulateOrderBase<T>(this Order order, T dto) where T : OrderBaseDto
+    public static T PopulateOrderBase<T>(this Order order, T dto, bool includeCostInfo = false) where T : OrderBaseDto
     {
         var items = order.Items?.ToList() ?? new List<OrderItem>();
         var totalPromotionDiscount = items.Sum(i => i.PromotionDiscount * i.Quantity);
@@ -577,6 +597,7 @@ public static class MappingExtensions
         dto.VoucherTitle = order.VoucherTitle;
         dto.VoucherDiscountAmount = order.VoucherDiscountAmount;
         dto.TotalAmount = order.TotalAmount;
+        dto.TotalCostPrice = includeCostInfo ? items.Sum(i => i.CostPrice * i.Quantity) : null;
 
         dto.TotalItems = items.Count;
         dto.TotalQuantity = items.Sum(i => i.Quantity);
@@ -591,14 +612,14 @@ public static class MappingExtensions
         return dto;
     }
 
-    public static OrderBaseDto ToOrderBaseDto(this Order order) =>
-        order.PopulateOrderBase(new OrderBaseDto());
+    public static OrderBaseDto ToOrderBaseDto(this Order order, bool includeCostInfo = false) =>
+        order.PopulateOrderBase(new OrderBaseDto(), includeCostInfo);
 
-    public static OrderDetailDto ToOrderDetailDto(this Order order)
+    public static OrderDetailDto ToOrderDetailDto(this Order order, bool includeCostInfo = false)
     {
-        var detail = order.PopulateOrderBase(new OrderDetailDto());
+        var detail = order.PopulateOrderBase(new OrderDetailDto(), includeCostInfo);
         detail.User = order.User != null ? order.User.ToDto() : null;
-        detail.Items = order.Items?.Select(i => i.ToOrderItemDto()).ToList() ?? new List<OrderItemDto>();
+        detail.Items = order.Items?.Select(i => i.ToOrderItemDto(includeCostInfo)).ToList() ?? new List<OrderItemDto>();
         detail.Invoice = order.Invoice?.ToInvoiceDto();
         return detail;
     }

@@ -74,7 +74,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     public async Task<IActionResult> GetOrderById(int id)
     {
         var canViewAllOrders = HasPermission(AppPermissions.Orders.View);
-        var result = await orderService.GetOrderByIdAsync(id, canViewAllOrders ? null : CurrentUserId)
+        var result = await orderService.GetOrderByIdAsync(id, canViewAllOrders ? null : CurrentUserId, includeCostInfo: canViewAllOrders)
             ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã ID = {id}.");
 
         return Success(result, "Lấy thông tin chi tiết đơn hàng thành công.");
@@ -90,7 +90,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     public async Task<IActionResult> GetOrderByCode(string orderCode)
     {
         var canViewAllOrders = HasPermission(AppPermissions.Orders.View);
-        var result = await orderService.GetOrderByCodeAsync(orderCode, canViewAllOrders ? null : CurrentUserId)
+        var result = await orderService.GetOrderByCodeAsync(orderCode, canViewAllOrders ? null : CurrentUserId, includeCostInfo: canViewAllOrders)
             ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã '{orderCode}'.");
 
         return Success(result, "Lấy thông tin chi tiết đơn hàng thành công.");

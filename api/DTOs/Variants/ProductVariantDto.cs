@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace WebBanHang.Api.DTOs.Variants;
 
 public class ProductVariantDto
@@ -31,6 +33,18 @@ public class ProductVariantDto
     /// </summary>
     /// <example>24990000</example>
     public decimal Price { get; set; }
+
+    /// <summary>
+    /// Giá vốn bình quân gia quyền hiện tại (Chỉ trả về cho nhân sự nội bộ kho/sản phẩm)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? CostPrice { get; set; }
+
+    /// <summary>
+    /// Đơn giá nhập từ phiếu nhập COMPLETED gần nhất (Chỉ trả về cho nhân sự nội bộ kho/sản phẩm)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? LastImportPrice { get; set; }
 
     /// <summary>
     /// Số lượng tồn kho khả dụng hiện tại

@@ -39,6 +39,12 @@ public class ProductsController(IProductService productService) : BaseApiControl
         return Success(result, "Lấy danh sách sản phẩm quản trị thành công.");
     }
 
+    private bool CanViewCostInfo() =>
+        HasPermission(AppPermissions.Products.View) ||
+        HasPermission(AppPermissions.PurchaseOrders.View) ||
+        HasPermission(AppPermissions.PurchaseOrders.Create) ||
+        HasPermission(AppPermissions.PurchaseOrders.Update);
+
     /// <summary>
     /// Lấy thông tin chi tiết một dòng sản phẩm kèm danh sách biến thể
     /// </summary>
@@ -49,7 +55,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     public async Task<IActionResult> GetProductById(int id)
     {
         var includeInactive = HasPermission(AppPermissions.Products.View);
-        var result = await productService.GetProductByIdAsync(id, includeInactive);
+        var result = await productService.GetProductByIdAsync(id, includeInactive, CanViewCostInfo());
         return Success(result, "Lấy thông tin sản phẩm thành công.");
     }
 
@@ -63,7 +69,7 @@ public class ProductsController(IProductService productService) : BaseApiControl
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetAdminProductById(int id)
     {
-        var result = await productService.GetProductByIdAsync(id, isAdmin: true);
+        var result = await productService.GetProductByIdAsync(id, isAdmin: true, includeCostInfo: true);
         return Success(result, "Lấy thông tin sản phẩm quản trị thành công.");
     }
 

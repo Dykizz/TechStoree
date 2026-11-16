@@ -448,6 +448,12 @@ namespace WebBanHang.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderItemId"));
 
+                    b.Property<decimal>("CostPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(12,0)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cost_price");
+
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -753,6 +759,12 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("attributes");
 
+                    b.Property<decimal>("CostPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(12,0)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("cost_price");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -804,6 +816,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 1,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"Ultra 5 - 16GB / 512GB\",\"M\\u00E0u s\\u1EAFc\":\"Xanh Ponder Blue\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
                             IsActive = true,
@@ -816,6 +829,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 2,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"Ultra 7 - 32GB / 1TB\",\"M\\u00E0u s\\u1EAFc\":\"B\\u1EA1c Foggy Silver\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/t/e/text_ng_n_4__2_70.png",
                             IsActive = true,
@@ -828,6 +842,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 3,
                             Attributes = "{\"C\\u1EA5u h\\u00ECnh (RAM/SSD)\":\"i5-13420H - 16GB / 512GB\",\"M\\u00E0u s\\u1EAFc\":\"\\u0110en Obsidian\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/a/c/acer-nitro-5.png",
                             IsActive = true,
@@ -840,6 +855,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 4,
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"\\u0110en Nh\\u00E1m Midnight Black\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5.png",
                             IsActive = true,
@@ -852,6 +868,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 5,
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"B\\u1EA1c \\u00C1nh Kim Platinum Silver\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/s/o/sony-wh-1000xm5-silver.png",
                             IsActive = true,
@@ -864,6 +881,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 6,
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"Polar White\",\"Switch\":\"Gateron Pro Yellow\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75.png",
                             IsActive = true,
@@ -876,6 +894,7 @@ namespace WebBanHang.Api.Migrations
                         {
                             VariantId = 7,
                             Attributes = "{\"M\\u00E0u s\\u1EAFc\":\"Taro Purple\",\"Switch\":\"Kailh Box Jellyfish\"}",
+                            CostPrice = 0m,
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             ImageUrl = "https://cdn2.cellphones.com.vn/insecure/rs:fill:358:358/q:90/plain/https://cellphones.com.vn/media/catalog/product/b/a/ban-phim-co-fl-esports-gp75-taro.png",
                             IsActive = true,
@@ -1142,6 +1161,11 @@ namespace WebBanHang.Api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1163,6 +1187,7 @@ namespace WebBanHang.Api.Migrations
                             Address = "Tầng 5, Tòa nhà Viettel, 285 Cách Mạng Tháng 8, Q.10, TP.HCM",
                             CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "support@asus.com.vn",
+                            IsActive = true,
                             Phone = "18006588",
                             SupplierName = "Công ty TNHH ASUS Việt Nam"
                         },
@@ -1172,6 +1197,7 @@ namespace WebBanHang.Api.Migrations
                             Address = "Tầng 6, Tòa nhà President Place, 93 Nguyễn Du, Q.1, TP.HCM",
                             CreatedAt = new DateTime(2026, 1, 2, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "contact@sony.com.vn",
+                            IsActive = true,
                             Phone = "1800588885",
                             SupplierName = "Sony Electronics Việt Nam"
                         },
@@ -1181,6 +1207,7 @@ namespace WebBanHang.Api.Migrations
                             Address = "Tòa nhà FPT Tân Thuận, Lô L.29B-31B-33B, Tân Thuận Đông, Q.7, TP.HCM",
                             CreatedAt = new DateTime(2026, 1, 3, 0, 0, 0, 0, DateTimeKind.Utc),
                             Email = "apple-sales@synnexfpt.com.vn",
+                            IsActive = true,
                             Phone = "02873001010",
                             SupplierName = "Apple Authorized Distributor (Synnex FPT)"
                         });
@@ -1205,6 +1232,10 @@ namespace WebBanHang.Api.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<DateTime?>("ExpiredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expired_at");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1214,6 +1245,10 @@ namespace WebBanHang.Api.Migrations
                     b.Property<int?>("RewardVoucherId")
                         .HasColumnType("integer")
                         .HasColumnName("reward_voucher_id");
+
+                    b.Property<DateTime?>("StartAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_at");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -1295,6 +1330,14 @@ namespace WebBanHang.Api.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
+
+                    b.Property<bool>("IsNotified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_notified");
+
+                    b.Property<DateTime?>("NotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("notified_at");
 
                     b.Property<int>("SurveyId")
                         .HasColumnType("integer")

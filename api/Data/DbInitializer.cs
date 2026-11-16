@@ -357,6 +357,7 @@ public static class DbInitializer
                             ProductId = v.ProductId,
                             VariantName = v.VariantName,
                             Price = v.Price,
+                            CostPrice = v.CostPrice,
                             StockQuantity = v.StockQuantity,
                             ImageUrl = v.ImageUrl,
                             Attributes = v.Attributes ?? new Dictionary<string, string>(),

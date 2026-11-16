@@ -256,6 +256,7 @@ public class AppDbContext : DbContext
             entity.Property(v => v.ProductId).HasColumnName("product_id");
             entity.Property(v => v.VariantName).HasColumnName("variant_name").IsRequired().HasMaxLength(150);
             entity.Property(v => v.Price).HasColumnName("price").HasColumnType("decimal(12,0)");
+            entity.Property(v => v.CostPrice).HasColumnName("cost_price").HasColumnType("decimal(12,0)").HasDefaultValue(0m);
             entity.Property(v => v.StockQuantity).HasColumnName("stock_quantity").HasDefaultValue(0);
             entity.Property(v => v.ImageUrl).HasColumnName("image_url").HasMaxLength(500);
 
@@ -542,6 +543,7 @@ public class AppDbContext : DbContext
 
             entity.Property(oi => oi.OriginalPrice).HasColumnName("original_price").HasPrecision(18, 2);
             entity.Property(oi => oi.UnitPrice).HasColumnName("unit_price").HasPrecision(18, 2);
+            entity.Property(oi => oi.CostPrice).HasColumnName("cost_price").HasColumnType("decimal(12,0)").HasDefaultValue(0m);
             entity.Property(oi => oi.PromotionId).HasColumnName("promotion_id");
             entity.Property(oi => oi.PromotionName).HasColumnName("promotion_name").HasMaxLength(200);
             entity.Property(oi => oi.PromotionDiscount).HasColumnName("promotion_discount").HasPrecision(18, 2).HasDefaultValue(0);

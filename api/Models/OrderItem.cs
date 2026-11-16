@@ -60,6 +60,12 @@ public class OrderItem
     public decimal UnitPrice { get; set; }
 
     /// <summary>
+    /// Giá vốn bình quân gia quyền tại thời điểm mua (Snapshot để tính COGS và lợi nhuận gộp)
+    /// </summary>
+    [Column("cost_price", TypeName = "decimal(12,0)")]
+    public decimal CostPrice { get; set; } = 0;
+
+    /// <summary>
     /// Mã ID Promotion sản phẩm (null nếu không có khuyến mãi lúc mua)
     /// </summary>
     [Column("promotion_id")]

@@ -17,7 +17,7 @@ public class PurchaseOrderItemCreateRequestDto
     /// </summary>
     /// <example>18500000</example>
     [Required(ErrorMessage = "Đơn giá nhập không được để trống.")]
-    [Range(0, (double)decimal.MaxValue, ErrorMessage = "Đơn giá nhập không được nhỏ hơn 0.")]
+    [Range(1, (double)decimal.MaxValue, ErrorMessage = "Đơn giá nhập phải lớn hơn 0.")]
     public decimal ImportPrice { get; set; }
 
     /// <summary>

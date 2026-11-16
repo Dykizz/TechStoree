@@ -23,12 +23,12 @@ public interface IOrderService
     /// <summary>
     /// Lấy thông tin chi tiết một đơn hàng theo ID (kiểm tra quyền sở hữu nếu là khách hàng)
     /// </summary>
-    Task<OrderDetailDto?> GetOrderByIdAsync(int orderId, int? userId = null);
+    Task<OrderDetailDto?> GetOrderByIdAsync(int orderId, int? userId = null, bool includeCostInfo = false);
 
     /// <summary>
     /// Lấy thông tin chi tiết một đơn hàng theo mã Code (VD: ORD-20260926-8A3F)
     /// </summary>
-    Task<OrderDetailDto?> GetOrderByCodeAsync(string orderCode, int? userId = null);
+    Task<OrderDetailDto?> GetOrderByCodeAsync(string orderCode, int? userId = null, bool includeCostInfo = false);
 
     /// <summary>
     /// Dành cho Quản trị viên: Lấy danh sách toàn bộ đơn hàng trong hệ thống (có lọc và phân trang)

@@ -16,10 +16,10 @@ public class CachedProductService(
             slidingExpiration: CacheDurations.Products.ListSliding,
             prefix: CacheKeys.Products.Prefix);
 
-    public Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false)
+    public Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false, bool includeCostInfo = false)
         => cache.GetOrCreateAsync(
-            CacheKeys.Products.Detail(id, isAdmin),
-            () => inner.GetProductByIdAsync(id, isAdmin),
+            CacheKeys.Products.Detail(id, isAdmin, includeCostInfo),
+            () => inner.GetProductByIdAsync(id, isAdmin, includeCostInfo),
             absoluteExpiration: CacheDurations.Products.DetailAbsolute,
             slidingExpiration: CacheDurations.Products.DetailSliding,
             prefix: CacheKeys.Products.Prefix);

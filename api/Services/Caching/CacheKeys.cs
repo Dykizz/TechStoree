@@ -15,8 +15,8 @@ public static class CacheKeys
     {
         public const string Prefix = "products";
 
-        public static string Detail(int id, bool isAdmin) 
-            => $"{Prefix}:detail:{id}:{(isAdmin ? "admin" : "public")}";
+        public static string Detail(int id, bool isAdmin, bool includeCostInfo = false)
+            => $"{Prefix}:detail:{id}:{(isAdmin ? "admin" : "public")}:{(includeCostInfo || isAdmin ? "cost" : "nocost")}";
 
         public static string List(ProductQueryFilter filter, bool isAdmin)
         {

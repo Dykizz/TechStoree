@@ -6,7 +6,7 @@ namespace WebBanHang.Api.Services.Interfaces;
 public interface IProductService
 {
     Task<PagedResult<ProductBaseDto>> GetProductsAsync(ProductQueryFilter filter, bool isAdmin = false);
-    Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false);
+    Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false, bool includeCostInfo = false);
     Task<ProductDetailDto> CreateProductAsync(ProductCreateRequestDto dto);
     Task<ProductDetailDto> UpdateProductAsync(int id, ProductUpdateRequestDto dto);
     Task<bool> ToggleProductStatusAsync(int id);

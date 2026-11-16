@@ -25,6 +25,12 @@ public class ProductVariant
     [Column("price")]
     public decimal Price { get; set; }
 
+    /// <summary>
+    /// Giá vốn bình quân gia quyền hiện tại của biến thể (VNĐ)
+    /// </summary>
+    [Column("cost_price", TypeName = "decimal(12,0)")]
+    public decimal CostPrice { get; set; } = 0;
+
     [Column("stock_quantity")]
     public int StockQuantity { get; set; } = 0;
 
