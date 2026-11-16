@@ -163,11 +163,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final hasPOs = authProvider.can('PurchaseOrders.View');
     final hasProducts = authProvider.can('Products.View');
     final hasCategories = authProvider.can('Categories.View');
-    final hasUsers = authProvider.can('Users.View');
+    final hasCustomers = authProvider.can('Customers.View');
     final hasSurveys = authProvider.can('Surveys.View');
     final hasPromotions = authProvider.can('Promotions.View');
     final hasVouchers = authProvider.can('Vouchers.View');
-    final hasReviews = hasProducts;
+    final hasReviews = authProvider.can('Reviews.View');
 
     final kpiCards = <Widget>[
       if (hasOrders) ...[
@@ -177,6 +177,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           kpi: data.revenue,
           icon: Icons.payments_outlined,
           iconColor: AppColors.success,
+          isDark: isDark,
+          cardBg: backgroundColor,
+          borderColor: borderColor,
+          textPrimary: textPrimary,
+          textSecondary: textSecondary,
+          onTap: () => navProvider.setIndex(2),
+        ),
+        DashboardKpiCard(
+          title: 'Lợi nhuận gộp (${data.grossMargin.toStringAsFixed(1)}%)',
+          formattedValue: currencyFormat.format(data.grossProfit.current),
+          kpi: data.grossProfit,
+          icon: Icons.trending_up_rounded,
+          iconColor: data.grossProfit.current >= 0 ? const Color(0xFF0EA5E9) : AppColors.danger,
           isDark: isDark,
           cardBg: backgroundColor,
           borderColor: borderColor,
@@ -227,7 +240,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           textSecondary: textSecondary,
           onTap: () => navProvider.setIndex(2),
         ),
-      if (hasUsers)
+      if (hasCustomers)
         DashboardKpiCard(
           title: 'Khách hàng mới',
           formattedValue: '${data.newCustomers.current.toInt()} KH',
@@ -239,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           borderColor: borderColor,
           textPrimary: textPrimary,
           textSecondary: textSecondary,
-          onTap: () => navProvider.setIndex(10),
+          onTap: authProvider.can('Customers.View') ? () => navProvider.setIndex(10) : null,
         ),
       if (hasProducts)
         DashboardKpiCard(
@@ -313,11 +326,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
 
-              // 5 or 6 cards: Full grid
+              // 5 to 7 cards: Balanced responsive grid
               final isDesktop = maxW >= 1150;
               final isMedium = maxW >= 700;
-              final crossCount = isDesktop ? total.clamp(1, 6) : (isMedium ? 3 : 2);
-              final ratio = isDesktop ? 1.72 : (isMedium ? 2.3 : 2.1);
+              final crossCount = isDesktop ? (total >= 7 ? 4 : total.clamp(1, 6)) : (isMedium ? 3 : 2);
+              final ratio = isDesktop ? (total >= 7 ? 2.35 : 1.72) : (isMedium ? 2.3 : 2.1);
 
               return GridView.count(
                 crossAxisCount: crossCount,
@@ -796,7 +809,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         navIndex: 9,
       ));
     }
-    if (authProvider.can('Users.View')) {
+    if (authProvider.can('Customers.View')) {
       permittedShortcuts.add((
         title: 'Quản lý khách hàng',
         desc: 'Hồ sơ người dùng & tài khoản khách hàng',
@@ -804,6 +817,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: const Color(0xFF14B8A6),
         navIndex: 10,
       ));
+    }
+    if (authProvider.can('Employees.View')) {
       permittedShortcuts.add((
         title: 'Quản lý nhân viên',
         desc: 'Danh sách nhân sự & thông tin tài khoản',

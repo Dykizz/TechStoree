@@ -967,6 +967,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                 ],
               ),
+              if (_currentOrder.effectiveTotalCost > 0) ...[
+                const SizedBox(height: 10),
+                _buildSummaryRow(
+                  'Giá vốn hàng bán (COGS):',
+                  currencyFormat.format(_currentOrder.effectiveTotalCost),
+                  textSecondary,
+                  textSecondary,
+                ),
+                _buildSummaryRow(
+                  'Lợi nhuận gộp ước tính:',
+                  '${_currentOrder.grossProfit >= 0 ? '+' : ''}${currencyFormat.format(_currentOrder.grossProfit)} (${_currentOrder.totalAmount > 0 ? ((_currentOrder.grossProfit / _currentOrder.totalAmount) * 100).toStringAsFixed(1) : '0.0'}%)',
+                  _currentOrder.grossProfit >= 0 ? AppColors.success : AppColors.danger,
+                  textSecondary,
+                ),
+              ],
               if (_currentOrder.totalSavings > 0) ...[
                 const SizedBox(height: 12),
                 Container(

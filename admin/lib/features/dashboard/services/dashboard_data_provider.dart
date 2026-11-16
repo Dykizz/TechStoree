@@ -17,6 +17,9 @@ import '../models/dashboard_data.dart';
 class DashboardDataResult {
   final DashboardTimePeriod period;
   final DashboardMetricKpi revenue;
+  final DashboardMetricKpi grossProfit;
+  final double grossMargin;
+  final double cogs;
   final DashboardMetricKpi ordersCount;
   final DashboardMetricKpi importCost;
   final DashboardMetricKpi aov;
@@ -41,6 +44,9 @@ class DashboardDataResult {
   DashboardDataResult({
     required this.period,
     required this.revenue,
+    DashboardMetricKpi? grossProfit,
+    this.grossMargin = 0.0,
+    this.cogs = 0.0,
     required this.ordersCount,
     required this.importCost,
     required this.aov,
@@ -59,7 +65,8 @@ class DashboardDataResult {
     required this.recentPurchaseOrders,
     this.isDatasetPaginated = false,
     this.paginationWarningMessage,
-  });
+  }) : grossProfit = grossProfit ??
+            DashboardMetricKpi.calculate(0, 0);
 }
 
 class DashboardDataProvider {
@@ -76,11 +83,11 @@ class DashboardDataProvider {
     final hasOrders = authProvider.can('Orders.View');
     final hasPOs = authProvider.can('PurchaseOrders.View');
     final hasProducts = authProvider.can('Products.View');
-    final hasUsers = authProvider.can('Users.View');
+    final canViewCustomers = authProvider.can('Customers.View');
     final hasPromotions = authProvider.can('Promotions.View');
     final hasVouchers = authProvider.can('Vouchers.View');
     final hasSurveys = authProvider.can('Surveys.View');
-    final hasReviews = hasProducts;
+    final hasReviews = authProvider.can('Reviews.View');
 
     // 1. Fetch only permitted dataset in parallel (no unnecessary 403 API calls)
     final fetchOrdersFuture = hasOrders
@@ -98,21 +105,21 @@ class DashboardDataProvider {
         : Future.value(<PurchaseOrder>[]);
 
     final fetchProductsFuture = hasProducts
-        ? apiService.getProductsWithVariants(token: token).catchError((e) {
-            if (kDebugMode) print('Dashboard Error getProductsWithVariants: $e');
-            return apiService.getProducts(token: token).catchError((_) => <Product>[]);
+        ? apiService.getAdminProductsWithVariants(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getAdminProductsWithVariants: $e');
+            return apiService.getAdminProducts(token: token).catchError((_) => <Product>[]);
           })
         : Future.value(<Product>[]);
 
-    final fetchUsersFuture = hasUsers
-        ? apiService.getUsers(token: token).catchError((e) {
-            if (kDebugMode) print('Dashboard Error getUsers: $e');
+    final fetchUsersFuture = canViewCustomers
+        ? apiService.getAllCustomers(token: token).catchError((e) {
+            if (kDebugMode) print('Dashboard Error getAllCustomers: $e');
             return <AppUser>[];
           })
         : Future.value(<AppUser>[]);
 
     final fetchPromotionsFuture = hasPromotions
-        ? apiService.getPromotions(token: token).catchError((e) {
+        ? apiService.getAdminPromotions(token: token).catchError((e) {
             if (kDebugMode) print('Dashboard Error getPromotions: $e');
             return <Promotion>[];
           })
@@ -169,9 +176,14 @@ class DashboardDataProvider {
     final currUsers = _filterUsersByDateRange(users, period.startDate, period.endDate);
     final prevUsers = _filterUsersByDateRange(users, period.prevStartDate, period.prevEndDate);
 
-    // 3. Business Rule 1: Revenue excludes CANCELLED orders
-    final currValidOrders = currOrders.where((o) => o.orderStatus.toUpperCase() != 'CANCELLED').toList();
-    final prevValidOrders = prevOrders.where((o) => o.orderStatus.toUpperCase() != 'CANCELLED').toList();
+    // 3. Business Rule 1: Revenue & COGS exclude CANCELLED and RETURNED orders
+    bool isCountableOrder(Order o) {
+      final st = o.orderStatus.toUpperCase();
+      return st != 'CANCELLED' && st != 'RETURNED';
+    }
+
+    final currValidOrders = currOrders.where(isCountableOrder).toList();
+    final prevValidOrders = prevOrders.where(isCountableOrder).toList();
 
     // Enrich currValidOrders with item snapshots if items are missing (e.g. from OrderBaseDto)
     if (currValidOrders.any((o) => o.items.isEmpty)) {
@@ -190,6 +202,25 @@ class DashboardDataProvider {
 
     final currRevenueVal = currValidOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
     final prevRevenueVal = prevValidOrders.fold<double>(0, (sum, o) => sum + o.totalAmount);
+
+    final currCogsVal = currValidOrders.fold<double>(0, (sum, o) => sum + o.effectiveTotalCost);
+    final prevCogsVal = prevValidOrders.fold<double>(0, (sum, o) => sum + o.effectiveTotalCost);
+
+    final currGrossProfitVal = currRevenueVal - currCogsVal;
+    final prevGrossProfitVal = prevRevenueVal - prevCogsVal;
+    final grossMarginVal =
+        currRevenueVal > 0 ? (currGrossProfitVal / currRevenueVal) * 100 : 0.0;
+
+    final rawGrossProfitKpi =
+        DashboardMetricKpi.calculate(currGrossProfitVal, prevGrossProfitVal);
+    final grossProfitKpi = prevGrossProfitVal <= 0
+        ? DashboardMetricKpi(
+            current: currGrossProfitVal,
+            previous: prevGrossProfitVal,
+            percentageChange: rawGrossProfitKpi.percentageChange,
+            isPositiveTrend: currGrossProfitVal >= 0,
+          )
+        : rawGrossProfitKpi;
 
     final revenueKpi = DashboardMetricKpi.calculate(currRevenueVal, prevRevenueVal);
     final ordersKpi = DashboardMetricKpi.calculate(currValidOrders.length.toDouble(), prevValidOrders.length.toDouble());
@@ -310,6 +341,9 @@ class DashboardDataProvider {
     return DashboardDataResult(
       period: period,
       revenue: revenueKpi,
+      grossProfit: grossProfitKpi,
+      grossMargin: grossMarginVal,
+      cogs: currCogsVal,
       ordersCount: ordersKpi,
       importCost: importCostKpi,
       aov: aovKpi,

@@ -10,6 +10,7 @@ class OrderItem {
   final String? imageUrl;
   final double originalPrice;
   final double unitPrice;
+  final double costPrice;
   final int? promotionId;
   final String? promotionName;
   final double promotionDiscount;
@@ -20,6 +21,9 @@ class OrderItem {
   // Backward compatibility getter for productId
   String get productId => variantId.toString();
 
+  double get totalCost => costPrice * quantity;
+  double get grossProfit => totalPrice - totalCost;
+
   OrderItem({
     this.orderItemId = 0,
     this.orderId = 0,
@@ -29,6 +33,7 @@ class OrderItem {
     this.imageUrl,
     required this.originalPrice,
     required this.unitPrice,
+    this.costPrice = 0.0,
     this.promotionId,
     this.promotionName,
     this.promotionDiscount = 0.0,
@@ -63,6 +68,7 @@ class OrderItem {
       imageUrl: json['imageUrl']?.toString(),
       originalPrice: JsonParseHelper.parseDouble(json['originalPrice'] ?? uPrice),
       unitPrice: uPrice,
+      costPrice: JsonParseHelper.parseDouble(json['costPrice'] ?? json['cost_price']),
       promotionId: JsonParseHelper.parseNullableInt(json['promotionId']),
       promotionName: json['promotionName']?.toString(),
       promotionDiscount: JsonParseHelper.parseDouble(json['promotionDiscount']),
@@ -92,6 +98,7 @@ class Order {
   final String? voucherTitle;
   final double voucherDiscountAmount;
   final double totalAmount;
+  final double? totalCostPrice;
   final int totalItems;
   final int totalQuantity;
   final double totalSavings;
@@ -123,6 +130,7 @@ class Order {
     this.voucherTitle,
     this.voucherDiscountAmount = 0.0,
     required this.totalAmount,
+    this.totalCostPrice,
     this.totalItems = 0,
     this.totalQuantity = 0,
     this.totalSavings = 0.0,
@@ -143,6 +151,13 @@ class Order {
   String get orderNumber => orderCode.isNotEmpty ? orderCode : 'ORD-$orderId';
   String get customerName => receiverName.isNotEmpty ? receiverName : 'Khách hàng';
   String get status => orderStatus;
+
+  /// Tổng giá vốn hàng bán (COGS) của đơn hàng: ưu tiên lấy trực tiếp từ OrderBaseDto.totalCostPrice, fallback cộng theo từng item.
+  double get effectiveTotalCost =>
+      totalCostPrice ?? items.fold<double>(0.0, (sum, item) => sum + item.totalCost);
+
+  /// Lợi nhuận gộp của đơn hàng = Doanh thu đơn - Tổng giá vốn (COGS).
+  double get grossProfit => totalAmount - effectiveTotalCost;
 
   // Business Rule: Can cancel/return when orderStatus is PENDING, CONFIRMED, or SHIPPING
   bool get canCancel => orderStatus == 'PENDING' || orderStatus == 'CONFIRMED' || orderStatus == 'SHIPPING';
@@ -200,6 +215,7 @@ class Order {
       voucherTitle: json['voucherTitle']?.toString(),
       voucherDiscountAmount: JsonParseHelper.parseDouble(json['voucherDiscountAmount']),
       totalAmount: JsonParseHelper.parseDouble(json['totalAmount']),
+      totalCostPrice: JsonParseHelper.parseNullableDouble(json['totalCostPrice'] ?? json['total_cost_price']),
       totalItems: JsonParseHelper.parseInt(json['totalItems'], parsedItems.length),
       totalQuantity: JsonParseHelper.parseInt(
         json['totalQuantity'],

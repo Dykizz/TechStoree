@@ -11,8 +11,17 @@ class NumberDisplayFormatter {
   }
 }
 
+/// Phân loại dòng chỉ tiêu trong Ma trận Tài chính (Bảng a)
+enum FinancialMetricType {
+  revenue,
+  cogs,
+  grossProfit,
+  importCost,
+}
+
 /// Dòng số liệu thống kê tài chính (Bảng a - Hoạt động kinh doanh)
 class FinancialMatrixRow {
+  final FinancialMetricType metricType;
   final String metricName;
   final double q1;
   final double q2;
@@ -21,6 +30,7 @@ class FinancialMatrixRow {
   final bool isProfit;
 
   const FinancialMatrixRow({
+    this.metricType = FinancialMetricType.revenue,
     required this.metricName,
     required this.q1,
     required this.q2,
@@ -85,9 +95,10 @@ class ProductSalesMatrixRow {
 /// Thẻ tóm lược chỉ số tài chính (KPI điều hành cho Tab 1)
 class FinancialSummaryKpi {
   final double totalRevenue;
-  final double totalExpense;
-  final double netProfit;
-  final double profitMargin; // % Lợi nhuận ròng
+  final double totalExpense; // Giá vốn hàng bán (COGS)
+  final double totalImportCost; // Chi phí nhập kho thực tế từ PO (Dòng tiền)
+  final double netProfit; // Lợi nhuận gộp = Doanh thu - COGS
+  final double profitMargin; // % Biên lợi nhuận gộp
   final double? prevYearRevenue;
   final double? revenueGrowthRate; // % YoY
   final String peakQuarter; // 'Q1', 'Q2', 'Q3', 'Q4'
@@ -96,6 +107,7 @@ class FinancialSummaryKpi {
   const FinancialSummaryKpi({
     required this.totalRevenue,
     required this.totalExpense,
+    this.totalImportCost = 0.0,
     required this.netProfit,
     required this.profitMargin,
     this.prevYearRevenue,

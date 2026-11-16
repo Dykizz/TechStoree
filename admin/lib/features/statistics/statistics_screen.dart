@@ -252,7 +252,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
         final cards = [
           _StatisticsKpiCard(
-            title: 'Tổng thu ($selectedYear)',
+            title: 'Doanh thu bán hàng ($selectedYear)',
             value: NumberDisplayFormatter.format(kpi.totalRevenue),
             icon: Icons.payments_outlined,
             iconColor: AppColors.success,
@@ -263,7 +263,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             textSecondary: textSecondary,
           ),
           _StatisticsKpiCard(
-            title: 'Tổng chi ($selectedYear)',
+            title: 'Giá vốn hàng bán ($selectedYear)',
             value: NumberDisplayFormatter.format(kpi.totalExpense),
             icon: Icons.inventory_2_outlined,
             iconColor: AppColors.chartCost,
@@ -274,7 +274,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             textSecondary: textSecondary,
           ),
           _StatisticsKpiCard(
-            title: 'Lợi nhuận ròng ($selectedYear)',
+            title: 'Lợi nhuận gộp ($selectedYear)',
             value: NumberDisplayFormatter.format(kpi.netProfit),
             icon: Icons.account_balance_wallet_outlined,
             iconColor: kpi.netProfit >= 0 ? const Color(0xFF2563EB) : AppColors.danger,
@@ -285,7 +285,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             textSecondary: textSecondary,
           ),
           _StatisticsKpiCard(
-            title: 'Biên lợi nhuận ròng',
+            title: 'Biên lợi nhuận gộp',
             value: '${kpi.profitMargin.toStringAsFixed(1)}%',
             icon: Icons.pie_chart_outline_rounded,
             iconColor: const Color(0xFF6366F1),
