@@ -94,7 +94,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     if (_currentProduct.id.isNotEmpty && _currentProduct.id != '0') {
-      final detailed = await apiService.getProductById(_currentProduct.id, token: token);
+      final detailed = await apiService.getAdminProductById(_currentProduct.id, token: token);
       if (detailed != null && mounted) {
         setState(() {
           _currentProduct = detailed;
@@ -347,8 +347,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                           Expanded(
                             child: Text(
                               isEditing
-                                  ? 'Tồn kho hiện tại: ${existingVariant.stockQuantity} sản phẩm. Theo chuẩn ERP, số lượng tồn kho chỉ được cập nhật qua Đơn nhập hàng (PO) hoặc Hóa đơn bán hàng.'
-                                  : 'Tồn kho ban đầu của biến thể là 0 theo chuẩn ERP. Để nhập kho số lượng thực tế, vui lòng tạo "Đơn nhập hàng" (PO) sau khi tạo biến thể.',
+                                  ? 'Tồn kho hiện tại: ${existingVariant.stockQuantity} sản phẩm • Giá vốn (BQGQ): ${(existingVariant.costPrice ?? 0) > 0 ? currencyFormat.format(existingVariant.costPrice) : 'Chưa có'}. Theo chuẩn ERP, tồn kho và giá vốn chỉ được cập nhật qua Đơn nhập hàng (PO) hoặc Hóa đơn bán hàng.'
+                                  : 'Tồn kho ban đầu của biến thể là 0 theo chuẩn ERP. Để nhập kho số lượng thực tế và hình thành giá vốn, vui lòng tạo "Đơn nhập hàng" (PO) sau khi tạo biến thể.',
                               style: const TextStyle(
                                 fontSize: 11,
                                 color: AppColors.primary,
@@ -633,6 +633,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                               ),
                             ],
                           ),
+                          if (isEditing &&
+                              (existingVariant.costPrice ?? 0) > 0 &&
+                              (double.tryParse(priceCtrl.text.replaceAll(',', '').replaceAll('.', '').trim()) ?? 0) > 0 &&
+                              (double.tryParse(priceCtrl.text.replaceAll(',', '').replaceAll('.', '').trim()) ?? 0) <=
+                                  existingVariant.costPrice!) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppColors.warning.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.warning_amber_rounded, size: 15, color: AppColors.warning),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Lưu ý: Giá bán đang nhỏ hơn hoặc bằng giá vốn bình quân (${currencyFormat.format(existingVariant.costPrice!)}).',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 12),
 
                           // Dòng thiết lập ảnh riêng của biến thể (hỗ trợ cả Tải từ máy và Dán URL ảnh)
@@ -1019,6 +1046,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     productName: _currentProduct.name,
                     variantNameAttr: varName,
                     price: priceVal,
+                    costPrice: isEditing ? existingVariant.costPrice : 0,
+                    lastImportPrice: isEditing ? existingVariant.lastImportPrice : null,
                     stockQuantity: stockVal,
                     imageUrl: varImageCtrl.text.trim().isNotEmpty ? varImageCtrl.text.trim() : null,
                     attributes: finalAttrs,
@@ -1055,6 +1084,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                       productName: v.productName,
                       variantNameAttr: v.variantNameAttr,
                       price: v.price,
+                      costPrice: v.costPrice,
+                      lastImportPrice: v.lastImportPrice,
                       stockQuantity: v.stockQuantity,
                       imageUrl: v.imageUrl,
                       attributes: attrs,
@@ -1645,6 +1676,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                                 DataColumn(label: Text('Thuộc tính (Attributes)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                                 DataColumn(label: Text('Giá niêm yết', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                                 DataColumn(label: Text('Giá khuyến mãi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
+                                DataColumn(label: Text('Giá vốn (BQGQ)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                                 DataColumn(label: Text('Tồn kho', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                                 DataColumn(label: Text('Khuyến mãi', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                                 DataColumn(label: Text('Trạng thái', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
@@ -1652,6 +1684,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                               ],
                               rows: _currentProduct.variants.map((v) {
                                 final hasVarPromo = v.promotion != null && v.promotion!.hasPromotion;
+                                final effectiveSellPrice = hasVarPromo ? v.promotion!.promotionalPrice : v.price;
+                                final hasCost = (v.costPrice ?? 0) > 0;
+                                final unitMargin = hasCost ? (effectiveSellPrice - v.costPrice!) : 0.0;
+                                final marginPct = (hasCost && effectiveSellPrice > 0) ? (unitMargin / effectiveSellPrice) * 100 : 0.0;
                                 return DataRow(
                                   cells: [
                                     DataCell(
@@ -1681,6 +1717,28 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                                               style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w700, fontSize: 12.5),
                                             )
                                           : Text('-', style: TextStyle(color: textSecondary, fontSize: 12)),
+                                    ),
+                                    DataCell(
+                                      hasCost
+                                          ? Column(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  currencyFormat.format(v.costPrice!),
+                                                  style: TextStyle(color: textPrimary, fontWeight: FontWeight.w600, fontSize: 12),
+                                                ),
+                                                Text(
+                                                  'Biên lãi: ${marginPct.toStringAsFixed(1)}%',
+                                                  style: TextStyle(
+                                                    color: unitMargin >= 0 ? AppColors.success : AppColors.danger,
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          : Text('Chưa nhập', style: TextStyle(color: textSecondary, fontSize: 11.5, fontStyle: FontStyle.italic)),
                                     ),
                                     DataCell(
                                       Row(

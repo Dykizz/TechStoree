@@ -22,6 +22,8 @@ class PurchaseOrderVariantOption {
   final String variantName;
   final String fullName;
   final double defaultPrice;
+  final double costPrice;
+  final double? lastImportPrice;
   final int stockQuantity;
   final String? imageUrl;
   final bool isActive;
@@ -33,10 +35,24 @@ class PurchaseOrderVariantOption {
     required this.variantName,
     required this.fullName,
     required this.defaultPrice,
+    this.costPrice = 0,
+    this.lastImportPrice,
     required this.stockQuantity,
     this.imageUrl,
     this.isActive = true,
   });
+
+  /// Giá gợi ý khi thêm dòng nhập mới: ưu tiên đơn giá nhập gần nhất, kế đến giá vốn hiện tại;
+  /// tuyệt đối không lấy giá bán niêm yết làm giá nhập mặc định.
+  double? get suggestedImportPrice {
+    if (lastImportPrice != null && lastImportPrice! > 0) {
+      return lastImportPrice;
+    }
+    if (costPrice > 0) {
+      return costPrice;
+    }
+    return null;
+  }
 }
 
 class _POItemRowInput {
@@ -46,15 +62,12 @@ class _POItemRowInput {
 
   _POItemRowInput({
     required this.selectedVariant,
-    double importPrice = 0,
+    double? importPrice,
     int quantity = 1,
   })  : importPriceCtrl = TextEditingController(
-          text: importPrice > 0
+          text: (importPrice != null && importPrice > 0)
               ? NumberFormat('#,###', 'en_US').format(importPrice.toInt())
-              : (selectedVariant.defaultPrice > 0
-                  ? NumberFormat('#,###', 'en_US')
-                      .format(selectedVariant.defaultPrice.toInt())
-                  : ''),
+              : '',
         ),
         quantityCtrl =
             TextEditingController(text: quantity > 0 ? quantity.toString() : '1');
@@ -74,6 +87,11 @@ class _POItemRowInput {
   }
 
   double get totalPrice => importPrice * quantity;
+
+  bool get hasSellingPriceViolation =>
+      selectedVariant.defaultPrice > 0 &&
+      importPrice > 0 &&
+      importPrice >= selectedVariant.defaultPrice;
 
   void dispose() {
     importPriceCtrl.dispose();
@@ -119,6 +137,8 @@ class PurchaseOrderFormDialog extends StatefulWidget {
             variantName: vName,
             fullName: '${p.name} ($vName)',
             defaultPrice: v.price > 0 ? v.price : p.price,
+            costPrice: v.costPrice ?? 0,
+            lastImportPrice: v.lastImportPrice,
             stockQuantity: v.stockQuantity,
             imageUrl:
                 v.imageUrl?.isNotEmpty == true ? v.imageUrl : p.imageUrl,
@@ -196,7 +216,7 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
             productName: item.productName,
             variantName: item.variantName,
             fullName: item.fullName,
-            defaultPrice: item.importPrice,
+            defaultPrice: 0,
             stockQuantity: 0,
           ),
         );
@@ -260,7 +280,7 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
         _itemRows.add(
           _POItemRowInput(
             selectedVariant: variant,
-            importPrice: variant.defaultPrice,
+            importPrice: variant.suggestedImportPrice,
             quantity: 1,
           ),
         );
@@ -347,6 +367,15 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
         AppToast.error(
           context,
           'Đơn giá nhập của "${r.selectedVariant.fullName}" phải lớn hơn 0.',
+        );
+        return;
+      }
+
+      if (r.selectedVariant.defaultPrice > 0 &&
+          r.importPrice >= r.selectedVariant.defaultPrice) {
+        AppToast.error(
+          context,
+          'Đơn giá nhập của "${r.selectedVariant.fullName}" (${_currencyFormat.format(r.importPrice)}) phải nhỏ hơn giá bán hiện tại (${_currencyFormat.format(r.selectedVariant.defaultPrice)}).',
         );
         return;
       }
@@ -774,12 +803,29 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
                                   spacing: 8,
                                   children: [
                                     Text(
-                                      'Giá niêm yết: ${_currencyFormat.format(item.defaultPrice)}',
+                                      'Giá bán: ${_currencyFormat.format(item.defaultPrice)}',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: textSecondary,
                                       ),
                                     ),
+                                    if (item.lastImportPrice != null &&
+                                        item.lastImportPrice! > 0)
+                                      Text(
+                                        '| Nhập gần nhất: ${_currencyFormat.format(item.lastImportPrice!)}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: textSecondary,
+                                        ),
+                                      )
+                                    else if (item.costPrice > 0)
+                                      Text(
+                                        '| Giá vốn: ${_currencyFormat.format(item.costPrice)}',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: textSecondary,
+                                        ),
+                                      ),
                                     Text(
                                       '| Tồn kho hiện tại: ${item.stockQuantity}',
                                       style: const TextStyle(
@@ -931,9 +977,13 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
         ),
         const SizedBox(height: 2),
         Text(
-          'Giá niêm yết: ${_currencyFormat.format(row.selectedVariant.defaultPrice)}',
+          row.selectedVariant.defaultPrice > 0
+              ? 'Giá bán: ${_currencyFormat.format(row.selectedVariant.defaultPrice)}'
+                  '${row.selectedVariant.costPrice > 0 ? ' • Giá vốn HT: ${_currencyFormat.format(row.selectedVariant.costPrice)}' : ''}'
+                  '${(row.selectedVariant.lastImportPrice ?? 0) > 0 ? ' • Nhập gần nhất: ${_currencyFormat.format(row.selectedVariant.lastImportPrice!)}' : ''}'
+              : 'Giá vốn HT: ${row.selectedVariant.costPrice > 0 ? _currencyFormat.format(row.selectedVariant.costPrice) : 'Chưa có'}',
           style: TextStyle(fontSize: 11, color: textSecondary),
-          maxLines: 1,
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
       ],
@@ -1079,6 +1129,15 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
       },
     );
 
+    final hasPriceError = row.hasSellingPriceViolation;
+    final showProfitHint = !hasPriceError &&
+        row.importPrice > 0 &&
+        row.selectedVariant.defaultPrice > 0;
+    final unitMargin = row.selectedVariant.defaultPrice - row.importPrice;
+    final marginPercent = row.selectedVariant.defaultPrice > 0
+        ? (unitMargin / row.selectedVariant.defaultPrice) * 100
+        : 0.0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -1086,64 +1145,102 @@ class _PurchaseOrderFormDialogState extends State<PurchaseOrderFormDialog> {
         color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: isInactive
-              ? AppColors.danger.withValues(alpha: 0.45)
+          color: (isInactive || hasPriceError)
+              ? AppColors.danger.withValues(alpha: 0.65)
               : borderColor,
         ),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 680) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 680) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        indexText,
+                        const SizedBox(width: 8),
+                        thumbnail,
+                        const SizedBox(width: 10),
+                        Expanded(child: variantInfo),
+                        const SizedBox(width: 8),
+                        stockBadge,
+                        const SizedBox(width: 4),
+                        deleteButton,
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(flex: 3, child: priceField),
+                        const SizedBox(width: 8),
+                        qtyStepper,
+                        const SizedBox(width: 8),
+                        Expanded(flex: 2, child: totalColumn),
+                      ],
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  indexText,
+                  const SizedBox(width: 8),
+                  thumbnail,
+                  const SizedBox(width: 10),
+                  Expanded(flex: 4, child: variantInfo),
+                  const SizedBox(width: 8),
+                  stockBadge,
+                  const SizedBox(width: 10),
+                  Expanded(flex: 3, child: priceField),
+                  const SizedBox(width: 10),
+                  qtyStepper,
+                  const SizedBox(width: 10),
+                  SizedBox(width: 110, child: totalColumn),
+                  const SizedBox(width: 6),
+                  deleteButton,
+                ],
+              );
+            },
+          ),
+          if (hasPriceError) ...[
+            const SizedBox(height: 6),
+            Row(
               children: [
-                Row(
-                  children: [
-                    indexText,
-                    const SizedBox(width: 8),
-                    thumbnail,
-                    const SizedBox(width: 10),
-                    Expanded(child: variantInfo),
-                    const SizedBox(width: 8),
-                    stockBadge,
-                    const SizedBox(width: 4),
-                    deleteButton,
-                  ],
+                const Icon(
+                  Icons.error_outline_rounded,
+                  size: 14,
+                  color: AppColors.danger,
                 ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(flex: 3, child: priceField),
-                    const SizedBox(width: 8),
-                    qtyStepper,
-                    const SizedBox(width: 8),
-                    Expanded(flex: 2, child: totalColumn),
-                  ],
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Đơn giá nhập phải nhỏ hơn giá bán hiện tại (${_currencyFormat.format(row.selectedVariant.defaultPrice)}).',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.danger,
+                    ),
+                  ),
                 ),
               ],
-            );
-          }
-
-          return Row(
-            children: [
-              indexText,
-              const SizedBox(width: 8),
-              thumbnail,
-              const SizedBox(width: 10),
-              Expanded(flex: 4, child: variantInfo),
-              const SizedBox(width: 8),
-              stockBadge,
-              const SizedBox(width: 10),
-              Expanded(flex: 3, child: priceField),
-              const SizedBox(width: 10),
-              qtyStepper,
-              const SizedBox(width: 10),
-              SizedBox(width: 110, child: totalColumn),
-              const SizedBox(width: 6),
-              deleteButton,
-            ],
-          );
-        },
+            ),
+          ] else if (showProfitHint) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Biên lãi gộp dự kiến theo giá bán hiện tại: +${_currencyFormat.format(unitMargin)}/sp (${marginPercent.toStringAsFixed(1)}%)',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
