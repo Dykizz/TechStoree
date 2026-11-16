@@ -62,7 +62,8 @@ public class InvoicesController(IInvoiceService invoiceService) : BaseApiControl
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetInvoiceById(int id)
     {
-        var result = await invoiceService.GetInvoiceByIdAsync(id, IsAdmin ? null : CurrentUserId)
+        var canViewAllInvoices = HasPermission(AppPermissions.Invoices.View);
+        var result = await invoiceService.GetInvoiceByIdAsync(id, canViewAllInvoices ? null : CurrentUserId)
             ?? throw new NotFoundException($"Không tìm thấy hóa đơn có mã ID = {id}.");
 
         return Success(result, "Lấy thông tin chi tiết hóa đơn thành công.");
@@ -77,7 +78,8 @@ public class InvoicesController(IInvoiceService invoiceService) : BaseApiControl
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetInvoiceByOrderId(int orderId)
     {
-        var result = await invoiceService.GetInvoiceByOrderIdAsync(orderId, IsAdmin ? null : CurrentUserId)
+        var canViewAllInvoices = HasPermission(AppPermissions.Invoices.View);
+        var result = await invoiceService.GetInvoiceByOrderIdAsync(orderId, canViewAllInvoices ? null : CurrentUserId)
             ?? throw new NotFoundException($"Không tìm thấy hóa đơn cho đơn hàng ID = {orderId}.");
 
         return Success(result, "Lấy thông tin hóa đơn của đơn hàng thành công.");

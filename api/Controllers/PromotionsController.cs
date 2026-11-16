@@ -28,6 +28,19 @@ public class PromotionsController(IPromotionService promotionService) : BaseApiC
     }
 
     /// <summary>
+    /// [QUẢN TRỊ] Lấy danh sách chương trình khuyến mãi theo quyền Promotions.View
+    /// </summary>
+    [HttpGet("admin")]
+    [HasPermission(AppPermissions.Promotions.View)]
+    [ProducesResponseType(typeof(ApiResponse<IEnumerable<PromotionBaseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAdminPromotions([FromQuery] PromotionQueryFilter filter)
+    {
+        var result = await promotionService.GetAllPromotionsAsync(filter);
+        return Success(result, "Lấy danh sách chương trình khuyến mãi quản trị thành công.");
+    }
+
+    /// <summary>
     /// Lấy thông tin chi tiết một chương trình khuyến mãi kèm danh sách đầy đủ sản phẩm tham gia
     /// </summary>
     /// <param name="id">Mã ID khuyến mãi</param>

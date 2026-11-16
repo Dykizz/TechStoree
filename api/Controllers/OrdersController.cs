@@ -73,7 +73,8 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrderById(int id)
     {
-        var result = await orderService.GetOrderByIdAsync(id, IsAdmin ? null : CurrentUserId)
+        var canViewAllOrders = HasPermission(AppPermissions.Orders.View);
+        var result = await orderService.GetOrderByIdAsync(id, canViewAllOrders ? null : CurrentUserId)
             ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã ID = {id}.");
 
         return Success(result, "Lấy thông tin chi tiết đơn hàng thành công.");
@@ -88,14 +89,15 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetOrderByCode(string orderCode)
     {
-        var result = await orderService.GetOrderByCodeAsync(orderCode, IsAdmin ? null : CurrentUserId)
+        var canViewAllOrders = HasPermission(AppPermissions.Orders.View);
+        var result = await orderService.GetOrderByCodeAsync(orderCode, canViewAllOrders ? null : CurrentUserId)
             ?? throw new NotFoundException($"Không tìm thấy đơn hàng có mã '{orderCode}'.");
 
         return Success(result, "Lấy thông tin chi tiết đơn hàng thành công.");
     }
 
     /// <summary>
-    /// Hủy đơn hàng (Khách hàng hoặc Quản trị viên)
+    /// Hủy đơn hàng (Khách hàng hủy đơn của chính mình hoặc nhân sự có quyền Orders.Cancel)
     /// </summary>
     /// <remarks>
     /// - Chỉ cho phép hủy đơn khi ở trạng thái PENDING (Chờ xử lý) hoặc CONFIRMED (Đã xác nhận).
@@ -110,7 +112,22 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     public async Task<IActionResult> CancelOrder(int id, [FromBody] CancelOrderRequestDto request)
     {
         var hasCancelPermission = HasPermission(AppPermissions.Orders.Cancel);
-        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: IsAdmin || hasCancelPermission);
+        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: hasCancelPermission);
+        return Success(result, "Hủy đơn hàng thành công. Tồn kho và Voucher (nếu có) đã được hoàn lại.");
+    }
+
+    /// <summary>
+    /// [QUẢN TRỊ] Hủy đơn hàng theo quyền Orders.Cancel
+    /// </summary>
+    [HttpPost("admin/{id:int}/cancel")]
+    [HasPermission(AppPermissions.Orders.Cancel)]
+    [ProducesResponseType(typeof(ApiResponse<OrderDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> AdminCancelOrder(int id, [FromBody] CancelOrderRequestDto request)
+    {
+        var result = await orderService.CancelOrderAsync(id, CurrentUserId, request, isAdmin: true);
         return Success(result, "Hủy đơn hàng thành công. Tồn kho và Voucher (nếu có) đã được hoàn lại.");
     }
 

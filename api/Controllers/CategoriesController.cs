@@ -26,6 +26,19 @@ public class CategoriesController(ICategoryService categoryService) : BaseApiCon
     }
 
     /// <summary>
+    /// [QUẢN TRỊ] Lấy danh sách danh mục sản phẩm theo quyền Categories.View
+    /// </summary>
+    [HttpGet("admin")]
+    [HasPermission(AppPermissions.Categories.View)]
+    [ProducesResponseType(typeof(ApiResponse<List<CategoryDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAdminCategories([FromQuery] string? search)
+    {
+        var result = await categoryService.GetCategoriesAsync(search);
+        return Success(result, "Lấy danh sách danh mục quản trị thành công.");
+    }
+
+    /// <summary>
     /// Lấy chi tiết thông tin một danh mục sản phẩm theo ID
     /// </summary>
     /// <param name="id">Mã ID danh mục</param>
