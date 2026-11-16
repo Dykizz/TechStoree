@@ -12,16 +12,113 @@ namespace WebBanHang.Api.Services;
 
 public class UserService(AppDbContext context) : IUserService
 {
-    public async Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter, int currentUserId)
+    private IQueryable<User> BuildUsersBaseQuery()
     {
-        var query = context.Users
+        return context.Users
             .AsNoTracking()
             .Include(u => u.Customer)
             .Include(u => u.Employee)
             .Include(u => u.Admin)
             .Include(u => u.UserRoles)
-                .ThenInclude(ur => ur.Role)
-            .AsQueryable();
+                .ThenInclude(ur => ur.Role);
+    }
+
+    private static IQueryable<User> ApplyCustomerOnlyFilter(IQueryable<User> query)
+    {
+        return query.Where(u =>
+            u.Employee == null &&
+            u.Admin == null &&
+            u.UserRoles.Any(ur => ur.RoleId == UserRoleTypeExtensions.User) &&
+            u.UserRoles.All(ur => ur.RoleId == UserRoleTypeExtensions.User));
+    }
+
+    private static bool IsCustomerAccount(User user)
+    {
+        return user.Employee == null &&
+               user.Admin == null &&
+               user.UserRoles.Count > 0 &&
+               user.UserRoles.All(ur => string.Equals(ur.RoleId, UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static IQueryable<User> ApplyStaffOnlyFilter(IQueryable<User> query)
+    {
+        return query.Where(u => u.UserRoles.Any(ur => ur.RoleId != UserRoleTypeExtensions.User));
+    }
+
+    private static bool IsStaffAccount(User user)
+    {
+        return user.UserRoles.Any(ur => !string.Equals(ur.RoleId, UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void EnsureHasNonCustomerStaffRole(IEnumerable<string> roles)
+    {
+        var list = roles
+            .Where(r => !string.IsNullOrWhiteSpace(r))
+            .Select(r => r.Trim().ToUpperInvariant())
+            .Distinct()
+            .ToList();
+
+        if (list.Count == 0)
+        {
+            throw new BadRequestException("Danh sách vai trò nhân viên không được để trống.");
+        }
+
+        if (list.All(r => r == UserRoleTypeExtensions.User))
+        {
+            throw new BadRequestException("Không thể gán thuần vai trò USER trên phân hệ Nhân viên. Vui lòng sử dụng phân hệ Khách hàng.");
+        }
+    }
+
+    private static IQueryable<User> ApplyCommonUserFilters(
+        IQueryable<User> query,
+        bool? isLocked,
+        string? search,
+        bool includeEmployeeCodeSearch)
+    {
+        if (isLocked.HasValue)
+        {
+            query = query.Where(u => u.IsLocked == isLocked.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = includeEmployeeCodeSearch
+                ? query.Where(u =>
+                    u.Username.ToLower().Contains(term) ||
+                    u.Email.ToLower().Contains(term) ||
+                    u.FullName.ToLower().Contains(term) ||
+                    (u.Phone != null && u.Phone.Contains(term)) ||
+                    (u.Employee != null && u.Employee.EmployeeCode.ToLower().Contains(term)))
+                : query.Where(u =>
+                    u.Username.ToLower().Contains(term) ||
+                    u.Email.ToLower().Contains(term) ||
+                    u.FullName.ToLower().Contains(term) ||
+                    (u.Phone != null && u.Phone.Contains(term)));
+        }
+
+        return query;
+    }
+
+    private static async Task<PagedResult<UserDto>> ToPagedUserResultAsync(
+        IQueryable<User> query,
+        PaginationParams pagination)
+    {
+        query = query.OrderByDescending(u => u.CreatedAt);
+
+        var totalItems = await query.CountAsync();
+        var users = await query
+            .Skip((pagination.Page - 1) * pagination.PageSize)
+            .Take(pagination.PageSize)
+            .ToListAsync();
+
+        var items = users.Select(u => u.ToUserDto()).ToList();
+        return new PagedResult<UserDto>(items, totalItems, pagination.Page, pagination.PageSize);
+    }
+
+    public async Task<PagedResult<UserDto>> GetUsersAsync(UserQueryFilter filter, int currentUserId)
+    {
+        var query = BuildUsersBaseQuery();
 
         // 1. Lọc theo vai trò cụ thể (nếu có)
         if (!string.IsNullOrWhiteSpace(filter.Role))
@@ -63,37 +160,64 @@ public class UserService(AppDbContext context) : IUserService
             query = query.Where(u => u.Employee != null && u.Employee.EmploymentType == filter.EmploymentType.Value);
         }
 
-        // 2. Lọc theo trạng thái khóa (nếu có)
-        if (filter.IsLocked.HasValue)
+        query = ApplyCommonUserFilters(query, filter.IsLocked, filter.Search, includeEmployeeCodeSearch: true);
+        return await ToPagedUserResultAsync(query, filter);
+    }
+
+    public async Task<PagedResult<UserDto>> GetCustomersAsync(CustomerQueryFilter filter)
+    {
+        var query = ApplyCustomerOnlyFilter(BuildUsersBaseQuery());
+
+        if (!string.IsNullOrWhiteSpace(filter.TechInterest))
         {
-            query = query.Where(u => u.IsLocked == filter.IsLocked.Value);
+            var rawInterest = filter.TechInterest.Trim();
+            if (string.Equals(rawInterest, "NOT_SET", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => u.Customer == null || string.IsNullOrWhiteSpace(u.Customer.TechInterest));
+            }
+            else
+            {
+                var matchedKeywords = TechInterestTypeExtensions.ResolveSearchKeywords(rawInterest);
+                query = query.Where(u =>
+                    u.Customer != null &&
+                    u.Customer.TechInterest != null &&
+                    matchedKeywords.Any(k => u.Customer.TechInterest.ToLower().Contains(k)));
+            }
         }
 
-        // 3. Tìm kiếm theo từ khóa (username, email, họ tên, số điện thoại, mã nhân viên)
-        if (!string.IsNullOrWhiteSpace(filter.Search))
+        query = ApplyCommonUserFilters(query, filter.IsLocked, filter.Search, includeEmployeeCodeSearch: false);
+        return await ToPagedUserResultAsync(query, filter);
+    }
+
+    public async Task<PagedResult<UserDto>> GetEmployeesAsync(EmployeeQueryFilter filter)
+    {
+        var query = ApplyStaffOnlyFilter(BuildUsersBaseQuery());
+
+        if (!string.IsNullOrWhiteSpace(filter.Role))
         {
-            var search = filter.Search.Trim().ToLower();
-            query = query.Where(u =>
-                u.Username.ToLower().Contains(search) ||
-                u.Email.ToLower().Contains(search) ||
-                u.FullName.ToLower().Contains(search) ||
-                (u.Phone != null && u.Phone.Contains(search)) ||
-                (u.Employee != null && u.Employee.EmployeeCode.ToLower().Contains(search)));
+            var roleFilter = filter.Role.Trim().ToUpperInvariant();
+            query = query.Where(u => u.UserRoles.Any(ur => ur.RoleId == roleFilter));
         }
 
-        // 4. Sắp xếp mặc định theo thời gian tạo mới nhất
-        query = query.OrderByDescending(u => u.CreatedAt);
+        if (filter.EmploymentType.HasValue)
+        {
+            query = query.Where(u => u.Employee != null && u.Employee.EmploymentType == filter.EmploymentType.Value);
+        }
 
-        // 5. Đếm tổng số bản ghi & lấy dữ liệu phân trang
-        var totalItems = await query.CountAsync();
-        var users = await query
-            .Skip((filter.Page - 1) * filter.PageSize)
-            .Take(filter.PageSize)
-            .ToListAsync();
+        query = ApplyCommonUserFilters(query, filter.IsLocked, filter.Search, includeEmployeeCodeSearch: true);
+        return await ToPagedUserResultAsync(query, filter);
+    }
 
-        var items = users.Select(u => u.ToUserDto()).ToList();
+    public async Task<UserDto> GetEmployeeByIdAsync(int id)
+    {
+        var user = await FindEmployeeWithDetailsAsync(id, asNoTracking: true);
+        return user.ToUserDto();
+    }
 
-        return new PagedResult<UserDto>(items, totalItems, filter.Page, filter.PageSize);
+    public async Task<UserDto> ToggleEmployeeLockAsync(int id, ToggleLockRequestDto? dto)
+    {
+        var user = await FindEmployeeWithDetailsAsync(id);
+        return await ApplyToggleLockAsync(user, dto);
     }
 
     public async Task<UserDto> GetUserByIdAsync(int id)
@@ -102,10 +226,26 @@ public class UserService(AppDbContext context) : IUserService
         return user.ToUserDto();
     }
 
+    public async Task<UserDto> GetCustomerByIdAsync(int id)
+    {
+        var user = await FindCustomerWithDetailsAsync(id, asNoTracking: true);
+        return user.ToUserDto();
+    }
+
     public async Task<UserDto> ToggleLockAsync(int id, ToggleLockRequestDto? dto)
     {
         var user = await FindUserWithDetailsAsync(id);
+        return await ApplyToggleLockAsync(user, dto);
+    }
 
+    public async Task<UserDto> ToggleCustomerLockAsync(int id, ToggleLockRequestDto? dto)
+    {
+        var user = await FindCustomerWithDetailsAsync(id);
+        return await ApplyToggleLockAsync(user, dto);
+    }
+
+    private async Task<UserDto> ApplyToggleLockAsync(User user, ToggleLockRequestDto? dto)
+    {
         // Cập nhật trạng thái khóa: nếu client chỉ định IsLocked thì gán, ngược lại tự động đảo chiều (toggle)
         user.IsLocked = dto?.IsLocked ?? !user.IsLocked;
 
@@ -120,7 +260,52 @@ public class UserService(AppDbContext context) : IUserService
         return user.ToUserDto();
     }
 
-    public async Task<UserDto> CreateUserAsync(int creatorUserId, CreateUserRequestDto dto)
+    public Task<UserDto> CreateUserAsync(int creatorUserId, CreateUserRequestDto dto)
+    {
+        return CreateUserCoreAsync(creatorUserId, dto);
+    }
+
+    public Task<UserDto> CreateCustomerAsync(int creatorUserId, CreateCustomerRequestDto dto)
+    {
+        // Ép cứng vai trò USER khi tạo từ phân hệ khách hàng (CRM), không cho phép gán vai trò quản trị/nhân viên
+        var mappedDto = new CreateUserRequestDto
+        {
+            Username = dto.Username,
+            Email = dto.Email,
+            Password = dto.Password,
+            FullName = dto.FullName,
+            Phone = dto.Phone,
+            DateOfBirth = dto.DateOfBirth,
+            TechInterest = dto.TechInterest,
+            Address = dto.Address,
+            Roles = [UserRoleTypeExtensions.User]
+        };
+
+        return CreateUserCoreAsync(creatorUserId, mappedDto);
+    }
+
+    public Task<UserDto> CreateEmployeeAsync(int creatorUserId, CreateEmployeeRequestDto dto)
+    {
+        EnsureHasNonCustomerStaffRole(dto.Roles);
+
+        var mappedDto = new CreateUserRequestDto
+        {
+            Username = dto.Username,
+            Email = dto.Email,
+            Password = dto.Password,
+            FullName = dto.FullName,
+            Phone = dto.Phone,
+            EmployeeCode = dto.EmployeeCode,
+            EmploymentType = dto.EmploymentType,
+            BaseSalary = dto.BaseSalary,
+            HourlyRate = dto.HourlyRate,
+            Roles = dto.Roles
+        };
+
+        return CreateUserCoreAsync(creatorUserId, mappedDto);
+    }
+
+    private async Task<UserDto> CreateUserCoreAsync(int creatorUserId, CreateUserRequestDto dto)
     {
         // 1. Kiểm tra tên đăng nhập trùng lặp
         var usernameTrimmed = dto.Username.Trim();
@@ -188,14 +373,26 @@ public class UserService(AppDbContext context) : IUserService
             newUser.Admin = new Admin();
         }
 
-        var isStaffRole = roleIds.Any(r => r.Equals(UserRoleTypeExtensions.WarehouseStaff, StringComparison.OrdinalIgnoreCase)
-                                        || r.Equals(UserRoleTypeExtensions.SalesStaff, StringComparison.OrdinalIgnoreCase)
-                                        || r.Equals(UserRoleTypeExtensions.SurveyStaff, StringComparison.OrdinalIgnoreCase));
+        var isStaffRole = roleIds.Any(r =>
+            !r.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase) &&
+            !r.Equals(UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
         if (isStaffRole)
         {
-            var empCode = !string.IsNullOrWhiteSpace(dto.EmployeeCode)
-                ? dto.EmployeeCode.Trim().ToUpper()
-                : $"NV{DateTime.UtcNow:yyMMddHHmmss}";
+            string empCode;
+            if (!string.IsNullOrWhiteSpace(dto.EmployeeCode))
+            {
+                empCode = dto.EmployeeCode.Trim().ToUpper();
+                var codeExists = await context.Employees
+                    .AnyAsync(e => e.EmployeeCode.ToLower() == empCode.ToLower());
+                if (codeExists)
+                {
+                    throw new BadRequestException($"Mã nhân viên '{empCode}' đã được sử dụng bởi nhân viên khác.");
+                }
+            }
+            else
+            {
+                empCode = $"NV{DateTime.UtcNow:yyMMddHHmmss}";
+            }
 
             newUser.Employee = new Employee
             {
@@ -257,13 +454,58 @@ public class UserService(AppDbContext context) : IUserService
         user.Phone = dto.Phone?.Trim();
 
         ApplyPasswordIfProvided(user, dto.Password);
-        ApplyCustomerDetails(user, dto);
-        await ValidateAndApplyEmployeeAsync(user, dto);
+        ApplyCustomerDetails(user, dto.DateOfBirth, dto.TechInterest, dto.Address);
+        await ValidateAndApplyEmployeeFieldsAsync(user, dto.EmployeeCode, dto.EmploymentType, dto.BaseSalary, dto.HourlyRate);
 
         if (dto.Roles != null)
         {
             await AssignRolesAndSyncEntitiesAsync(user, dto.Roles, operatorUserId, dto.EmploymentType, dto.BaseSalary, dto.HourlyRate);
         }
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateEmployeeAsync(int id, UpdateEmployeeRequestDto dto)
+    {
+        var user = await FindEmployeeWithDetailsAsync(id);
+
+        await ValidateAndApplyEmailAsync(user, dto.Email);
+        user.FullName = dto.FullName.Trim();
+        user.Phone = dto.Phone?.Trim();
+
+        ApplyPasswordIfProvided(user, dto.Password);
+        await ValidateAndApplyEmployeeFieldsAsync(user, dto.EmployeeCode, dto.EmploymentType, dto.BaseSalary, dto.HourlyRate);
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateEmployeeRolesAsync(int operatorUserId, int id, UpdateRoleRequestDto dto)
+    {
+        var user = await FindEmployeeWithDetailsAsync(id);
+
+        var requestedRoles = (dto.Roles != null && dto.Roles.Count > 0)
+            ? dto.Roles
+            : (!string.IsNullOrWhiteSpace(dto.RoleId) ? new List<string> { dto.RoleId } : new List<string>());
+
+        EnsureHasNonCustomerStaffRole(requestedRoles);
+        await AssignRolesAndSyncEntitiesAsync(user, requestedRoles, operatorUserId);
+
+        await context.SaveChangesAsync();
+        return user.ToUserDto();
+    }
+
+    public async Task<UserDto> UpdateCustomerAsync(int id, UpdateCustomerRequestDto dto)
+    {
+        var user = await FindCustomerWithDetailsAsync(id);
+
+        await ValidateAndApplyEmailAsync(user, dto.Email);
+        user.FullName = dto.FullName.Trim();
+        user.Phone = dto.Phone?.Trim();
+
+        ApplyPasswordIfProvided(user, dto.Password);
+        ApplyCustomerDetails(user, dto.DateOfBirth, dto.TechInterest, dto.Address);
 
         await context.SaveChangesAsync();
         return user.ToUserDto();
@@ -303,6 +545,28 @@ public class UserService(AppDbContext context) : IUserService
             ?? throw new NotFoundException($"Không tìm thấy người dùng với mã ID = {id}.");
     }
 
+    private async Task<User> FindCustomerWithDetailsAsync(int id, bool asNoTracking = false)
+    {
+        var user = await FindUserWithDetailsAsync(id, asNoTracking);
+        if (!IsCustomerAccount(user))
+        {
+            throw new NotFoundException($"Không tìm thấy khách hàng với mã ID = {id}.");
+        }
+
+        return user;
+    }
+
+    private async Task<User> FindEmployeeWithDetailsAsync(int id, bool asNoTracking = false)
+    {
+        var user = await FindUserWithDetailsAsync(id, asNoTracking);
+        if (!IsStaffAccount(user))
+        {
+            throw new NotFoundException($"Không tìm thấy nhân viên với mã ID = {id}.");
+        }
+
+        return user;
+    }
+
     private async Task ValidateAndApplyEmailAsync(User user, string? newEmail)
     {
         if (string.IsNullOrWhiteSpace(newEmail)) return;
@@ -329,45 +593,50 @@ public class UserService(AppDbContext context) : IUserService
         user.RefreshTokenExpiryTime = null;
     }
 
-    private static void ApplyCustomerDetails(User user, UpdateUserRequestDto dto)
+    private static void ApplyCustomerDetails(User user, DateTime? dateOfBirth, string? techInterest, string? address)
     {
-        if (user.Customer == null && !dto.DateOfBirth.HasValue && string.IsNullOrWhiteSpace(dto.TechInterest) && string.IsNullOrWhiteSpace(dto.Address))
+        if (user.Customer == null && !dateOfBirth.HasValue && string.IsNullOrWhiteSpace(techInterest) && string.IsNullOrWhiteSpace(address))
         {
             return;
         }
 
         user.Customer ??= new Customer();
-        if (dto.DateOfBirth.HasValue)
+        if (dateOfBirth.HasValue)
         {
-            user.Customer.DateOfBirth = DateTimeHelper.NormalizeToUtc(dto.DateOfBirth.Value);
+            user.Customer.DateOfBirth = DateTimeHelper.NormalizeToUtc(dateOfBirth.Value);
         }
-        if (dto.TechInterest != null)
+        if (techInterest != null)
         {
-            user.Customer.TechInterest = dto.TechInterest.Trim();
+            user.Customer.TechInterest = string.IsNullOrWhiteSpace(techInterest) ? null : techInterest.Trim();
         }
-        if (dto.Address != null)
+        if (address != null)
         {
-            user.Customer.Address = dto.Address.Trim();
+            user.Customer.Address = string.IsNullOrWhiteSpace(address) ? null : address.Trim();
         }
     }
 
-    private async Task ValidateAndApplyEmployeeAsync(User user, UpdateUserRequestDto dto)
+    private async Task ValidateAndApplyEmployeeFieldsAsync(
+        User user,
+        string? employeeCode,
+        EmploymentType? employmentType,
+        decimal? baseSalary,
+        decimal? hourlyRate)
     {
-        if (user.Employee == null && string.IsNullOrWhiteSpace(dto.EmployeeCode) && !dto.EmploymentType.HasValue && !dto.BaseSalary.HasValue && !dto.HourlyRate.HasValue)
+        if (user.Employee == null && string.IsNullOrWhiteSpace(employeeCode) && !employmentType.HasValue && !baseSalary.HasValue && !hourlyRate.HasValue)
         {
             return;
         }
 
         user.Employee ??= new Employee
         {
-            EmployeeCode = !string.IsNullOrWhiteSpace(dto.EmployeeCode)
-                ? dto.EmployeeCode.Trim().ToUpper()
+            EmployeeCode = !string.IsNullOrWhiteSpace(employeeCode)
+                ? employeeCode.Trim().ToUpper()
                 : $"NV{user.UserId:D4}"
         };
 
-        if (!string.IsNullOrWhiteSpace(dto.EmployeeCode))
+        if (!string.IsNullOrWhiteSpace(employeeCode))
         {
-            var empCodeTrimmed = dto.EmployeeCode.Trim().ToUpper();
+            var empCodeTrimmed = employeeCode.Trim().ToUpper();
             if (user.Employee.EmployeeCode != empCodeTrimmed)
             {
                 var codeExists = await context.Employees
@@ -380,9 +649,9 @@ public class UserService(AppDbContext context) : IUserService
             }
         }
 
-        if (dto.EmploymentType.HasValue) user.Employee.EmploymentType = dto.EmploymentType.Value;
-        if (dto.BaseSalary.HasValue) user.Employee.BaseSalary = dto.BaseSalary.Value;
-        if (dto.HourlyRate.HasValue) user.Employee.HourlyRate = dto.HourlyRate.Value;
+        if (employmentType.HasValue) user.Employee.EmploymentType = employmentType.Value;
+        if (baseSalary.HasValue) user.Employee.BaseSalary = baseSalary.Value;
+        if (hourlyRate.HasValue) user.Employee.HourlyRate = hourlyRate.Value;
     }
 
     private async Task AssignRolesAndSyncEntitiesAsync(
@@ -469,12 +738,7 @@ public class UserService(AppDbContext context) : IUserService
     public async Task<DemographicsReportDto> GetDemographicsReportAsync()
     {
         // 1. Chỉ lấy tài khoản khách hàng thực sự (vai trò USER, không phải nhân viên/quản trị)
-        var customers = await context.Users
-            .AsNoTracking()
-            .Where(u => u.UserRoles.Any(ur => ur.RoleId == UserRoleTypeExtensions.User) &&
-                        u.UserRoles.All(ur => ur.RoleId == UserRoleTypeExtensions.User) &&
-                        u.Employee == null &&
-                        u.Admin == null)
+        var customers = await ApplyCustomerOnlyFilter(context.Users.AsNoTracking())
             .Select(u => new
             {
                 u.UserId,

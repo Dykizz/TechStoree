@@ -2,28 +2,48 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Users;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
 
 /// <summary>
-/// Quản lý người dùng và tài khoản hệ thống (Users)
+/// Endpoint tương thích cho người dùng hệ thống (ủy quyền kiểm tra chặt theo quyền Customers.* / Employees.*)
 /// </summary>
+[Authorize]
 [Tags("Users")]
 public class UsersController(IUserService userService) : BaseApiController
-{ 
+{
+    private static bool IsCustomerTarget(UserDto user)
+    {
+        return user.UserType == UserType.CUSTOMER &&
+               user.Roles.Count > 0 &&
+               user.Roles.All(r => string.Equals(r, UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
+    }
+
     /// <summary>
-    /// Lấy danh sách người dùng có phân trang và bộ lọc (vai trò, userType, employmentType, trạng thái khóa, từ khóa)
+    /// Lấy danh sách người dùng có phân trang và bộ lọc (tự động kiểm đúng quyền Employees.View hoặc Customers.View)
     /// </summary>
-    /// <param name="filter">Bộ lọc danh sách người dùng</param>
     [HttpGet]
-    [HasPermission(AppPermissions.Users.View)]
     [ProducesResponseType(typeof(ApiResponse<PagedResult<UserDto>>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUsers([FromQuery] UserQueryFilter filter)
     {
+        if (filter.IsStaffOnly == true)
+        {
+            if (!HasPermission(AppPermissions.Employees.View)) return Forbid();
+        }
+        else if (filter.IsStaffOnly == false)
+        {
+            if (!HasPermission(AppPermissions.Customers.View)) return Forbid();
+        }
+        else if (!HasPermission(AppPermissions.Employees.View) || !HasPermission(AppPermissions.Customers.View))
+        {
+            return Forbid();
+        }
+
         var result = await userService.GetUsersAsync(filter, CurrentUserId);
         return Success(result, "Lấy danh sách người dùng thành công.");
     }
@@ -31,9 +51,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// <summary>
     /// Lấy thông tin chi tiết một tài khoản người dùng theo ID
     /// </summary>
-    /// <param name="id">Mã ID người dùng</param>
     [HttpGet("{id:int}")]
-    [HasPermission(AppPermissions.Users.View)]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -41,32 +59,48 @@ public class UsersController(IUserService userService) : BaseApiController
     public async Task<IActionResult> GetUserById(int id)
     {
         var result = await userService.GetUserByIdAsync(id);
+        var requiredPermission = IsCustomerTarget(result)
+            ? AppPermissions.Customers.View
+            : AppPermissions.Employees.View;
+
+        if (!HasPermission(requiredPermission))
+        {
+            return Forbid();
+        }
+
         return Success(result, "Lấy thông tin người dùng thành công.");
     }
 
     /// <summary>
     /// Tạo mới tài khoản người dùng hoặc nhân viên với vai trò cụ thể
     /// </summary>
-    /// <param name="dto">Thông tin tài khoản và danh sách vai trò gán</param>
     [HttpPost]
-    [HasPermission(AppPermissions.Users.Create)]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
     {
+        var isCustomerCreate = dto.Roles == null || dto.Roles.Count == 0 ||
+            dto.Roles.All(r => string.Equals(r?.Trim(), UserRoleTypeExtensions.User, StringComparison.OrdinalIgnoreCase));
+
+        var requiredPermission = isCustomerCreate
+            ? AppPermissions.Customers.Create
+            : AppPermissions.Employees.Create;
+
+        if (!HasPermission(requiredPermission))
+        {
+            return Forbid();
+        }
+
         var result = await userService.CreateUserAsync(CurrentUserId, dto);
         return CreatedSuccess(result, "Tạo mới tài khoản người dùng thành công.");
     }
 
     /// <summary>
-    /// Cập nhật thông tin tài khoản người dùng
+    /// Cập nhật thông tin tài khoản người dùng (tách chặt quyền Update và AssignRoles)
     /// </summary>
-    /// <param name="id">Mã ID người dùng</param>
-    /// <param name="dto">Dữ liệu thông tin tài khoản cập nhật</param>
     [HttpPut("{id:int}")]
-    [HasPermission(AppPermissions.Users.Update)]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -74,6 +108,39 @@ public class UsersController(IUserService userService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserRequestDto dto)
     {
+        var existing = await userService.GetUserByIdAsync(id);
+        var isCustomer = IsCustomerTarget(existing);
+
+        var requiredUpdatePerm = isCustomer
+            ? AppPermissions.Customers.Update
+            : AppPermissions.Employees.Update;
+
+        if (!HasPermission(requiredUpdatePerm))
+        {
+            return Forbid();
+        }
+
+        // Chặn lén đổi vai trò qua PUT nếu không có quyền Employees.AssignRoles
+        if (dto.Roles != null)
+        {
+            var currentSet = existing.Roles.Select(r => r.Trim().ToUpperInvariant()).ToHashSet();
+            var requestedSet = dto.Roles.Where(r => !string.IsNullOrWhiteSpace(r))
+                .Select(r => r.Trim().ToUpperInvariant())
+                .ToHashSet();
+
+            if (!currentSet.SetEquals(requestedSet))
+            {
+                if (!HasPermission(AppPermissions.Employees.AssignRoles))
+                {
+                    return Forbid();
+                }
+            }
+            else
+            {
+                dto.Roles = null;
+            }
+        }
+
         var result = await userService.UpdateUserAsync(CurrentUserId, id, dto);
         return Success(result, "Cập nhật thông tin người dùng thành công.");
     }
@@ -81,10 +148,7 @@ public class UsersController(IUserService userService) : BaseApiController
     /// <summary>
     /// Khóa hoặc Mở khóa tài khoản người dùng
     /// </summary>
-    /// <param name="id">Mã ID người dùng</param>
-    /// <param name="dto">Trạng thái khóa cụ thể (hoặc để trống để toggle đảo ngược)</param>
     [HttpPatch("{id:int}/toggle-lock")]
-    [HasPermission(AppPermissions.Users.Lock)]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -96,18 +160,26 @@ public class UsersController(IUserService userService) : BaseApiController
         {
             throw new BadRequestException("Bạn không thể tự khóa tài khoản của chính mình.");
         }
+
+        var existing = await userService.GetUserByIdAsync(id);
+        var requiredLockPerm = IsCustomerTarget(existing)
+            ? AppPermissions.Customers.Lock
+            : AppPermissions.Employees.Lock;
+
+        if (!HasPermission(requiredLockPerm))
+        {
+            return Forbid();
+        }
+
         var result = await userService.ToggleLockAsync(id, dto);
         var message = result.IsLocked ? "Đã khóa tài khoản thành công." : "Đã mở khóa tài khoản thành công.";
         return Success(result, message);
     }
 
     /// <summary>
-    /// Cập nhật vai trò / phân quyền người dùng
+    /// Cập nhật vai trò / phân quyền nhân viên
     /// </summary>
-    /// <param name="id">Mã ID người dùng</param>
-    /// <param name="dto">Mã vai trò mới hoặc danh sách vai trò</param>
     [HttpPatch("{id:int}/role")]
-    [HasPermission(AppPermissions.Users.AssignRoles)]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -115,6 +187,11 @@ public class UsersController(IUserService userService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateRole(int id, [FromBody] UpdateRoleRequestDto dto)
     {
+        if (!HasPermission(AppPermissions.Employees.AssignRoles))
+        {
+            return Forbid();
+        }
+
         var result = await userService.UpdateRoleAsync(CurrentUserId, id, dto);
         return Success(result, "Cập nhật vai trò người dùng thành công.");
     }
@@ -122,8 +199,6 @@ public class UsersController(IUserService userService) : BaseApiController
     /// <summary>
     /// Người dùng tự cập nhật thông tin cá nhân (Profile)
     /// </summary>
-    /// <param name="dto">Thông tin cá nhân cập nhật</param>
-    [Authorize]
     [HttpPut("profile")]
     [ProducesResponseType(typeof(ApiResponse<UserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -148,15 +223,19 @@ public class UsersController(IUserService userService) : BaseApiController
     }
 
     /// <summary>
-    /// [Admin / CRM Manager] Báo cáo phân tích nhân khẩu học khách hàng (Độ tuổi và Sở thích công nghệ - Barem III.4.1)
+    /// [Admin / CRM Manager] Báo cáo phân tích nhân khẩu học khách hàng
     /// </summary>
     [HttpGet("demographics")]
-    [HasPermission(AppPermissions.Users.View)]
     [ProducesResponseType(typeof(ApiResponse<DemographicsReportDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetDemographicsReport()
     {
+        if (!HasPermission(AppPermissions.Customers.View))
+        {
+            return Forbid();
+        }
+
         var result = await userService.GetDemographicsReportAsync();
         return Success(result, "Lấy báo cáo phân tích nhân khẩu học khách hàng thành công.");
     }

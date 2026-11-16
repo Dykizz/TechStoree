@@ -12,6 +12,17 @@ public interface IUserService
     Task<UserDto> UpdateRoleAsync(int operatorUserId, int id, UpdateRoleRequestDto dto);
     Task<UserDto> UpdateUserAsync(int operatorUserId, int id, UpdateUserRequestDto dto);
     Task<UserDto> UpdateProfileAsync(int userId, UpdateProfileRequestDto dto);
+    Task<PagedResult<UserDto>> GetCustomersAsync(CustomerQueryFilter filter);
+    Task<UserDto> GetCustomerByIdAsync(int id);
+    Task<UserDto> CreateCustomerAsync(int creatorUserId, CreateCustomerRequestDto dto);
+    Task<UserDto> UpdateCustomerAsync(int id, UpdateCustomerRequestDto dto);
+    Task<UserDto> ToggleCustomerLockAsync(int id, ToggleLockRequestDto? dto);
+    Task<PagedResult<UserDto>> GetEmployeesAsync(EmployeeQueryFilter filter);
+    Task<UserDto> GetEmployeeByIdAsync(int id);
+    Task<UserDto> CreateEmployeeAsync(int creatorUserId, CreateEmployeeRequestDto dto);
+    Task<UserDto> UpdateEmployeeAsync(int id, UpdateEmployeeRequestDto dto);
+    Task<UserDto> UpdateEmployeeRolesAsync(int operatorUserId, int id, UpdateRoleRequestDto dto);
+    Task<UserDto> ToggleEmployeeLockAsync(int id, ToggleLockRequestDto? dto);
     Task<DemographicsReportDto> GetDemographicsReportAsync();
     List<TechInterestOptionDto> GetTechInterests();
 }
