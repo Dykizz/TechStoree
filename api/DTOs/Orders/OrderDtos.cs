@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using WebBanHang.Api.DTOs.Auth;
 using WebBanHang.Api.DTOs.Invoices;
 
@@ -103,6 +104,12 @@ public class OrderBaseDto
     /// </summary>
     /// <example>34390000</example>
     public decimal TotalAmount { get; set; }
+
+    /// <summary>
+    /// Tổng giá vốn hàng bán của đơn hàng = SUM(CostPrice * Quantity) (Chỉ trả về cho quản trị/bán hàng)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? TotalCostPrice { get; set; }
 
     /// <summary>
     /// Tổng số loại mặt hàng khác nhau trong đơn
@@ -248,6 +255,12 @@ public class OrderItemDto
     /// </summary>
     /// <example>34490000</example>
     public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// Giá vốn bình quân gia quyền tại thời điểm mua (Snapshot, chỉ trả về cho quản trị/bán hàng)
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public decimal? CostPrice { get; set; }
 
     /// <summary>
     /// Mã ID chương trình Promotion áp dụng cho sản phẩm này (Snapshot)

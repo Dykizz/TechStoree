@@ -59,7 +59,6 @@ public static class AppPermissions
         public const string Create = "Vouchers.Create";
         public const string Update = "Vouchers.Update";
         public const string Delete = "Vouchers.Delete";
-        public const string Assign = "Vouchers.Assign";
     }
 
     public static class Surveys
@@ -93,15 +92,6 @@ public static class AppPermissions
         public const string AssignRoles = "Employees.AssignRoles";
     }
 
-    public static class Users
-    {
-        public const string View = "Users.View";
-        public const string Create = "Users.Create";
-        public const string Update = "Users.Update";
-        public const string Lock = "Users.Lock";
-        public const string AssignRoles = "Users.AssignRoles";
-    }
-
     public static class Roles
     {
         public const string View = "Roles.View";
@@ -130,7 +120,6 @@ public static class AppPermissions
     private const string MSurveys = "Khảo sát & CRM";
     private const string MCustomers = "Quản lý khách hàng";
     private const string MEmployees = "Quản lý nhân viên";
-    private const string MUsers = "Quản lý tài khoản";
     private const string MRoles = "Phân quyền hệ thống";
     private const string MReviews = "Quản lý đánh giá";
 
@@ -138,11 +127,11 @@ public static class AppPermissions
     //                   true  -> chủ ý chưa gắn endpoint nào.
     public static readonly IReadOnlyList<PermissionMeta> Catalog =
     [
-        new(Categories.View, MCategories, "Xem danh mục", "Xem danh sách và thông tin chi tiết danh mục sản phẩm", Reserved: true),
+        new(Categories.View, MCategories, "Xem danh mục", "Xem danh sách và thông tin chi tiết danh mục sản phẩm"),
         new(Categories.Create, MCategories, "Thêm danh mục", "Tạo danh mục sản phẩm mới"),
         new(Categories.Update, MCategories, "Sửa danh mục", "Chỉnh sửa thông tin danh mục sản phẩm"),
         new(Categories.Delete, MCategories, "Xóa danh mục", "Xóa danh mục sản phẩm khỏi hệ thống"),
-        new(Products.View, MProducts, "Xem sản phẩm", "Xem danh sách và chi tiết sản phẩm, biến thể", Reserved: true),
+        new(Products.View, MProducts, "Xem sản phẩm", "Xem danh sách và chi tiết sản phẩm, biến thể"),
         new(Products.Create, MProducts, "Thêm sản phẩm", "Tạo mới sản phẩm và các biến thể"),
         new(Products.Update, MProducts, "Sửa sản phẩm", "Cập nhật thông tin, giá bán, tồn kho sản phẩm"),
         new(Products.Delete, MProducts, "Xóa sản phẩm", "Xóa hoặc vô hiệu hóa sản phẩm"),
@@ -155,8 +144,8 @@ public static class AppPermissions
         new(PurchaseOrders.Update, MPurchaseOrders, "Cập nhật đơn nhập hàng", "Cập nhật trạng thái phiếu nhập kho (Hoàn tất, hủy...)"),
         new(Orders.View, MOrders, "Xem đơn bán hàng", "Xem tất cả đơn hàng của khách hàng"),
         new(Orders.UpdateStatus, MOrders, "Cập nhật đơn hàng", "Chuyển trạng thái đơn hàng (Đã xác nhận, Đang vận chuyển, Đã giao hàng...)"),
-        new(Orders.Cancel, MOrders, "Hủy đơn hàng", "Hủy đơn hàng của khách hàng", Reserved: true),
-        new(Promotions.View, MPromotions, "Xem khuyến mãi", "Xem danh sách chiến dịch khuyến mãi", Reserved: true),
+        new(Orders.Cancel, MOrders, "Hủy đơn hàng", "Hủy đơn hàng của khách hàng"),
+        new(Promotions.View, MPromotions, "Xem khuyến mãi", "Xem danh sách chiến dịch khuyến mãi"),
         new(Promotions.Create, MPromotions, "Tạo khuyến mãi", "Tạo chương trình khuyến mãi mới"),
         new(Promotions.Update, MPromotions, "Sửa khuyến mãi", "Cập nhật chương trình khuyến mãi"),
         new(Promotions.Delete, MPromotions, "Xóa khuyến mãi", "Xóa chương trình khuyến mãi"),
@@ -164,27 +153,21 @@ public static class AppPermissions
         new(Vouchers.Create, MVouchers, "Tạo voucher", "Tạo mã giảm giá mới"),
         new(Vouchers.Update, MVouchers, "Sửa voucher", "Cập nhật thông tin mã giảm giá"),
         new(Vouchers.Delete, MVouchers, "Xóa voucher", "Xóa mã giảm giá"),
-        new(Vouchers.Assign, MVouchers, "Tặng voucher", "Phát voucher cho khách hàng", Reserved: true),
         new(Surveys.View, MSurveys, "Xem khảo sát", "Xem danh sách bảng khảo sát và kết quả trả lời"),
         new(Surveys.Create, MSurveys, "Tạo khảo sát", "Tạo chiến dịch khảo sát và câu hỏi"),
         new(Surveys.Update, MSurveys, "Sửa khảo sát", "Cập nhật thông tin và trạng thái khảo sát"),
         new(Surveys.Delete, MSurveys, "Xóa khảo sát", "Xóa chiến dịch khảo sát"),
         new(Surveys.Assign, MSurveys, "Giao khảo sát", "Gán khảo sát cho khách hàng mục tiêu"),
         new(Invoices.View, MInvoices, "Xem hóa đơn", "Xem danh sách và chi tiết hóa đơn thanh toán"),
-        new(Customers.View, MCustomers, "Xem khách hàng", "Xem danh sách và hồ sơ khách hàng", Reserved: true),
-        new(Customers.Create, MCustomers, "Thêm khách hàng", "Tạo mới tài khoản khách hàng", Reserved: true),
-        new(Customers.Update, MCustomers, "Sửa khách hàng", "Cập nhật thông tin khách hàng", Reserved: true),
-        new(Customers.Lock, MCustomers, "Khóa / Mở khóa khách hàng", "Khóa hoặc mở khóa tài khoản khách hàng", Reserved: true),
-        new(Employees.View, MEmployees, "Xem nhân viên", "Xem danh sách và hồ sơ nhân sự nội bộ", Reserved: true),
-        new(Employees.Create, MEmployees, "Tạo tài khoản nhân viên", "Tạo tài khoản nhân viên mới", Reserved: true),
-        new(Employees.Update, MEmployees, "Sửa nhân viên", "Cập nhật thông tin nhân sự", Reserved: true),
-        new(Employees.Lock, MEmployees, "Khóa / Mở khóa nhân viên", "Khóa hoặc mở khóa tài khoản nhân viên", Reserved: true),
-        new(Employees.AssignRoles, MEmployees, "Phân vai trò nhân viên", "Gán vai trò và phân quyền nhân sự", Reserved: true),
-        new(Users.View, MUsers, "Xem người dùng", "Xem danh sách tài khoản khách hàng và nhân viên"),
-        new(Users.Create, MUsers, "Tạo tài khoản", "Tạo tài khoản nhân viên mới"),
-        new(Users.Update, MUsers, "Sửa người dùng", "Cập nhật thông tin tài khoản người dùng"),
-        new(Users.Lock, MUsers, "Khóa / Mở khóa", "Khóa hoặc mở khóa tài khoản người dùng"),
-        new(Users.AssignRoles, MUsers, "Gán vai trò", "Phân vai trò cho tài khoản"),
+        new(Customers.View, MCustomers, "Xem khách hàng", "Xem danh sách và hồ sơ khách hàng"),
+        new(Customers.Create, MCustomers, "Thêm khách hàng", "Tạo mới tài khoản khách hàng"),
+        new(Customers.Update, MCustomers, "Sửa khách hàng", "Cập nhật thông tin khách hàng"),
+        new(Customers.Lock, MCustomers, "Khóa / Mở khóa khách hàng", "Khóa hoặc mở khóa tài khoản khách hàng"),
+        new(Employees.View, MEmployees, "Xem nhân viên", "Xem danh sách và hồ sơ nhân sự nội bộ"),
+        new(Employees.Create, MEmployees, "Tạo tài khoản nhân viên", "Tạo tài khoản nhân viên mới"),
+        new(Employees.Update, MEmployees, "Sửa nhân viên", "Cập nhật thông tin nhân sự"),
+        new(Employees.Lock, MEmployees, "Khóa / Mở khóa nhân viên", "Khóa hoặc mở khóa tài khoản nhân viên"),
+        new(Employees.AssignRoles, MEmployees, "Phân vai trò nhân viên", "Gán vai trò và phân quyền nhân sự"),
         new(Roles.View, MRoles, "Xem vai trò", "Xem danh sách vai trò và quyền hạn"),
         new(Roles.Create, MRoles, "Tạo vai trò", "Tạo vai trò mới và phân quyền"),
         new(Roles.Update, MRoles, "Sửa vai trò", "Chỉnh sửa tên vai trò và danh sách quyền"),
@@ -216,14 +199,13 @@ public static class AppPermissions
                 Categories.View, Products.View,
                 Orders.View, Orders.UpdateStatus, Orders.Cancel,
                 Promotions.View, Promotions.Create, Promotions.Update, Promotions.Delete,
-                Vouchers.View, Vouchers.Create, Vouchers.Update, Vouchers.Delete, Vouchers.Assign
+                Vouchers.View, Vouchers.Create, Vouchers.Update, Vouchers.Delete
             ],
             ["SURVEY_STAFF"] =
             [
                 Surveys.View, Surveys.Create, Surveys.Update, Surveys.Delete, Surveys.Assign,
                 Customers.View, Customers.Create, Customers.Update, Customers.Lock,
-                Reviews.View, Reviews.Reply,
-                Users.View
+                Reviews.View, Reviews.Reply, Reviews.Hide
             ],
             ["USER"] = []
         };

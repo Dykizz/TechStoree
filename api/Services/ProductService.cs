@@ -82,7 +82,7 @@ public class ProductService(AppDbContext context, ICloudinaryService cloudinaryS
         return await query.ToPagedResultAsync(filter, p => p.ToProductBaseDto(onlyActiveVariants: !isAdmin));
     }
 
-    public async Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false)
+    public async Task<ProductDetailDto> GetProductByIdAsync(int id, bool isAdmin = false, bool includeCostInfo = false)
     {
         var product = await context.Products
             .Include(p => p.Category)
@@ -98,8 +98,16 @@ public class ProductService(AppDbContext context, ICloudinaryService cloudinaryS
             throw new KeyNotFoundException($"Không tìm thấy sản phẩm với mã ID: {id}.");
         }
 
-        // Lấy chi tiết sản phẩm (Khách chỉ xem các biến thể active)
-        return product.ToProductDetailDto(onlyActiveVariants: !isAdmin);
+        var canSeeCost = isAdmin || includeCostInfo;
+        var lastImportPriceMap = canSeeCost
+            ? await GetLastImportPriceMapAsync(product.Variants.Select(v => v.VariantId))
+            : null;
+
+        // Lấy chi tiết sản phẩm (Khách chỉ xem các biến thể active và không thấy giá vốn)
+        return product.ToProductDetailDto(
+            onlyActiveVariants: !isAdmin,
+            includeCostInfo: canSeeCost,
+            lastImportPriceMap: lastImportPriceMap);
     }
 
     public async Task<ProductDetailDto> CreateProductAsync(ProductCreateRequestDto dto)
@@ -122,7 +130,7 @@ public class ProductService(AppDbContext context, ICloudinaryService cloudinaryS
 
             // Load Category để trả về DTO hoàn chỉnh
             await context.Entry(product).Reference(p => p.Category).LoadAsync();
-            return product.ToProductDetailDto();
+            return product.ToProductDetailDto(includeCostInfo: true);
         }
         catch (DbUpdateException ex)
         {
@@ -199,7 +207,8 @@ public class ProductService(AppDbContext context, ICloudinaryService cloudinaryS
                 try { await cloudinaryService.DeleteMediaAsync(imgUrl); } catch { /* Bỏ qua lỗi cloud để không ảnh hưởng dữ liệu */ }
             }
 
-            return product.ToProductDetailDto();
+            var lastImportPriceMap = await GetLastImportPriceMapAsync(product.Variants.Select(v => v.VariantId));
+            return product.ToProductDetailDto(includeCostInfo: true, lastImportPriceMap: lastImportPriceMap);
         }
         catch (DbUpdateException)
         {
@@ -323,5 +332,34 @@ public class ProductService(AppDbContext context, ICloudinaryService cloudinaryS
         {
             throw new BadRequestException($"Các biến thể sau không tồn tại hoặc không thuộc về sản phẩm này: {string.Join(", ", invalidVariantIds)}.");
         }
+    }
+
+    /// <summary>
+    /// Lấy đơn giá nhập từ phiếu COMPLETED gần nhất cho từng biến thể
+    /// </summary>
+    private async Task<Dictionary<int, decimal>> GetLastImportPriceMapAsync(IEnumerable<int> variantIds)
+    {
+        var ids = variantIds.Where(id => id > 0).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new Dictionary<int, decimal>();
+        }
+
+        var rows = await context.PurchaseOrderItems
+            .AsNoTracking()
+            .Where(poi => ids.Contains(poi.VariantId)
+                && poi.PurchaseOrder != null
+                && poi.PurchaseOrder.Status == Enums.PurchaseOrderStatus.COMPLETED)
+            .OrderByDescending(poi => poi.PurchaseOrder!.CreatedAt)
+            .ThenByDescending(poi => poi.PoItemId)
+            .Select(poi => new { poi.VariantId, poi.ImportPrice })
+            .ToListAsync();
+
+        var map = new Dictionary<int, decimal>();
+        foreach (var row in rows)
+        {
+            map.TryAdd(row.VariantId, row.ImportPrice);
+        }
+        return map;
     }
 }

@@ -21,9 +21,29 @@ public class ProductsController(IProductService productService) : BaseApiControl
     [ProducesResponseType(typeof(ApiResponse<PagedResult<ProductBaseDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetProducts([FromQuery] ProductQueryFilter filter)
     {
-        var result = await productService.GetProductsAsync(filter, IsAdmin);
+        var includeInactive = HasPermission(AppPermissions.Products.View);
+        var result = await productService.GetProductsAsync(filter, includeInactive);
         return Success(result, "Lấy danh sách sản phẩm thành công.");
     }
+
+    /// <summary>
+    /// [QUẢN TRỊ] Lấy danh sách sản phẩm theo quyền Products.View (bao gồm sản phẩm ẩn/ngừng bán)
+    /// </summary>
+    [HttpGet("admin")]
+    [HasPermission(AppPermissions.Products.View)]
+    [ProducesResponseType(typeof(ApiResponse<PagedResult<ProductBaseDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAdminProducts([FromQuery] ProductQueryFilter filter)
+    {
+        var result = await productService.GetProductsAsync(filter, isAdmin: true);
+        return Success(result, "Lấy danh sách sản phẩm quản trị thành công.");
+    }
+
+    private bool CanViewCostInfo() =>
+        HasPermission(AppPermissions.Products.View) ||
+        HasPermission(AppPermissions.PurchaseOrders.View) ||
+        HasPermission(AppPermissions.PurchaseOrders.Create) ||
+        HasPermission(AppPermissions.PurchaseOrders.Update);
 
     /// <summary>
     /// Lấy thông tin chi tiết một dòng sản phẩm kèm danh sách biến thể
@@ -34,8 +54,23 @@ public class ProductsController(IProductService productService) : BaseApiControl
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProductById(int id)
     {
-        var result = await productService.GetProductByIdAsync(id, IsAdmin);
+        var includeInactive = HasPermission(AppPermissions.Products.View);
+        var result = await productService.GetProductByIdAsync(id, includeInactive, CanViewCostInfo());
         return Success(result, "Lấy thông tin sản phẩm thành công.");
+    }
+
+    /// <summary>
+    /// [QUẢN TRỊ] Xem chi tiết sản phẩm theo quyền Products.View (bao gồm biến thể ẩn)
+    /// </summary>
+    [HttpGet("admin/{id:int}")]
+    [HasPermission(AppPermissions.Products.View)]
+    [ProducesResponseType(typeof(ApiResponse<ProductDetailDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetAdminProductById(int id)
+    {
+        var result = await productService.GetProductByIdAsync(id, isAdmin: true, includeCostInfo: true);
+        return Success(result, "Lấy thông tin sản phẩm quản trị thành công.");
     }
 
     /// <summary>

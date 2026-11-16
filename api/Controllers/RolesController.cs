@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.DTOs.Roles;
+using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Controllers;
@@ -47,6 +48,19 @@ public class RolesController(IRoleService roleService) : BaseApiController
     {
         var result = await roleService.GetRoleByIdAsync(id);
         return Success(result, "Lấy chi tiết vai trò thành công!");
+    }
+
+    /// <summary>
+    /// Lấy danh sách người dùng đang sở hữu vai trò này
+    /// </summary>
+    [HttpGet("{id}/users")]
+    [HasPermission(AppPermissions.Roles.View)]
+    [ProducesResponseType(typeof(ApiResponse<List<UserDto>>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUsersByRole(string id)
+    {
+        var result = await roleService.GetUsersByRoleAsync(id);
+        return Success(result, "Lấy danh sách nhân sự thuộc vai trò thành công!");
     }
 
     /// <summary>

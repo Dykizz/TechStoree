@@ -67,7 +67,7 @@ class _PromotionsScreenState extends State<PromotionsScreen> {
   void _loadData() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _promotionsFuture = apiService.getPromotions(token: token);
+    _promotionsFuture = apiService.getAdminPromotions(token: token);
   }
 
   @override

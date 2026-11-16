@@ -95,6 +95,8 @@ class ProductVariant {
   final String? productName;
   final String? variantNameAttr;
   final double price;
+  final double? costPrice;
+  final double? lastImportPrice;
   final int stockQuantity;
   final String? imageUrl;
   final Map<String, String> attributes;
@@ -109,6 +111,8 @@ class ProductVariant {
     this.productName,
     this.variantNameAttr,
     required this.price,
+    this.costPrice,
+    this.lastImportPrice,
     this.stockQuantity = 0,
     this.imageUrl,
     Map<String, String>? attributes,
@@ -134,6 +138,8 @@ class ProductVariant {
       productName: json['productName']?.toString(),
       variantNameAttr: (json['variantName'] ?? json['variant_name'])?.toString(),
       price: JsonParseHelper.parseDouble(json['price']),
+      costPrice: JsonParseHelper.parseNullableDouble(json['costPrice'] ?? json['cost_price']),
+      lastImportPrice: JsonParseHelper.parseNullableDouble(json['lastImportPrice'] ?? json['last_import_price']),
       stockQuantity: JsonParseHelper.parseInt(json['stockQuantity'] ?? json['stock_quantity'], 0),
       imageUrl: (json['imageUrl'] ?? json['image_url'])?.toString(),
       attributes: JsonParseHelper.parseStringMap(json['attributes']),

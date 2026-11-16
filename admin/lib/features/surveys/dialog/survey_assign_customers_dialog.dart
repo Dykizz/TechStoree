@@ -62,9 +62,8 @@ class _SurveyAssignCustomersDialogState extends State<SurveyAssignCustomersDialo
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     try {
       // Lấy toàn bộ khách hàng đang hoạt động qua mọi trang (loại trừ nhân viên/admin & tài khoản bị khóa)
-      final usersFuture = apiService.getAllUsers(
+      final usersFuture = apiService.getAllCustomers(
         token: token,
-        isStaffOnly: false,
         isLocked: false,
         throwOnError: true,
       );

@@ -40,16 +40,38 @@ class _FinancialPerformanceChartState extends State<FinancialPerformanceChart> {
     }
 
     final revRow = widget.rows.firstWhere(
-      (r) => r.metricName == 'Tổng thu',
-      orElse: () => const FinancialMatrixRow(metricName: 'Tổng thu', q1: 0, q2: 0, q3: 0, q4: 0),
+      (r) => r.metricType == FinancialMetricType.revenue,
+      orElse: () => const FinancialMatrixRow(
+        metricType: FinancialMetricType.revenue,
+        metricName: 'Doanh thu bán hàng',
+        q1: 0,
+        q2: 0,
+        q3: 0,
+        q4: 0,
+      ),
     );
     final expRow = widget.rows.firstWhere(
-      (r) => r.metricName == 'Tổng chi',
-      orElse: () => const FinancialMatrixRow(metricName: 'Tổng chi', q1: 0, q2: 0, q3: 0, q4: 0),
+      (r) => r.metricType == FinancialMetricType.cogs,
+      orElse: () => const FinancialMatrixRow(
+        metricType: FinancialMetricType.cogs,
+        metricName: 'Giá vốn hàng bán (COGS)',
+        q1: 0,
+        q2: 0,
+        q3: 0,
+        q4: 0,
+      ),
     );
     final profitRow = widget.rows.firstWhere(
-      (r) => r.isProfit,
-      orElse: () => const FinancialMatrixRow(metricName: 'Lợi nhuận', q1: 0, q2: 0, q3: 0, q4: 0, isProfit: true),
+      (r) => r.metricType == FinancialMetricType.grossProfit || r.isProfit,
+      orElse: () => const FinancialMatrixRow(
+        metricType: FinancialMetricType.grossProfit,
+        metricName: 'Lợi nhuận gộp',
+        q1: 0,
+        q2: 0,
+        q3: 0,
+        q4: 0,
+        isProfit: true,
+      ),
     );
 
     // Chuyển đổi sang đơn vị Triệu VNĐ (M)
@@ -114,15 +136,15 @@ class _FinancialPerformanceChartState extends State<FinancialPerformanceChart> {
                           const SizedBox(width: 16),
                           Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.chartRevenue, shape: BoxShape.circle)),
                           const SizedBox(width: 4),
-                          Text('Tổng thu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                          Text('Doanh thu', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
                           const SizedBox(width: 12),
                           Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.chartCost, shape: BoxShape.circle)),
                           const SizedBox(width: 4),
-                          Text('Tổng chi', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                          Text('Giá vốn (COGS)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
                           const SizedBox(width: 12),
                           Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
                           const SizedBox(width: 4),
-                          Text('Lợi nhuận (Lãi)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
+                          Text('Lợi nhuận gộp (Lãi)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: widget.textSecondary)),
                           if (maxNegative > 0) ...[
                             const SizedBox(width: 12),
                             Container(width: 8, height: 8, decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle)),
@@ -157,15 +179,15 @@ class _FinancialPerformanceChartState extends State<FinancialPerformanceChart> {
                       Color itemColor;
 
                       if (rodIndex == 0) {
-                        label = 'Tổng thu';
+                        label = 'Doanh thu';
                         rawVal = qRevs[groupIndex] * 1000000;
                         itemColor = const Color(0xFF93C5FD);
                       } else if (rodIndex == 1) {
-                        label = 'Tổng chi';
+                        label = 'Giá vốn (COGS)';
                         rawVal = qExps[groupIndex] * 1000000;
                         itemColor = const Color(0xFFFDBA74);
                       } else {
-                        label = 'Lợi nhuận';
+                        label = 'Lợi nhuận gộp';
                         rawVal = qProfits[groupIndex] * 1000000;
                         itemColor = rawVal >= 0 ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5);
                       }

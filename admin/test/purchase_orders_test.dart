@@ -476,9 +476,16 @@ void main() {
     expect(find.text('Laptop Active (16GB RAM)'), findsOneWidget);
     expect(find.text('Laptop Inactive (Ngưng KD)'), findsNothing);
 
-    // Thêm biến thể active vào phiếu
+    // Thêm biến thể active vào phiếu -> ô Đơn giá nhập để trống (không tự lấy giá bán)
     await tester.tap(find.text('Laptop Active (16GB RAM)'));
     await tester.pumpAndSettle();
+
+    final importPriceField = find.widgetWithText(TextFormField, 'Đơn giá nhập (*)');
+    expect(tester.widget<TextFormField>(importPriceField).controller?.text, isEmpty);
+
+    // Nhập đơn giá nhập hợp lệ (< giá bán 15,000,000)
+    await tester.enterText(importPriceField, '12000000');
+    await tester.pump();
 
     // Xóa trống ô SL -> không cho lưu với lỗi số lượng > 0
     final qtyField = find.widgetWithText(TextFormField, 'SL');
@@ -501,7 +508,110 @@ void main() {
 
     expect(createdPo, isNotNull);
     expect(createdPo!.items.length, 1);
+    expect(createdPo!.items.first.importPrice, 12000000);
     expect(createdPo!.items.first.quantity, 3);
+
+    await tester.pump(const Duration(seconds: 5));
+  });
+
+  testWidgets('PurchaseOrderFormDialog uses lastImportPrice suggestion, never selling price, and blocks importPrice >= sellingPrice', (tester) async {
+    tester.view.physicalSize = const Size(1280, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    PurchaseOrder? createdPo;
+    final fakeApi = _FakePurchaseOrderApiService(
+      onCreate: (po) async {
+        createdPo = po;
+        return ApiResult(success: true, message: 'OK');
+      },
+    );
+
+    final variantOptions = [
+      const PurchaseOrderVariantOption(
+        variantId: 10,
+        productId: 2,
+        productName: 'Laptop Mới',
+        variantName: 'Chưa từng nhập',
+        fullName: 'Laptop Mới (Chưa từng nhập)',
+        defaultPrice: 20000000,
+        stockQuantity: 0,
+        isActive: true,
+      ),
+      const PurchaseOrderVariantOption(
+        variantId: 11,
+        productId: 2,
+        productName: 'Laptop Cũ',
+        variantName: 'Đã có lịch sử nhập',
+        fullName: 'Laptop Cũ (Đã có lịch sử nhập)',
+        defaultPrice: 20000000,
+        costPrice: 14000000,
+        lastImportPrice: 14500000,
+        stockQuantity: 5,
+        isActive: true,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      _wrapWithProviders(
+        Builder(
+          builder: (context) => PurchaseOrderFormDialog(
+            existingPo: null,
+            suppliers: _sampleSuppliers(),
+            variantOptions: variantOptions,
+            apiService: fakeApi,
+            token: 'token',
+            onSaved: () {},
+          ),
+        ),
+        apiService: fakeApi,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchField = find.widgetWithText(
+      TextFormField,
+      'Tìm kiếm sản phẩm hoặc biến thể...',
+    );
+
+    // 1. Chọn biến thể chưa từng nhập -> ô đơn giá nhập trống, KHÔNG điền giá bán 20,000,000
+    await tester.enterText(searchField, 'Laptop Mới');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laptop Mới (Chưa từng nhập)'));
+    await tester.pumpAndSettle();
+
+    final priceFields = find.widgetWithText(TextFormField, 'Đơn giá nhập (*)');
+    expect(tester.widget<TextFormField>(priceFields.first).controller?.text, isEmpty);
+
+    // Nhập giá >= giá bán (20,000,000) -> hiện cảnh báo và chặn lưu
+    await tester.enterText(priceFields.first, '20000000');
+    await tester.pump();
+    expect(find.textContaining('Đơn giá nhập phải nhỏ hơn giá bán hiện tại'), findsOneWidget);
+
+    await tester.tap(find.text('Tạo phiếu nhập hàng'));
+    await tester.pump();
+    expect(createdPo, isNull);
+
+    // Sửa lại thành giá hợp lệ 15,000,000
+    await tester.enterText(priceFields.first, '15000000');
+    await tester.pump();
+
+    // 2. Thêm biến thể đã có lastImportPrice -> gợi ý sẵn 14,500,000
+    await tester.enterText(searchField, 'Laptop Cũ');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Laptop Cũ (Đã có lịch sử nhập)'));
+    await tester.pumpAndSettle();
+
+    final secondPriceField = find.widgetWithText(TextFormField, 'Đơn giá nhập (*)').at(1);
+    expect(tester.widget<TextFormField>(secondPriceField).controller?.text, '14,500,000');
+
+    await tester.tap(find.text('Tạo phiếu nhập hàng'));
+    await tester.pumpAndSettle();
+
+    expect(createdPo, isNotNull);
+    expect(createdPo!.items.length, 2);
+    expect(createdPo!.items[0].importPrice, 15000000);
+    expect(createdPo!.items[1].importPrice, 14500000);
 
     await tester.pump(const Duration(seconds: 5));
   });
@@ -589,6 +699,13 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Laptop Active (16GB RAM)'));
         await tester.pumpAndSettle();
+
+        final importPriceField = find.descendant(
+          of: find.byType(PurchaseOrderFormDialog),
+          matching: find.widgetWithText(TextFormField, 'Đơn giá nhập (*)'),
+        );
+        await tester.enterText(importPriceField, '12000000');
+        await tester.pump();
 
         final qtyField = find.descendant(
           of: find.byType(PurchaseOrderFormDialog),
@@ -827,6 +944,13 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('Laptop Active (16GB RAM)'));
         await tester.pumpAndSettle();
+
+        final importPriceField = find.descendant(
+          of: find.byType(PurchaseOrderFormDialog),
+          matching: find.widgetWithText(TextFormField, 'Đơn giá nhập (*)'),
+        );
+        await tester.enterText(importPriceField, '12000000');
+        await tester.pump();
 
         final qtyField = find.descendant(
           of: find.byType(PurchaseOrderFormDialog),

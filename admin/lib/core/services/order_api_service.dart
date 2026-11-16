@@ -216,14 +216,14 @@ mixin OrderApiService on BaseApiService {
     }
   }
 
-  /// Cancel order: POST /api/Orders/{id}/cancel
+  /// Cancel order: POST /api/Orders/admin/{id}/cancel
   Future<({bool success, String message, Order? order})> cancelOrder(
     int orderId, {
     required String reason,
     String? token,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/Orders/$orderId/cancel');
+      final uri = Uri.parse('$baseUrl/Orders/admin/$orderId/cancel');
       final payload = {'reason': reason.trim()};
 
       final response = await httpPost(

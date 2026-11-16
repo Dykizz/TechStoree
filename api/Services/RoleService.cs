@@ -2,7 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using WebBanHang.Api.Common;
 using WebBanHang.Api.Data;
 using WebBanHang.Api.DTOs.Roles;
+using WebBanHang.Api.DTOs.Users;
+using WebBanHang.Api.Enums;
 using WebBanHang.Api.Exceptions;
+using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
 using WebBanHang.Api.Services.Interfaces;
 
@@ -98,8 +101,10 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
 
     public async Task<List<ModulePermissionsDto>> GetAllPermissionsGroupedAsync()
     {
+        var activeIds = AppPermissions.ById.Keys.ToList();
         var permissions = await context.Permissions
             .AsNoTracking()
+            .Where(p => activeIds.Contains(p.PermissionId))
             .OrderBy(p => p.Module)
             .ThenBy(p => p.PermissionName)
             .ToListAsync();
@@ -114,9 +119,58 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             .ToList();
     }
 
+    public async Task<List<RoleDto>> GetAssignableRolesAsync()
+    {
+        var roles = await context.Roles
+            .AsNoTracking()
+            .Where(r => r.RoleId.ToUpper() != UserRoleTypeExtensions.User)
+            .OrderByDescending(r => r.IsSystem)
+            .ThenBy(r => r.RoleName)
+            .ToListAsync();
+
+        return roles.Select(r => new RoleDto
+        {
+            RoleId = r.RoleId,
+            RoleName = r.RoleName,
+            Description = r.Description,
+            IsSystem = r.IsSystem
+        }).ToList();
+    }
+
+    public async Task<List<UserDto>> GetUsersByRoleAsync(string roleId)
+    {
+        var normalizedRoleId = roleId.Trim().ToUpperInvariant();
+
+        var roleExists = await context.Roles
+            .AsNoTracking()
+            .AnyAsync(r => r.RoleId.ToUpper() == normalizedRoleId);
+        if (!roleExists)
+        {
+            throw new NotFoundException($"Không tìm thấy vai trò với mã '{roleId}'.");
+        }
+
+        var users = await context.Users
+            .AsNoTracking()
+            .Include(u => u.Customer)
+            .Include(u => u.Employee)
+            .Include(u => u.Admin)
+            .Include(u => u.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .Where(u => u.UserRoles.Any(ur => ur.RoleId.ToUpper() == normalizedRoleId))
+            .OrderBy(u => u.FullName)
+            .ToListAsync();
+
+        return users.Select(u => u.ToUserDto()).ToList();
+    }
+
     public async Task<List<RoleDto>> GetRolesAsync()
     {
-        var allPermIds = await context.Permissions.AsNoTracking().Select(p => p.PermissionId).ToListAsync();
+        var activeIds = AppPermissions.ById.Keys.ToList();
+        var allPermIds = await context.Permissions
+            .AsNoTracking()
+            .Where(p => activeIds.Contains(p.PermissionId))
+            .Select(p => p.PermissionId)
+            .ToListAsync();
 
         // Đếm số lượng tài khoản chính xác theo từng vai trò trực tiếp từ bảng user_roles
         var userCountByRole = await context.UserRoles
@@ -139,7 +193,12 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             Description = r.Description,
             IsSystem = r.IsSystem,
             UserCount = userCountByRole.TryGetValue(r.RoleId, out var count) ? count : 0,
-            Permissions = IsProtectedAdmin(r) ? allPermIds : r.RolePermissions.Select(rp => rp.PermissionId).ToList()
+            Permissions = IsProtectedAdmin(r)
+                ? allPermIds
+                : r.RolePermissions
+                    .Select(rp => rp.PermissionId)
+                    .Where(pid => AppPermissions.ById.ContainsKey(pid))
+                    .ToList()
         }).ToList();
     }
 
@@ -167,8 +226,10 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
 
         if (IsProtectedAdmin(role))
         {
+            var activeIds = AppPermissions.ById.Keys.ToList();
             var allPerms = await context.Permissions
                 .AsNoTracking()
+                .Where(p => activeIds.Contains(p.PermissionId))
                 .OrderBy(p => p.Module)
                 .ThenBy(p => p.PermissionName)
                 .ToListAsync();
@@ -192,9 +253,12 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             Description = role.Description,
             IsSystem = role.IsSystem,
             UserCount = userCount,
-            Permissions = role.RolePermissions.Select(rp => rp.PermissionId).ToList(),
+            Permissions = role.RolePermissions
+                .Select(rp => rp.PermissionId)
+                .Where(pid => AppPermissions.ById.ContainsKey(pid))
+                .ToList(),
             PermissionDetails = role.RolePermissions
-                .Where(rp => rp.Permission != null)
+                .Where(rp => rp.Permission != null && AppPermissions.ById.ContainsKey(rp.PermissionId))
                 .Select(rp => ToPermissionDto(rp.Permission!))
                 .ToList()
         };
@@ -244,6 +308,44 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
         return await GetRoleByIdAsync(roleId);
     }
 
+    private static List<string> EnsureAdminSafetyPermissions(Role role, IEnumerable<string>? requestedPermissions)
+    {
+        var list = (requestedPermissions ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .ToList();
+
+        if (role.RoleId.Equals(UserRoleTypeExtensions.Admin, StringComparison.OrdinalIgnoreCase))
+        {
+            var set = new HashSet<string>(list, StringComparer.OrdinalIgnoreCase)
+            {
+                AppPermissions.Roles.View,
+                AppPermissions.Roles.Update
+            };
+            return set.ToList();
+        }
+
+        return list;
+    }
+
+    private async Task ReplaceRolePermissionsAsync(Role role, IEnumerable<string>? requestedPermissions)
+    {
+        var safeguarded = EnsureAdminSafetyPermissions(role, requestedPermissions);
+        var resolved = await ResolvePermissionsAsync(safeguarded);
+
+        context.RolePermissions.RemoveRange(role.RolePermissions);
+        role.RolePermissions.Clear();
+
+        foreach (var pid in resolved)
+        {
+            role.RolePermissions.Add(new RolePermission
+            {
+                RoleId = role.RoleId,
+                PermissionId = pid,
+                AssignedAt = DateTime.UtcNow
+            });
+        }
+    }
+
     public async Task<RoleDetailDto> UpdateRoleAsync(string roleId, UpdateRoleDto dto)
     {
         var normalizedRoleId = roleId.Trim().ToUpperInvariant();
@@ -266,23 +368,9 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
         role.RoleName = roleName;
         role.Description = dto.Description?.Trim();
 
-        // Quyền hạn của Quản trị viên tối cao (ADMIN) được cấp tự động, không cho chỉnh sửa thủ công.
         if (!IsProtectedAdmin(role))
         {
-            var resolved = await ResolvePermissionsAsync(dto.Permissions);
-
-            context.RolePermissions.RemoveRange(role.RolePermissions);
-            role.RolePermissions.Clear();
-
-            foreach (var pid in resolved)
-            {
-                role.RolePermissions.Add(new RolePermission
-                {
-                    RoleId = role.RoleId,
-                    PermissionId = pid,
-                    AssignedAt = DateTime.UtcNow
-                });
-            }
+            await ReplaceRolePermissionsAsync(role, dto.Permissions);
         }
 
         await context.SaveChangesAsync();
@@ -307,20 +395,7 @@ public class RoleService(AppDbContext context, PermissionCatalogState catalogSta
             throw new BadRequestException("Không thể chỉnh sửa danh sách quyền hạn của Quản trị viên tối cao (ADMIN).");
         }
 
-        var resolved = await ResolvePermissionsAsync(permissionIds);
-
-        context.RolePermissions.RemoveRange(role.RolePermissions);
-        role.RolePermissions.Clear();
-
-        foreach (var pid in resolved)
-        {
-            role.RolePermissions.Add(new RolePermission
-            {
-                RoleId = role.RoleId,
-                PermissionId = pid,
-                AssignedAt = DateTime.UtcNow
-            });
-        }
+        await ReplaceRolePermissionsAsync(role, permissionIds);
 
         await context.SaveChangesAsync();
         return await GetRoleByIdAsync(role.RoleId);

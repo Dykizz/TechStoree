@@ -53,8 +53,14 @@ class StatisticsService {
       debugPrint('[StatisticsService] Lỗi tải đơn hàng: $e');
     }
 
+    // Đơn hàng hợp lệ để tính doanh thu & giá vốn (loại CANCELLED và RETURNED)
+    bool isCountableOrder(Order o) {
+      final st = o.orderStatus.toUpperCase();
+      return st != 'CANCELLED' && st != 'RETURNED';
+    }
+
     // Nạp chi tiết các mặt hàng nếu đơn hàng chưa có OrderItem
-    final validOrders = orders.where((o) => o.orderStatus.toUpperCase() != 'CANCELLED').toList();
+    final validOrders = orders.where(isCountableOrder).toList();
     if (validOrders.any((o) => o.items.isEmpty)) {
       final enriched = await Future.wait(validOrders.map((o) async {
         if (o.items.isNotEmpty) return o;
@@ -82,15 +88,15 @@ class StatisticsService {
     // 3. Tải danh sách sản phẩm
     List<Product> products = [];
     try {
-      products = await apiService.getProducts(token: token);
+      products = await apiService.getAdminProducts(token: token);
     } catch (e) {
       debugPrint('[StatisticsService] Lỗi tải sản phẩm: $e');
     }
 
-    // 4. Tải danh sách nhân sự nội bộ (isStaffOnly = true)
+    // 4. Tải danh sách nhân sự nội bộ từ /api/employees
     List<AppUser> staffList = [];
     try {
-      staffList = await apiService.getUsers(token: token, isStaffOnly: true);
+      staffList = await apiService.getAllEmployees(token: token);
     } catch (e) {
       debugPrint('[StatisticsService] Lỗi tải danh sách nhân viên: $e');
     }
@@ -121,7 +127,12 @@ class StatisticsService {
     );
   }
 
-  /// Tính toán Bảng a: Hoạt động kinh doanh (Thu - Chi - Lợi nhuận) từ số liệu thực
+  static bool _isCountableOrder(Order o) {
+    final st = o.orderStatus.toUpperCase();
+    return st != 'CANCELLED' && st != 'RETURNED';
+  }
+
+  /// Tính toán Bảng a: Hoạt động kinh doanh (Doanh thu - Giá vốn COGS - Lợi nhuận gộp - Chi phí nhập kho)
   static List<FinancialMatrixRow> calculateFinancialMatrix({
     required StatisticsDataset dataset,
     required int year,
@@ -139,15 +150,19 @@ class StatisticsService {
     final q4Start = DateTime(year, 10, 1);
     final q4End = DateTime(year, 12, 31, 23, 59, 59);
 
-    double sumOrders(DateTime start, DateTime end) {
-      return dataset.orders
-          .where((o) =>
-              o.orderStatus.toUpperCase() != 'CANCELLED' &&
-              o.createdAt != null &&
-              !o.createdAt!.isBefore(start) &&
-              !o.createdAt!.isAfter(end))
-          .fold<double>(0.0, (acc, o) => acc + o.totalAmount);
+    Iterable<Order> ordersInRange(DateTime start, DateTime end) {
+      return dataset.orders.where((o) =>
+          _isCountableOrder(o) &&
+          o.createdAt != null &&
+          !o.createdAt!.isBefore(start) &&
+          !o.createdAt!.isAfter(end));
     }
+
+    double sumOrdersRevenue(DateTime start, DateTime end) =>
+        ordersInRange(start, end).fold<double>(0.0, (acc, o) => acc + o.totalAmount);
+
+    double sumOrdersCogs(DateTime start, DateTime end) =>
+        ordersInRange(start, end).fold<double>(0.0, (acc, o) => acc + o.effectiveTotalCost);
 
     double sumPurchaseOrders(DateTime start, DateTime end) {
       return dataset.purchaseOrders
@@ -159,25 +174,60 @@ class StatisticsService {
           .fold<double>(0.0, (acc, po) => acc + po.totalCost);
     }
 
-    final revQ1 = sumOrders(q1Start, q1End);
-    final revQ2 = sumOrders(q2Start, q2End);
-    final revQ3 = sumOrders(q3Start, q3End);
-    final revQ4 = sumOrders(q4Start, q4End);
+    final revQ1 = sumOrdersRevenue(q1Start, q1End);
+    final revQ2 = sumOrdersRevenue(q2Start, q2End);
+    final revQ3 = sumOrdersRevenue(q3Start, q3End);
+    final revQ4 = sumOrdersRevenue(q4Start, q4End);
 
-    final costQ1 = sumPurchaseOrders(q1Start, q1End);
-    final costQ2 = sumPurchaseOrders(q2Start, q2End);
-    final costQ3 = sumPurchaseOrders(q3Start, q3End);
-    final costQ4 = sumPurchaseOrders(q4Start, q4End);
+    final cogsQ1 = sumOrdersCogs(q1Start, q1End);
+    final cogsQ2 = sumOrdersCogs(q2Start, q2End);
+    final cogsQ3 = sumOrdersCogs(q3Start, q3End);
+    final cogsQ4 = sumOrdersCogs(q4Start, q4End);
 
-    final profitQ1 = revQ1 - costQ1;
-    final profitQ2 = revQ2 - costQ2;
-    final profitQ3 = revQ3 - costQ3;
-    final profitQ4 = revQ4 - costQ4;
+    final profitQ1 = revQ1 - cogsQ1;
+    final profitQ2 = revQ2 - cogsQ2;
+    final profitQ3 = revQ3 - cogsQ3;
+    final profitQ4 = revQ4 - cogsQ4;
+
+    final importQ1 = sumPurchaseOrders(q1Start, q1End);
+    final importQ2 = sumPurchaseOrders(q2Start, q2End);
+    final importQ3 = sumPurchaseOrders(q3Start, q3End);
+    final importQ4 = sumPurchaseOrders(q4Start, q4End);
 
     return [
-      FinancialMatrixRow(metricName: 'Tổng thu', q1: revQ1, q2: revQ2, q3: revQ3, q4: revQ4),
-      FinancialMatrixRow(metricName: 'Tổng chi', q1: costQ1, q2: costQ2, q3: costQ3, q4: costQ4),
-      FinancialMatrixRow(metricName: 'Lợi nhuận', q1: profitQ1, q2: profitQ2, q3: profitQ3, q4: profitQ4, isProfit: true),
+      FinancialMatrixRow(
+        metricType: FinancialMetricType.revenue,
+        metricName: 'Doanh thu bán hàng',
+        q1: revQ1,
+        q2: revQ2,
+        q3: revQ3,
+        q4: revQ4,
+      ),
+      FinancialMatrixRow(
+        metricType: FinancialMetricType.cogs,
+        metricName: 'Giá vốn hàng bán (COGS)',
+        q1: cogsQ1,
+        q2: cogsQ2,
+        q3: cogsQ3,
+        q4: cogsQ4,
+      ),
+      FinancialMatrixRow(
+        metricType: FinancialMetricType.grossProfit,
+        metricName: 'Lợi nhuận gộp',
+        q1: profitQ1,
+        q2: profitQ2,
+        q3: profitQ3,
+        q4: profitQ4,
+        isProfit: true,
+      ),
+      FinancialMatrixRow(
+        metricType: FinancialMetricType.importCost,
+        metricName: 'Chi phí nhập kho (PO)',
+        q1: importQ1,
+        q2: importQ2,
+        q3: importQ3,
+        q4: importQ4,
+      ),
     ];
   }
 
@@ -214,7 +264,7 @@ class StatisticsService {
     final q4End = DateTime(year, 12, 31, 23, 59, 59);
 
     final validOrders = dataset.orders.where((o) =>
-        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        _isCountableOrder(o) &&
         o.createdAt != null &&
         o.createdAt!.year == year).toList();
 
@@ -271,7 +321,7 @@ class StatisticsService {
     required List<int> years, // Ví dụ: [2024, 2025, 2026]
   }) {
     final validOrders = dataset.orders.where((o) =>
-        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        _isCountableOrder(o) &&
         o.createdAt != null).toList();
 
     final y1 = years.isNotEmpty ? years[0] : 2024;
@@ -327,14 +377,16 @@ class StatisticsService {
     required int year,
   }) {
     final rows = calculateFinancialMatrix(dataset: dataset, year: year);
-    final revRow = rows.firstWhere((r) => r.metricName == 'Tổng thu');
-    final expRow = rows.firstWhere((r) => r.metricName == 'Tổng chi');
-    final profitRow = rows.firstWhere((r) => r.isProfit);
+    final revRow = rows.firstWhere((r) => r.metricType == FinancialMetricType.revenue);
+    final cogsRow = rows.firstWhere((r) => r.metricType == FinancialMetricType.cogs);
+    final profitRow = rows.firstWhere((r) => r.metricType == FinancialMetricType.grossProfit);
+    final importRow = rows.firstWhere((r) => r.metricType == FinancialMetricType.importCost);
 
     final totalRev = revRow.total;
-    final totalExp = expRow.total;
-    final netProfit = profitRow.total;
-    final margin = totalRev > 0 ? (netProfit / totalRev) * 100 : 0.0;
+    final totalCogs = cogsRow.total;
+    final totalImportCost = importRow.total;
+    final grossProfit = profitRow.total;
+    final margin = totalRev > 0 ? (grossProfit / totalRev) * 100 : 0.0;
 
     // Xác định quý có doanh thu cao nhất
     final quarters = {'Q1': revRow.q1, 'Q2': revRow.q2, 'Q3': revRow.q3, 'Q4': revRow.q4};
@@ -353,7 +405,7 @@ class StatisticsService {
     final prevYear = year - 1;
     if (dataset.availableYears.contains(prevYear)) {
       final prevRows = calculateFinancialMatrix(dataset: dataset, year: prevYear);
-      prevYearRev = prevRows.firstWhere((r) => r.metricName == 'Tổng thu').total;
+      prevYearRev = prevRows.firstWhere((r) => r.metricType == FinancialMetricType.revenue).total;
       if (prevYearRev > 0) {
         growthRate = ((totalRev - prevYearRev) / prevYearRev) * 100;
       }
@@ -361,8 +413,9 @@ class StatisticsService {
 
     return FinancialSummaryKpi(
       totalRevenue: totalRev,
-      totalExpense: totalExp,
-      netProfit: netProfit,
+      totalExpense: totalCogs,
+      totalImportCost: totalImportCost,
+      netProfit: grossProfit,
       profitMargin: margin,
       prevYearRevenue: prevYearRev,
       revenueGrowthRate: growthRate,
@@ -377,7 +430,7 @@ class StatisticsService {
     required int year,
   }) {
     final validOrders = dataset.orders.where((o) =>
-        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        _isCountableOrder(o) &&
         o.createdAt != null &&
         o.createdAt!.year == year).toList();
 
@@ -449,7 +502,7 @@ class StatisticsService {
     }
 
     final validOrders = dataset.orders.where((o) =>
-        o.orderStatus.toUpperCase() != 'CANCELLED' &&
+        _isCountableOrder(o) &&
         o.createdAt != null).toList();
 
     final q1Start = DateTime(year, 1, 1);

@@ -156,6 +156,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
                 ImageUrl = variant.GetDisplayImageUrl(),
                 OriginalPrice = variant.Price,
                 UnitPrice = unitPrice,
+                CostPrice = variant.CostPrice,
                 PromotionId = promoId,
                 PromotionName = promoName,
                 PromotionDiscount = promoDiscount,
@@ -286,7 +287,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             .Where(o => o.UserId == userId);
 
         query = ApplyOrderFilter(query, filter);
-        return await query.ToPagedResultAsync(filter ?? new OrderQueryFilter(), o => o.ToOrderBaseDto());
+        return await query.ToPagedResultAsync(filter ?? new OrderQueryFilter(), o => o.ToOrderBaseDto(includeCostInfo: false));
     }
 
     public async Task<PagedResult<OrderBaseDto>> GetAllOrdersAsync(OrderQueryFilter? filter = null)
@@ -298,7 +299,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
             .AsQueryable();
 
         query = ApplyOrderFilter(query, filter);
-        return await query.ToPagedResultAsync(filter ?? new OrderQueryFilter(), o => o.ToOrderBaseDto());
+        return await query.ToPagedResultAsync(filter ?? new OrderQueryFilter(), o => o.ToOrderBaseDto(includeCostInfo: true));
     }
 
     public async Task<Dictionary<string, int>> GetOrderStatusCountsAsync()
@@ -332,7 +333,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         return result;
     }
 
-    public async Task<OrderDetailDto?> GetOrderByIdAsync(int orderId, int? userId = null)
+    public async Task<OrderDetailDto?> GetOrderByIdAsync(int orderId, int? userId = null, bool includeCostInfo = false)
     {
         var query = BuildOrderDetailQuery().Where(o => o.OrderId == orderId);
         if (userId.HasValue)
@@ -341,10 +342,10 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         }
 
         var order = await query.FirstOrDefaultAsync();
-        return order?.ToOrderDetailDto();
+        return order?.ToOrderDetailDto(includeCostInfo);
     }
 
-    public async Task<OrderDetailDto?> GetOrderByCodeAsync(string orderCode, int? userId = null)
+    public async Task<OrderDetailDto?> GetOrderByCodeAsync(string orderCode, int? userId = null, bool includeCostInfo = false)
     {
         var cleanCode = orderCode.Trim();
         var query = BuildOrderDetailQuery().Where(o => o.OrderCode == cleanCode);
@@ -354,7 +355,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         }
 
         var order = await query.FirstOrDefaultAsync();
-        return order?.ToOrderDetailDto();
+        return order?.ToOrderDetailDto(includeCostInfo);
     }
 
     public async Task<OrderDetailDto> CancelOrderAsync(int orderId, int? userId, CancelOrderRequestDto request, bool isAdmin = false)
@@ -437,7 +438,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         await dbContext.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        return (await GetOrderByIdAsync(order.OrderId))!;
+        return (await GetOrderByIdAsync(order.OrderId, includeCostInfo: isAdmin))!;
     }
 
     public async Task<OrderDetailDto> ReturnOrderAsync(int orderId, int? userId, string reason)
@@ -509,7 +510,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         await dbContext.SaveChangesAsync();
         await transaction.CommitAsync();
 
-        return (await GetOrderByIdAsync(order.OrderId))!;
+        return (await GetOrderByIdAsync(order.OrderId, includeCostInfo: true))!;
     }
 
     public async Task<OrderDetailDto> UpdateOrderStatusAsync(int orderId, UpdateOrderStatusDto request, int? updatedByUserId = null)
@@ -573,7 +574,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
 
         await dbContext.SaveChangesAsync();
-        return (await GetOrderByIdAsync(order.OrderId))!;
+        return (await GetOrderByIdAsync(order.OrderId, includeCostInfo: true))!;
     }
 
     public async Task<OrderDetailDto> UpdateOrderPaymentStatusAsync(int orderId, UpdateOrderPaymentStatusDto request, int? updatedByUserId = null)
@@ -597,7 +598,7 @@ public class OrderService(AppDbContext dbContext, IVoucherService voucherService
         await invoiceService.SyncInvoiceStatusWithOrderAsync(order, now);
         await dbContext.SaveChangesAsync();
 
-        return (await GetOrderByIdAsync(order.OrderId))!;
+        return (await GetOrderByIdAsync(order.OrderId, includeCostInfo: true))!;
     }
 
     public async Task<BatchOrderResultDto> BatchUpdateOrderStatusAsync(BatchUpdateOrderStatusDto request, int? updatedByUserId = null)

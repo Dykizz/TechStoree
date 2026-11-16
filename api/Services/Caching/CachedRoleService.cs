@@ -1,4 +1,5 @@
 using WebBanHang.Api.DTOs.Roles;
+using WebBanHang.Api.DTOs.Users;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services.Caching;
@@ -22,6 +23,12 @@ public class CachedRoleService(
             absoluteExpiration: CacheDurations.Roles.RolesAbsolute,
             slidingExpiration: CacheDurations.Roles.RolesSliding,
             prefix: CacheKeys.Roles.Prefix);
+
+    public Task<List<RoleDto>> GetAssignableRolesAsync()
+        => inner.GetAssignableRolesAsync();
+
+    public Task<List<UserDto>> GetUsersByRoleAsync(string roleId)
+        => inner.GetUsersByRoleAsync(roleId);
 
     public Task<RoleDetailDto> GetRoleByIdAsync(string roleId)
         => cache.GetOrCreateAsync(

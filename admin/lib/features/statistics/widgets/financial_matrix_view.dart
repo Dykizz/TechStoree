@@ -29,12 +29,27 @@ class FinancialMatrixView extends StatelessWidget {
     final cardBg = isDark ? AppColors.darkCard : Colors.white;
 
     final revRow = rows.firstWhere(
-      (r) => r.metricName == 'Tổng thu',
-      orElse: () => const FinancialMatrixRow(metricName: 'Tổng thu', q1: 0, q2: 0, q3: 0, q4: 0),
+      (r) => r.metricType == FinancialMetricType.revenue,
+      orElse: () => const FinancialMatrixRow(
+        metricType: FinancialMetricType.revenue,
+        metricName: 'Doanh thu bán hàng',
+        q1: 0,
+        q2: 0,
+        q3: 0,
+        q4: 0,
+      ),
     );
     final profitRow = rows.firstWhere(
-      (r) => r.isProfit,
-      orElse: () => const FinancialMatrixRow(metricName: 'Lợi nhuận', q1: 0, q2: 0, q3: 0, q4: 0, isProfit: true),
+      (r) => r.metricType == FinancialMetricType.grossProfit || r.isProfit,
+      orElse: () => const FinancialMatrixRow(
+        metricType: FinancialMetricType.grossProfit,
+        metricName: 'Lợi nhuận gộp',
+        q1: 0,
+        q2: 0,
+        q3: 0,
+        q4: 0,
+        isProfit: true,
+      ),
     );
 
     final totalRev = revRow.total;
@@ -129,12 +144,18 @@ class FinancialMatrixView extends StatelessWidget {
             ],
             rows: [
               ...rows.map((row) {
-                final isProfit = row.isProfit;
-                final isExpense = row.metricName.toLowerCase().contains('chi');
+                final isProfit = row.metricType == FinancialMetricType.grossProfit || row.isProfit;
                 final isPositive = row.total >= 0;
                 final profitColor = isProfit
                     ? (isPositive ? const Color(0xFF15803D) : const Color(0xFFB91C1C))
                     : textPrimary;
+
+                final subtitleText = switch (row.metricType) {
+                  FinancialMetricType.revenue => 'Doanh thu đơn hàng hợp lệ (sau KM & Voucher)',
+                  FinancialMetricType.cogs => 'Giá vốn hàng bán snapshot lúc khách đặt đơn',
+                  FinancialMetricType.grossProfit => 'Lãi gộp kinh doanh (Doanh thu - COGS)',
+                  FinancialMetricType.importCost => 'Tổng tiền chi nhập kho từ phiếu PO COMPLETED',
+                };
 
                 final rowBg = isProfit
                     ? (isDark
@@ -174,9 +195,7 @@ class FinancialMatrixView extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              isProfit
-                                  ? 'Thu nhập ròng (Thu - Chi)'
-                                  : (isExpense ? 'Chi phí nhập kho (PO)' : 'Doanh thu bán hàng thực tế'),
+                              subtitleText,
                               style: TextStyle(
                                 color: textSecondary,
                                 fontSize: 11,
@@ -275,12 +294,12 @@ class FinancialMatrixView extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Tỷ suất lợi nhuận (%)',
+                            'Tỷ suất lợi nhuận gộp (%)',
                             style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary, fontSize: 13),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Biên lãi ròng (Lợi nhuận / Doanh thu)',
+                            'Biên lãi gộp (Lợi nhuận gộp / Doanh thu)',
                             style: TextStyle(color: textSecondary, fontSize: 11),
                           ),
                         ],
@@ -314,7 +333,7 @@ class FinancialMatrixView extends StatelessWidget {
 
         // 3. Chú thích kế toán
         Text(
-          '* Ghi chú: Dữ liệu được tính toán 100% từ Database thực tế. Lợi nhuận = Tổng thu (Đơn hàng DELIVERED/CONFIRMED sau khuyến mãi) - Tổng chi (Phiếu nhập COMPLETED). Đơn vị tiền tệ: VNĐ (đ).',
+          '* Ghi chú: Lợi nhuận gộp = Doanh thu bán hàng (loại CANCELLED/RETURNED) - Giá vốn hàng bán COGS (tính theo giá vốn bình quân gia quyền snapshot trên OrderItem lúc bán). Chi phí nhập kho (PO) phản ánh dòng tiền chi nhập hàng thực tế theo phiếu COMPLETED.',
           style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: textSecondary),
         ),
       ],

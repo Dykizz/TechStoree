@@ -55,8 +55,8 @@ class _StaffScreenState extends State<StaffScreen> {
   void _loadStaff() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _staffFuture = apiService.getUsers(token: token, isStaffOnly: true);
-    apiService.getRoles(token: token).then((roles) {
+    _staffFuture = apiService.getAllEmployees(token: token, throwOnError: true);
+    apiService.getAssignableRoles(token: token).then((roles) {
       if (mounted && roles.isNotEmpty) {
         setState(() => _availableRoles = roles);
       }
@@ -138,7 +138,7 @@ class _StaffScreenState extends State<StaffScreen> {
               PageHeader(
                 title: 'Quản lý nhân viên',
                 subtitle: 'Quản lý tài khoản nhân sự nội bộ, phân quyền vai trò (Admin, Sales, Thủ kho, CRM) và bảo mật hệ thống',
-                action: (authProvider.can('Employees.Create') || authProvider.can('Users.Create')) ? AppButton(
+                action: authProvider.can('Employees.Create') ? AppButton(
                   label: 'Thêm nhân viên',
                   icon: Icons.person_add_outlined,
                   onPressed: () => _showFormDialog(context, apiService, authProvider.token, null),
@@ -223,7 +223,18 @@ class _StaffScreenState extends State<StaffScreen> {
                   hasData: hasData,
                   initialMinHeight: 380,
                   child: DataTableContainer(
-                  child: staffList.isEmpty
+                  child: snapshot.hasError && !hasData
+                      ? EmptyState(
+                          icon: Icons.error_outline_rounded,
+                          title: 'Không thể tải danh sách nhân viên',
+                          message: snapshot.error.toString().replaceFirst('Exception: ', ''),
+                          action: AppButton(
+                            label: 'Thử lại',
+                            icon: Icons.refresh_rounded,
+                            onPressed: () => setState(() => _loadStaff()),
+                          ),
+                        )
+                      : staffList.isEmpty
                       ? const EmptyState(
                           icon: Icons.badge_outlined,
                           title: 'Không tìm thấy nhân viên nào',
@@ -340,15 +351,17 @@ class _StaffScreenState extends State<StaffScreen> {
                                               constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                                               tooltip: 'Xem thông tin nhân viên',
                                               onPressed: () => _showDetailDialog(context, u),
-                                            ),                                            if (authProvider.can('Employees.Update') || authProvider.can('Employees.AssignRoles') || authProvider.can('Users.Update') || authProvider.can('Users.AssignRoles'))
+                                            ),                                            if (authProvider.can('Employees.Update') || authProvider.can('Employees.AssignRoles'))
                                               IconButton(
                                                 icon: Icon(Icons.manage_accounts_outlined, size: 15, color: textSecondary),
                                                 padding: EdgeInsets.zero,
                                                 constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
-                                                tooltip: 'Phân quyền & Sửa thông tin',
+                                                tooltip: authProvider.can('Employees.Update') && authProvider.can('Employees.AssignRoles')
+                                                    ? 'Phân quyền & Sửa thông tin'
+                                                    : (authProvider.can('Employees.AssignRoles') ? 'Phân vai trò nhân viên' : 'Sửa thông tin nhân viên'),
                                                 onPressed: () => _showFormDialog(context, apiService, authProvider.token, u),
                                               ),
-                                            if (authProvider.can('Employees.Lock') || authProvider.can('Users.Lock'))
+                                            if (authProvider.can('Employees.Lock'))
                                               IconButton(
                                                 icon: Icon(
                                                   u.isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
@@ -545,6 +558,11 @@ class _StaffScreenState extends State<StaffScreen> {
 
   void _showFormDialog(BuildContext context, ApiService apiService, String? token, AppUser? existing) {
     final isEditing = existing != null;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final canUpdateInfo = !isEditing || authProvider.can('Employees.Update');
+    final canAssignRoles = !isEditing || authProvider.can('Employees.AssignRoles');
+    final canLock = isEditing && authProvider.can('Employees.Lock');
+
     final formKey = GlobalKey<FormState>();
     final fullNameCtrl = TextEditingController(text: isEditing ? existing.fullName : '');
     final userNameCtrl = TextEditingController(text: isEditing ? existing.userName : '');
@@ -554,8 +572,11 @@ class _StaffScreenState extends State<StaffScreen> {
     final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
     final phoneRegex = RegExp(r'^[0-9+\-\s()]{8,15}$');
 
-    final List<String> selectedRoles = isEditing
+    final List<String> originalRoles = isEditing
         ? (existing.roles.isNotEmpty ? List<String>.from(existing.roles) : [existing.role])
+        : const [];
+    final List<String> selectedRoles = isEditing
+        ? List<String>.from(originalRoles)
         : ['SALES_STAFF'];
 
     bool isLocked = isEditing ? existing.isLocked : false;
@@ -590,7 +611,11 @@ class _StaffScreenState extends State<StaffScreen> {
             backgroundColor: cardBg,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             title: Text(
-              isEditing ? 'Sửa nhân viên: ${existing.fullName}' : 'Thêm nhân viên mới',
+              isEditing
+                  ? (canUpdateInfo && canAssignRoles
+                      ? 'Sửa & phân quyền: ${existing.fullName}'
+                      : (canAssignRoles ? 'Phân vai trò: ${existing.fullName}' : 'Sửa nhân viên: ${existing.fullName}'))
+                  : 'Thêm nhân viên mới',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: textPrimary),
             ),
             content: SizedBox(
@@ -610,6 +635,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             child: AppTextField(
                               controller: fullNameCtrl,
                               labelText: 'Họ và tên nhân viên (*)',
+                              readOnly: !canUpdateInfo,
                               validator: (val) {
                                 final v = val?.trim() ?? '';
                                 if (v.isEmpty) return 'Họ và tên không được để trống.';
@@ -642,6 +668,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             child: AppTextField(
                               controller: emailCtrl,
                               labelText: 'Email công vụ (*)',
+                              readOnly: !canUpdateInfo,
                               keyboardType: TextInputType.emailAddress,
                               validator: (val) {
                                 final v = val?.trim() ?? '';
@@ -657,6 +684,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             child: AppTextField(
                               controller: phoneCtrl,
                               labelText: 'Số điện thoại liên lạc',
+                              readOnly: !canUpdateInfo,
                               keyboardType: TextInputType.phone,
                               validator: (val) {
                                 final v = val?.trim() ?? '';
@@ -688,6 +716,13 @@ class _StaffScreenState extends State<StaffScreen> {
                         'Phân Quyền Vai Trò (Được chọn nhiều vai trò):',
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textPrimary),
                       ),
+                      if (isEditing && !canAssignRoles) ...[
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Bạn không có quyền Phân vai trò nhân viên (Employees.AssignRoles) nên không thể thay đổi danh sách vai trò.',
+                          style: TextStyle(fontSize: 11, color: AppColors.warning),
+                        ),
+                      ],
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.all(8),
@@ -711,24 +746,26 @@ class _StaffScreenState extends State<StaffScreen> {
                               ),
                               value: isChecked,
                               activeColor: e.key == 'ADMIN' ? AppColors.danger : AppColors.primary,
-                              onChanged: (val) {
-                                setDialogState(() {
-                                  if (val == true) {
-                                    selectedRoles.add(e.key);
-                                  } else {
-                                    if (selectedRoles.length > 1) {
-                                      selectedRoles.remove(e.key);
-                                    } else {
-                                      AppToast.warning(context, 'Nhân viên phải có ít nhất 1 vai trò');
+                              onChanged: canAssignRoles
+                                  ? (val) {
+                                      setDialogState(() {
+                                        if (val == true) {
+                                          selectedRoles.add(e.key);
+                                        } else {
+                                          if (selectedRoles.length > 1) {
+                                            selectedRoles.remove(e.key);
+                                          } else {
+                                            AppToast.warning(context, 'Nhân viên phải có ít nhất 1 vai trò');
+                                          }
+                                        }
+                                      });
                                     }
-                                  }
-                                });
-                              },
+                                  : null,
                             );
                           }).toList(),
                         ),
                       ),
-                      if (isEditing) ...[
+                      if (canLock) ...[
                         const SizedBox(height: 10),
                         SwitchListTile(
                           title: const Text('Khóa tài khoản này', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -746,7 +783,7 @@ class _StaffScreenState extends State<StaffScreen> {
             actions: [
               AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx)),
               AppButton(
-                label: isEditing ? 'Lưu phân quyền' : 'Thêm nhân viên',
+                label: isEditing ? 'Lưu thay đổi' : 'Thêm nhân viên',
                 onPressed: () async {
                   if (!formKey.currentState!.validate()) return;
 
@@ -763,9 +800,49 @@ class _StaffScreenState extends State<StaffScreen> {
                     createdAt: isEditing ? existing.createdAt : DateTime.now(),
                   );
 
-                  final res = isEditing
-                      ? await apiService.updateUser(user, token: token)
-                      : await apiService.createUser(user, passwordCtrl.text.trim(), token: token);
+                  ApiResult res;
+                  if (!isEditing) {
+                    res = await apiService.createEmployee(user, passwordCtrl.text.trim(), token: token);
+                  } else {
+                    String lastMsg = 'Cập nhật nhân viên thành công!';
+                    bool allOk = true;
+
+                    if (canUpdateInfo) {
+                      final infoRes = await apiService.updateEmployee(user, token: token);
+                      if (!infoRes.success) {
+                        allOk = false;
+                        lastMsg = infoRes.message;
+                      } else if (infoRes.message.isNotEmpty) {
+                        lastMsg = infoRes.message;
+                      }
+                    }
+
+                    if (allOk && canAssignRoles) {
+                      final oldSet = originalRoles.map((e) => e.trim().toUpperCase()).toSet();
+                      final newSet = selectedRoles.map((e) => e.trim().toUpperCase()).toSet();
+                      if (oldSet.length != newSet.length || !oldSet.containsAll(newSet)) {
+                        final roleRes = await apiService.updateEmployeeRoles(existing.id, selectedRoles, token: token);
+                        if (!roleRes.success) {
+                          allOk = false;
+                          lastMsg = roleRes.message;
+                        } else if (!canUpdateInfo && roleRes.message.isNotEmpty) {
+                          lastMsg = roleRes.message;
+                        }
+                      }
+                    }
+
+                    if (allOk && canLock && isLocked != existing.isLocked) {
+                      final lockOk = await apiService.toggleEmployeeLock(existing.id, isLocked: isLocked, token: token);
+                      if (!lockOk) {
+                        allOk = false;
+                        lastMsg = apiService.lastErrorMessage.isNotEmpty
+                            ? apiService.lastErrorMessage
+                            : 'Cập nhật trạng thái khóa thất bại!';
+                      }
+                    }
+
+                    res = ApiResult(success: allOk, message: lastMsg);
+                  }
 
                   if (ctx.mounted) {
                     if (res.success) {
@@ -806,7 +883,7 @@ class _StaffScreenState extends State<StaffScreen> {
             onPressed: () async {
               Navigator.pop(ctx);
               final willLock = !user.isLocked;
-              final success = await apiService.toggleUserLock(user.id, isLocked: willLock, token: token);
+              final success = await apiService.toggleEmployeeLock(user.id, isLocked: willLock, token: token);
               if (context.mounted) {
                 final msg = willLock ? 'Đã khóa tài khoản nhân viên thành công!' : 'Đã mở khóa tài khoản nhân viên thành công!';
                 final errMsg = apiService.lastErrorMessage.isNotEmpty ? apiService.lastErrorMessage : 'Thao tác thất bại!';

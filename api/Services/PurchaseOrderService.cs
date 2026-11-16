@@ -5,11 +5,12 @@ using WebBanHang.Api.DTOs.PurchaseOrders;
 using WebBanHang.Api.Exceptions;
 using WebBanHang.Api.Extensions;
 using WebBanHang.Api.Models;
+using WebBanHang.Api.Services.Caching;
 using WebBanHang.Api.Services.Interfaces;
 
 namespace WebBanHang.Api.Services;
 
-public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
+public class PurchaseOrderService(AppDbContext context, ICacheService cache) : IPurchaseOrderService
 {
     public async Task<PagedResult<PurchaseOrderBaseDto>> GetPurchaseOrdersAsync(PurchaseOrderQueryFilter filter)
     {
@@ -104,8 +105,10 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
             throw new BadRequestException("Không thể tạo phiếu nhập hàng vì nhà cung cấp này đã ngừng hợp tác!");
         }
 
-        // 3. Kiểm tra tính hợp lệ của các biến thể
+        // 3. Kiểm tra tính hợp lệ của các biến thể & đơn giá nhập
         var variants = await ValidateAndGetVariantsAsync(dto.Items.Select(i => i.VariantId));
+        var variantMap = variants.ToDictionary(v => v.VariantId);
+        ValidatePurchaseOrderItems(dto.Items, variantMap);
 
         // 4. Sinh mã phiếu tự động: PO-yyyyMMdd-XXXXXX (tránh trùng khi xóa phiếu nháp hoặc tạo đồng thời)
         var now = DateTime.UtcNow;
@@ -135,7 +138,6 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
                 CreatedAt = now
             };
 
-            var variantMap = variants.ToDictionary(v => v.VariantId);
             foreach (var itemDto in dto.Items)
             {
                 po.Items.Add(new PurchaseOrderItem
@@ -145,17 +147,21 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
                     Quantity = itemDto.Quantity
                 });
 
-                // Nếu người dùng chọn tạo phiếu COMPLETED ngay từ đầu -> Cộng dồn tồn kho
+                // Nếu tạo phiếu COMPLETED ngay từ đầu -> Cập nhật giá vốn bình quân gia quyền & cộng dồn tồn kho
                 if (isCompleted)
                 {
-                    var variant = variantMap[itemDto.VariantId];
-                    variant.StockQuantity += itemDto.Quantity;
+                    ApplyCompletedPurchaseOrderItem(variantMap[itemDto.VariantId], itemDto);
                 }
             }
 
             context.PurchaseOrders.Add(po);
             await context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            if (isCompleted)
+            {
+                cache.RemoveByPrefix(CacheKeys.Products.Prefix);
+            }
 
             return await GetPurchaseOrderByIdAsync(po.PurchaseOrderId);
         }
@@ -215,9 +221,10 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
             }
         }
 
-        // 4. Kiểm tra các biến thể nhập
+        // 4. Kiểm tra các biến thể nhập & đơn giá nhập hợp lệ
         var variants = await ValidateAndGetVariantsAsync(dto.Items.Select(i => i.VariantId));
         var variantMap = variants.ToDictionary(v => v.VariantId);
+        ValidatePurchaseOrderItems(dto.Items, variantMap);
 
         using var transaction = await context.Database.BeginTransactionAsync();
         try
@@ -241,11 +248,10 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
                     Quantity = itemDto.Quantity
                 });
 
-                // Nếu người dùng chọn chuyển trạng thái từ DRAFT sang COMPLETED -> Cộng dồn tồn kho
+                // Nếu chuyển từ DRAFT sang COMPLETED -> Cập nhật giá vốn bình quân gia quyền & cộng dồn tồn kho
                 if (isCompleting)
                 {
-                    var variant = variantMap[itemDto.VariantId];
-                    variant.StockQuantity += itemDto.Quantity;
+                    ApplyCompletedPurchaseOrderItem(variantMap[itemDto.VariantId], itemDto);
                 }
             }
 
@@ -253,6 +259,11 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
 
             await context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            if (isCompleting)
+            {
+                cache.RemoveByPrefix(CacheKeys.Products.Prefix);
+            }
 
             return await GetPurchaseOrderByIdAsync(po.PurchaseOrderId);
         }
@@ -300,5 +311,60 @@ public class PurchaseOrderService(AppDbContext context) : IPurchaseOrderService
         }
 
         return variants;
+    }
+
+    private static void ValidatePurchaseOrderItems(
+        IEnumerable<PurchaseOrderItemCreateRequestDto> items,
+        IReadOnlyDictionary<int, ProductVariant> variantMap)
+    {
+        var seenVariantIds = new HashSet<int>();
+        foreach (var itemDto in items)
+        {
+            var variant = variantMap[itemDto.VariantId];
+            if (!seenVariantIds.Add(itemDto.VariantId))
+            {
+                throw new BadRequestException(
+                    $"Phát hiện biến thể \"{variant.VariantName}\" bị trùng lặp trong cùng phiếu nhập. Vui lòng gộp số lượng vào 1 dòng.");
+            }
+
+            if (itemDto.ImportPrice <= 0)
+            {
+                throw new BadRequestException(
+                    $"Đơn giá nhập của \"{variant.VariantName}\" phải lớn hơn 0.");
+            }
+
+            if (variant.Price > 0 && itemDto.ImportPrice >= variant.Price)
+            {
+                throw new BadRequestException(
+                    $"Đơn giá nhập của \"{variant.VariantName}\" ({itemDto.ImportPrice:N0} ₫) phải nhỏ hơn giá bán hiện tại ({variant.Price:N0} ₫). Vui lòng kiểm tra lại giá nhập hoặc cập nhật giá bán trước.");
+            }
+        }
+    }
+
+    private static void ApplyCompletedPurchaseOrderItem(
+        ProductVariant variant,
+        PurchaseOrderItemCreateRequestDto itemDto)
+    {
+        var oldStock = Math.Max(0, variant.StockQuantity);
+        var oldCost = Math.Max(0m, variant.CostPrice);
+
+        decimal newCostPrice;
+        if (oldStock == 0 || oldCost == 0m)
+        {
+            // Lần nhập đầu tiên (hoặc biến thể chưa có giá vốn) -> Giá vốn bằng đúng đơn giá nhập lô mới
+            newCostPrice = itemDto.ImportPrice;
+        }
+        else
+        {
+            // Bình quân gia quyền liên hoàn (Moving Average Cost)
+            var totalInventoryValue = (oldStock * oldCost) + (itemDto.Quantity * itemDto.ImportPrice);
+            newCostPrice = Math.Round(
+                totalInventoryValue / (oldStock + itemDto.Quantity),
+                0,
+                MidpointRounding.AwayFromZero);
+        }
+
+        variant.CostPrice = newCostPrice;
+        variant.StockQuantity += itemDto.Quantity;
     }
 }
