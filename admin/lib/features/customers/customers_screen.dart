@@ -60,7 +60,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   void _loadCustomers() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _customersFuture = apiService.getUsers(token: token, isStaffOnly: false);
+    _customersFuture = apiService.getAllCustomers(token: token);
   }
 
   void _applySearch(String query) {
@@ -696,8 +696,8 @@ class _CustomerFormDialogState extends State<_CustomerFormDialog> {
     );
 
     final res = isEditing
-        ? await widget.apiService.updateUser(user, token: widget.token)
-        : await widget.apiService.createUser(user, _passwordCtrl.text.trim(), token: widget.token);
+        ? await widget.apiService.updateCustomer(user, token: widget.token)
+        : await widget.apiService.createCustomer(user, _passwordCtrl.text.trim(), token: widget.token);
 
     if (!mounted) return;
 
@@ -935,7 +935,7 @@ class _ToggleCustomerLockDialogState extends State<_ToggleCustomerLockDialog> {
     setState(() => _isSubmitting = true);
 
     final willLock = !widget.user.isLocked;
-    final success = await widget.apiService.toggleUserLock(
+    final success = await widget.apiService.toggleCustomerLock(
       widget.user.id,
       isLocked: willLock,
       token: widget.token,

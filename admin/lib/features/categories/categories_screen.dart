@@ -41,7 +41,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   void _loadCategories() {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
-    _categoriesFuture = apiService.getCategories(token: token);
+    _categoriesFuture = apiService.getAdminCategories(token: token);
   }
 
   void _applySearch(String query) {

@@ -100,7 +100,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final apiService = Provider.of<ApiService>(context, listen: false);
     final token = Provider.of<AuthProvider>(context, listen: false).token;
     void updateFutures() {
-      _productsFuture = apiService.getProductsWithVariants(token: token);
+      _productsFuture = apiService.getAdminProductsWithVariants(token: token);
       _categoriesFuture = apiService.getCategories(token: token);
       _combinedFuture = Future.wait([
         _productsFuture.catchError((_) => <Product>[]),
@@ -120,7 +120,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
 
     Product targetProduct = product;
     if (product.variants.isEmpty && product.id.isNotEmpty && product.id != '0') {
-      final detailed = await apiService.getProductById(product.id, token: token);
+      final detailed = await apiService.getAdminProductById(product.id, token: token);
       if (detailed != null) {
         targetProduct = detailed;
       }

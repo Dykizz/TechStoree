@@ -25,6 +25,7 @@ class ReviewDataTable extends StatelessWidget {
   final ValueChanged<int> onItemsPerPageChanged;
   final void Function(ReviewItem review, {required bool canReply}) onOpenReplyDialog;
   final Future<void> Function(ReviewItem review) onToggleHideReview;
+  final Future<void> Function(ReviewItem review) onDeleteReview;
 
   const ReviewDataTable({
     super.key,
@@ -39,6 +40,7 @@ class ReviewDataTable extends StatelessWidget {
     required this.onItemsPerPageChanged,
     required this.onOpenReplyDialog,
     required this.onToggleHideReview,
+    required this.onDeleteReview,
   });
 
   @override
@@ -163,6 +165,7 @@ class ReviewDataTable extends StatelessWidget {
     final rows = <DataRow>[];
     final canReply = authProvider.can('Reviews.Reply');
     final canHide = authProvider.can('Reviews.Hide');
+    final canDelete = authProvider.can('Reviews.Delete');
 
     for (final review in reviews) {
       final trimmedFull = review.fullName.trim();
@@ -349,6 +352,22 @@ class ReviewDataTable extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                         onPressed: isActionBusy ? null : () => onToggleHideReview(review),
+                      ),
+                    ),
+                  ],
+                  if (canDelete) ...[
+                    const SizedBox(width: 2),
+                    Tooltip(
+                      message: 'Xóa đánh giá',
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: AppColors.danger,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                        onPressed: isActionBusy ? null : () => onDeleteReview(review),
                       ),
                     ),
                   ],

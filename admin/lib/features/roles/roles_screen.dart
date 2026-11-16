@@ -223,6 +223,13 @@ class _RolesScreenState extends State<RolesScreen> {
     return _selectedRoleId?.toUpperCase() == 'ADMIN';
   }
 
+  /// Quyền cốt lõi của ADMIN luôn được giữ lại để tránh tự khóa trang Phân quyền.
+  bool _isLockedAdminPermission(String permissionId) {
+    if (!_isCurrentRoleAdmin) return false;
+    final id = permissionId.trim();
+    return id == 'Roles.View' || id == 'Roles.Update';
+  }
+
   int get _totalAllPermissionsCount {
     int total = 0;
     for (var m in _permissionModules) {
@@ -317,6 +324,10 @@ class _RolesScreenState extends State<RolesScreen> {
     if (_selectedRoleId == null || !_isCurrentRoleDirty) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (!authProvider.can('Roles.Update')) {
+      AppToast.error(context, 'Bạn không có quyền Sửa vai trò / Phân quyền (Roles.Update).');
+      return;
+    }
     if (authProvider.isOfflineMode) {
       AppToast.error(context, 'Đang ở chế độ Offline — không thể quản lý phân quyền!');
       return;
@@ -781,16 +792,19 @@ class _RolesScreenState extends State<RolesScreen> {
                                                         const SizedBox(height: 3),
                                                         Row(
                                                           children: [
-                                                            Text(
-                                                              role.roleId,
-                                                              style: TextStyle(
-                                                                fontSize: 10.5,
-                                                                fontFamily: 'monospace',
-                                                                color: textSecondary,
-                                                                fontWeight: FontWeight.w500,
+                                                            Expanded(
+                                                              child: Text(
+                                                                role.roleId,
+                                                                overflow: TextOverflow.ellipsis,
+                                                                style: TextStyle(
+                                                                  fontSize: 10.5,
+                                                                  fontFamily: 'monospace',
+                                                                  color: textSecondary,
+                                                                  fontWeight: FontWeight.w500,
+                                                                ),
                                                               ),
                                                             ),
-                                                            const Spacer(),
+                                                            const SizedBox(width: 6),
                                                             Container(
                                                               padding: const EdgeInsets.symmetric(
                                                                   horizontal: 5, vertical: 1),
@@ -927,6 +941,7 @@ class _RolesScreenState extends State<RolesScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
     final isAdminRole = _isCurrentRoleAdmin;
     final isOffline = authProvider.isOfflineMode;
+    final canEditPermissions = authProvider.can('Roles.Update') && !isOffline;
     final roleColor = _getRoleColor(role.roleId);
     final roleIcon = _getRoleIcon(role.roleId);
 
@@ -1208,12 +1223,14 @@ class _RolesScreenState extends State<RolesScreen> {
               children: [
                 const Icon(Icons.shield_rounded, color: AppColors.primary, size: 16),
                 const SizedBox(width: 8),
-                Text(
-                  'Vai trò Quản trị viên: Có thể tùy chỉnh phân quyền để giới hạn các hành động tác nghiệp.',
-                  style: TextStyle(
-                    color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E40AF),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Text(
+                    'Vai trò Quản trị viên: Có thể bật/tắt các quyền tác nghiệp nhân viên; riêng quyền Xem & Sửa phân quyền (Roles.View, Roles.Update) luôn được khóa bảo vệ.',
+                    style: TextStyle(
+                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E40AF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -1390,7 +1407,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 ),
                 icon: const Icon(Icons.select_all_rounded, size: 16),
                 label: const Text('Chọn tất cả', style: TextStyle(fontSize: 12)),
-                onPressed: isOffline
+                onPressed: !canEditPermissions
                     ? null
                     : () {
                         setState(() {
@@ -1412,13 +1429,15 @@ class _RolesScreenState extends State<RolesScreen> {
                 ),
                 icon: const Icon(Icons.deselect_rounded, size: 16),
                 label: const Text('Bỏ chọn tất cả', style: TextStyle(fontSize: 12)),
-                onPressed: isOffline
+                onPressed: !canEditPermissions
                     ? null
                     : () {
                         setState(() {
                           for (var m in targetModules) {
                             for (var p in m.permissions) {
-                              _selectedPermissions.remove(p.permissionId);
+                              if (!_isLockedAdminPermission(p.permissionId)) {
+                                _selectedPermissions.remove(p.permissionId);
+                              }
                             }
                           }
                         });
@@ -1491,7 +1510,7 @@ class _RolesScreenState extends State<RolesScreen> {
                       textSecondary: textSecondary,
                       isDark: isDark,
                       isAdminRole: isAdminRole,
-                      isOffline: isOffline,
+                      canEditPermissions: canEditPermissions,
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.all(16),
@@ -1585,7 +1604,7 @@ class _RolesScreenState extends State<RolesScreen> {
                                     child: Checkbox(
                                       value: isAllModuleSelected,
                                       tristate: selectedInModule > 0 && !isAllModuleSelected,
-                                      onChanged: isOffline
+                                      onChanged: !canEditPermissions
                                           ? null
                                           : (val) {
                                               setState(() {
@@ -1595,7 +1614,9 @@ class _RolesScreenState extends State<RolesScreen> {
                                                   }
                                                 } else {
                                                   for (var p in module.permissions) {
-                                                    _selectedPermissions.remove(p.permissionId);
+                                                    if (!_isLockedAdminPermission(p.permissionId)) {
+                                                      _selectedPermissions.remove(p.permissionId);
+                                                    }
                                                   }
                                                 }
                                               });
@@ -1631,7 +1652,7 @@ class _RolesScreenState extends State<RolesScreen> {
                                     runSpacing: spacing,
                                     children: module.permissions.map((perm) {
                                       final isChecked = _selectedPermissions.contains(perm.permissionId);
-                                      final canToggle = !isOffline;
+                                      final canToggle = canEditPermissions && !_isLockedAdminPermission(perm.permissionId);
 
                                       return SizedBox(
                                         width: itemWidth,
@@ -1734,7 +1755,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 label: 'Hoàn tác',
                 icon: Icons.undo_rounded,
                 variant: AppButtonVariant.secondary,
-                onPressed: (_isCurrentRoleDirty && !isOffline && !_isSaving)
+                onPressed: (_isCurrentRoleDirty && canEditPermissions && !_isSaving)
                     ? _revertChanges
                     : null,
               ),
@@ -1746,7 +1767,7 @@ class _RolesScreenState extends State<RolesScreen> {
                 icon: Icons.save_rounded,
                 variant: AppButtonVariant.primary,
                 isLoading: _isSaving,
-                onPressed: (_isCurrentRoleDirty && !isOffline && !_isSaving)
+                onPressed: (_isCurrentRoleDirty && canEditPermissions && !_isSaving)
                     ? _savePermissions
                     : null,
               ),
@@ -1759,6 +1780,8 @@ class _RolesScreenState extends State<RolesScreen> {
 
   /// Bật/tắt quyền kèm ràng buộc phụ thuộc thông minh (Cascading Dependency)
   void _togglePermission(PermissionDetailModel perm, bool willCheck) {
+    if (!willCheck && _isLockedAdminPermission(perm.permissionId)) return;
+
     setState(() {
       final isView = perm.permissionId.endsWith('.View');
       final dotIndex = perm.permissionId.indexOf('.');
@@ -1778,7 +1801,9 @@ class _RolesScreenState extends State<RolesScreen> {
           final moduleObj = _permissionModules.where((m) => m.module == perm.module).firstOrNull;
           if (moduleObj != null) {
             for (var p in moduleObj.permissions) {
-              _selectedPermissions.remove(p.permissionId);
+              if (!_isLockedAdminPermission(p.permissionId)) {
+                _selectedPermissions.remove(p.permissionId);
+              }
             }
           }
         }
@@ -1854,8 +1879,14 @@ class _RolesScreenState extends State<RolesScreen> {
                             ),
                           ),
                         ),
-                        // Badge Chưa áp dụng
-                        if (perm.isReserved)
+                        // Badge Khóa bảo vệ ADMIN hoặc Chưa áp dụng
+                        if (_isLockedAdminPermission(perm.permissionId))
+                          const Tooltip(
+                            message:
+                                'Quyền cốt lõi của Quản trị viên — luôn bật để tránh tự khóa trang Phân quyền.',
+                            child: Icon(Icons.lock_outline_rounded, size: 13, color: AppColors.primary),
+                          )
+                        else if (perm.isReserved)
                           Tooltip(
                             message:
                                 'Quyền đã khai báo nhưng chưa gắn vào API nào — gán được nhưng hiện chưa có tác dụng.',
@@ -2132,9 +2163,9 @@ class _RolesScreenState extends State<RolesScreen> {
     required Color textSecondary,
     required bool isDark,
     required bool isAdminRole,
-    required bool isOffline,
+    required bool canEditPermissions,
   }) {
-    final canToggle = !isOffline;
+    final canToggle = canEditPermissions;
     final headerBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
 
     return Container(
@@ -2295,7 +2326,7 @@ class _RolesScreenState extends State<RolesScreen> {
                               ? _buildMatrixCheckbox(
                                   perm: viewPerm,
                                   isChecked: _selectedPermissions.contains(viewPerm.permissionId),
-                                  canToggle: canToggle,
+                                  canToggle: canToggle && !_isLockedAdminPermission(viewPerm.permissionId),
                                   onChanged: (checked) {
                                     setState(() {
                                       if (checked) {
@@ -2303,7 +2334,9 @@ class _RolesScreenState extends State<RolesScreen> {
                                       } else {
                                         // Ràng buộc thông minh: Bỏ Xem -> Bỏ toàn bộ quyền thao tác trong module này
                                         for (var p in m.permissions) {
-                                          _selectedPermissions.remove(p.permissionId);
+                                          if (!_isLockedAdminPermission(p.permissionId)) {
+                                            _selectedPermissions.remove(p.permissionId);
+                                          }
                                         }
                                       }
                                     });
@@ -2320,7 +2353,7 @@ class _RolesScreenState extends State<RolesScreen> {
                               ? _buildMatrixCheckbox(
                                   perm: createPerm,
                                   isChecked: _selectedPermissions.contains(createPerm.permissionId),
-                                  canToggle: canToggle,
+                                  canToggle: canToggle && !_isLockedAdminPermission(createPerm.permissionId),
                                   onChanged: (checked) {
                                     setState(() {
                                       if (checked) {
@@ -2344,7 +2377,7 @@ class _RolesScreenState extends State<RolesScreen> {
                               ? _buildMatrixCheckbox(
                                   perm: updatePerm,
                                   isChecked: _selectedPermissions.contains(updatePerm.permissionId),
-                                  canToggle: canToggle,
+                                  canToggle: canToggle && !_isLockedAdminPermission(updatePerm.permissionId),
                                   onChanged: (checked) {
                                     setState(() {
                                       if (checked) {
@@ -2368,7 +2401,7 @@ class _RolesScreenState extends State<RolesScreen> {
                               ? _buildMatrixCheckbox(
                                   perm: deletePerm,
                                   isChecked: _selectedPermissions.contains(deletePerm.permissionId),
-                                  canToggle: canToggle,
+                                  canToggle: canToggle && !_isLockedAdminPermission(deletePerm.permissionId),
                                   onChanged: (checked) {
                                     setState(() {
                                       if (checked) {
@@ -2396,10 +2429,13 @@ class _RolesScreenState extends State<RolesScreen> {
                                   runSpacing: 4,
                                   children: specialPerms.map((p) {
                                     final isChecked = _selectedPermissions.contains(p.permissionId);
+                                    final chipCanToggle = canToggle && !_isLockedAdminPermission(p.permissionId);
                                     return Tooltip(
-                                      message: '${p.permissionName} (${p.permissionId})\n${p.description}',
+                                      message: p.isReserved
+                                          ? '${p.permissionName} (${p.permissionId}) — Chưa áp dụng\n${p.description}'
+                                          : '${p.permissionName} (${p.permissionId})\n${p.description}',
                                       child: InkWell(
-                                        onTap: canToggle
+                                        onTap: chipCanToggle
                                             ? () {
                                                 setState(() {
                                                   if (isChecked) {
@@ -2426,13 +2462,15 @@ class _RolesScreenState extends State<RolesScreen> {
                                                     : const Color(0xFFF1F5F9)),
                                             borderRadius: BorderRadius.circular(4),
                                             border: Border.all(
-                                              color: isChecked
-                                                  ? AppColors.primary.withValues(alpha: 0.6)
-                                                  : borderColor,
+                                              color: p.isReserved
+                                                  ? AppColors.warningBorder
+                                                  : (isChecked
+                                                      ? AppColors.primary.withValues(alpha: 0.6)
+                                                      : borderColor),
                                             ),
                                           ),
                                           child: Text(
-                                            p.permissionName,
+                                            p.isReserved ? '${p.permissionName} (Chưa áp dụng)' : p.permissionName,
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: isChecked ? FontWeight.w600 : FontWeight.w500,
@@ -2466,7 +2504,9 @@ class _RolesScreenState extends State<RolesScreen> {
                                     ? () {
                                         setState(() {
                                           for (var p in m.permissions) {
-                                            _selectedPermissions.remove(p.permissionId);
+                                            if (!_isLockedAdminPermission(p.permissionId)) {
+                                              _selectedPermissions.remove(p.permissionId);
+                                            }
                                           }
                                           _selectedPermissions.add(viewPerm.permissionId);
                                         });
@@ -2507,11 +2547,16 @@ class _RolesScreenState extends State<RolesScreen> {
                               icon: const Icon(Icons.clear_rounded, size: 16),
                               visualDensity: VisualDensity.compact,
                               color: AppColors.danger,
-                              onPressed: canToggle && selectedCount > 0
+                              onPressed: canToggle &&
+                                      m.permissions.any((p) =>
+                                          _selectedPermissions.contains(p.permissionId) &&
+                                          !_isLockedAdminPermission(p.permissionId))
                                   ? () {
                                       setState(() {
                                         for (var p in m.permissions) {
-                                          _selectedPermissions.remove(p.permissionId);
+                                          if (!_isLockedAdminPermission(p.permissionId)) {
+                                            _selectedPermissions.remove(p.permissionId);
+                                          }
                                         }
                                       });
                                     }
@@ -2538,15 +2583,40 @@ class _RolesScreenState extends State<RolesScreen> {
     required bool canToggle,
     required ValueChanged<bool> onChanged,
   }) {
+    final isLockedCore = _isLockedAdminPermission(perm.permissionId);
+    final tooltipMsg = isLockedCore
+        ? '${perm.permissionName} (${perm.permissionId}) — Quyền cốt lõi của ADMIN luôn được giữ'
+        : (perm.isReserved
+            ? '${perm.permissionName} (${perm.permissionId}) — Chưa áp dụng\n${perm.description}'
+            : '${perm.permissionName} (${perm.permissionId})\n${perm.description}');
+
     return Tooltip(
-      message: '${perm.permissionName} (${perm.permissionId})\n${perm.description}',
-      child: SizedBox(
-        width: 28,
-        height: 28,
-        child: Checkbox(
-          value: isChecked,
-          onChanged: canToggle ? (v) => onChanged(v == true) : null,
-        ),
+      message: tooltipMsg,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          SizedBox(
+            width: 28,
+            height: 28,
+            child: Checkbox(
+              value: isChecked,
+              onChanged: canToggle ? (v) => onChanged(v == true) : null,
+            ),
+          ),
+          if (perm.isReserved)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                  color: AppColors.warning,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2630,7 +2700,7 @@ class _AssignedUsersDrawerContentState extends State<_AssignedUsersDrawerContent
     final token = authProvider.token;
 
     try {
-      final users = await apiService.getUsers(token: token, isStaffOnly: true);
+      final users = await apiService.getRoleUsers(widget.role.roleId, token: token);
       if (!mounted) return;
       setState(() {
         _allUsers = users;

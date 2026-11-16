@@ -219,6 +219,53 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
     }
   }
 
+  Future<void> _deleteReview(ReviewItem review) async {
+    if (_isActionBusy) return;
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = Provider.of<AuthProvider>(context, listen: false).token;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        title: const Text(
+          'Xác nhận xóa đánh giá',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        ),
+        content: const Text(
+          'Bạn có chắc chắn muốn xóa hoàn toàn đánh giá này khỏi hệ thống? Thao tác này không thể hoàn tác.',
+          style: TextStyle(fontSize: 13),
+        ),
+        actions: [
+          AppButton(label: 'Hủy', variant: AppButtonVariant.outline, onPressed: () => Navigator.pop(ctx, false)),
+          AppButton(
+            label: 'Xóa vĩnh viễn',
+            variant: AppButtonVariant.danger,
+            onPressed: () => Navigator.pop(ctx, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    setState(() => _isActionBusy = true);
+    try {
+      final res = await apiService.deleteReview(review.reviewId, token: token);
+      if (!mounted) return;
+
+      if (res.success) {
+        _refreshList(reloadStats: true);
+        AppToast.success(context, res.message.isNotEmpty ? res.message : 'Xóa đánh giá thành công!');
+      } else {
+        AppToast.error(context, res.message.isNotEmpty ? res.message : 'Xóa đánh giá thất bại!');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isActionBusy = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -351,6 +398,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
             },
             onOpenReplyDialog: _openReplyDialog,
             onToggleHideReview: _toggleHideReview,
+            onDeleteReview: _deleteReview,
           ),
         ],
       ),
