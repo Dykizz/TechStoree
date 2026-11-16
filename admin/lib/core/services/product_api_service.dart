@@ -4,7 +4,19 @@ import '../models/product.dart';
 import 'base_api_service.dart';
 
 mixin ProductApiService on BaseApiService {
-  Future<List<Product>> getProducts({String? token}) async {
+  Future<List<Product>> getProducts({String? token}) {
+    return _fetchPagedProducts(path: '$baseUrl/products', token: token, logLabel: 'getProducts');
+  }
+
+  Future<List<Product>> getAdminProducts({String? token}) {
+    return _fetchPagedProducts(path: '$baseUrl/products/admin', token: token, logLabel: 'getAdminProducts');
+  }
+
+  Future<List<Product>> _fetchPagedProducts({
+    required String path,
+    String? token,
+    required String logLabel,
+  }) async {
     try {
       final List<Product> allProducts = [];
       int page = 1;
@@ -12,7 +24,7 @@ mixin ProductApiService on BaseApiService {
 
       while (hasMore) {
         final response = await httpGet(
-          Uri.parse('$baseUrl/products?page=$page&pageSize=100'),
+          Uri.parse('$path?page=$page&pageSize=100'),
           token: token,
         );
 
@@ -51,7 +63,7 @@ mixin ProductApiService on BaseApiService {
       isConnected = true;
       return allProducts;
     } catch (e) {
-      debugPrint('API Error getProducts: $e');
+      debugPrint('API Error $logLabel: $e');
       isConnected = false;
       return <Product>[];
     }
@@ -59,25 +71,47 @@ mixin ProductApiService on BaseApiService {
 
   Future<List<Product>> getProductsWithVariants({String? token}) async {
     final products = await getProducts(token: token);
+    return _hydrateProductVariants(products, useAdminEndpoint: false, token: token);
+  }
+
+  Future<List<Product>> getAdminProductsWithVariants({String? token}) async {
+    final products = await getAdminProducts(token: token);
+    return _hydrateProductVariants(products, useAdminEndpoint: true, token: token);
+  }
+
+  Future<List<Product>> _hydrateProductVariants(
+    List<Product> products, {
+    required bool useAdminEndpoint,
+    String? token,
+  }) async {
     if (products.isEmpty) {
       return products;
     }
-    final fullProducts = await Future.wait(products.map((p) async {
+    return Future.wait(products.map((p) async {
       if (p.variants.isEmpty && p.id.isNotEmpty && int.tryParse(p.id) != null) {
-        final detail = await getProductById(p.id, token: token);
+        final detail = useAdminEndpoint
+            ? await getAdminProductById(p.id, token: token)
+            : await getProductById(p.id, token: token);
         if (detail != null && detail.variants.isNotEmpty) {
           return detail;
         }
       }
       return p;
     }));
-    return fullProducts;
   }
 
-  Future<Product?> getProductById(String id, {String? token}) async {
+  Future<Product?> getProductById(String id, {String? token}) {
+    return _fetchProductDetail('$baseUrl/products/$id', token: token, logLabel: 'getProductById');
+  }
+
+  Future<Product?> getAdminProductById(String id, {String? token}) {
+    return _fetchProductDetail('$baseUrl/products/admin/$id', token: token, logLabel: 'getAdminProductById');
+  }
+
+  Future<Product?> _fetchProductDetail(String url, {String? token, required String logLabel}) async {
     try {
       final response = await httpGet(
-        Uri.parse('$baseUrl/products/$id'),
+        Uri.parse(url),
         token: token,
       );
 
@@ -86,7 +120,7 @@ mixin ProductApiService on BaseApiService {
         return Product.fromJson(data);
       }
     } catch (e) {
-      debugPrint('API Error getProductById: $e');
+      debugPrint('API Error $logLabel: $e');
     }
     return null;
   }

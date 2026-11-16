@@ -149,15 +149,18 @@ class AuthProvider extends ChangeNotifier {
       _userRoles = ['ADMIN'];
       _permissions = [
         'Categories.Create', 'Categories.Delete', 'Categories.Update', 'Categories.View',
+        'Customers.Create', 'Customers.Lock', 'Customers.Update', 'Customers.View',
+        'Employees.AssignRoles', 'Employees.Create', 'Employees.Lock', 'Employees.Update', 'Employees.View',
+        'Invoices.View',
         'Orders.Cancel', 'Orders.UpdateStatus', 'Orders.View',
         'Products.Create', 'Products.Delete', 'Products.Update', 'Products.View',
         'Promotions.Create', 'Promotions.Delete', 'Promotions.Update', 'Promotions.View',
         'PurchaseOrders.Create', 'PurchaseOrders.Update', 'PurchaseOrders.View',
+        'Reviews.Delete', 'Reviews.Hide', 'Reviews.Reply', 'Reviews.View',
         'Roles.Create', 'Roles.Delete', 'Roles.Update', 'Roles.View',
         'Suppliers.Create', 'Suppliers.Delete', 'Suppliers.Update', 'Suppliers.View',
         'Surveys.Assign', 'Surveys.Create', 'Surveys.Delete', 'Surveys.Update', 'Surveys.View',
-        'Users.AssignRoles', 'Users.Create', 'Users.Lock', 'Users.Update', 'Users.View',
-        'Vouchers.Assign', 'Vouchers.Create', 'Vouchers.Delete', 'Vouchers.Update', 'Vouchers.View'
+        'Vouchers.Create', 'Vouchers.Delete', 'Vouchers.Update', 'Vouchers.View'
       ];
       _token = 'demo-jwt-token-techstoree-2026';
       _refreshToken = 'demo-refresh-token-techstoree-2026';
@@ -173,7 +176,7 @@ class AuthProvider extends ChangeNotifier {
       _userRoles = ['SALES_STAFF'];
       _permissions = [
         'Products.View', 'Orders.View', 'Orders.UpdateStatus',
-        'Promotions.View', 'Vouchers.View', 'Users.View',
+        'Promotions.View', 'Vouchers.View', 'Customers.View',
       ];
       _token = 'demo-jwt-token-sales';
       _refreshToken = 'demo-refresh-token-sales';
@@ -206,8 +209,9 @@ class AuthProvider extends ChangeNotifier {
       _userRole = 'SURVEY_STAFF';
       _userRoles = ['SURVEY_STAFF'];
       _permissions = [
-        'Surveys.View', 'Surveys.Create', 'Surveys.Update', 'Surveys.Assign',
-        'Users.View',
+        'Surveys.View', 'Surveys.Create', 'Surveys.Update', 'Surveys.Delete', 'Surveys.Assign',
+        'Customers.View', 'Customers.Create', 'Customers.Update', 'Customers.Lock',
+        'Reviews.View', 'Reviews.Reply', 'Reviews.Hide',
       ];
       _token = 'demo-jwt-token-survey';
       _refreshToken = 'demo-refresh-token-survey';

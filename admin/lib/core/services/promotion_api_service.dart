@@ -4,7 +4,36 @@ import '../models/promotion.dart';
 import 'base_api_service.dart';
 
 mixin PromotionApiService on BaseApiService {
-  Future<List<Promotion>> getPromotions({String? token, String? status, bool? isActive, String? search}) async {
+  Future<List<Promotion>> getPromotions({String? token, String? status, bool? isActive, String? search}) {
+    return _fetchPromotions(
+      path: '$baseUrl/promotions',
+      token: token,
+      status: status,
+      isActive: isActive,
+      search: search,
+      logLabel: 'getPromotions',
+    );
+  }
+
+  Future<List<Promotion>> getAdminPromotions({String? token, String? status, bool? isActive, String? search}) {
+    return _fetchPromotions(
+      path: '$baseUrl/promotions/admin',
+      token: token,
+      status: status,
+      isActive: isActive,
+      search: search,
+      logLabel: 'getAdminPromotions',
+    );
+  }
+
+  Future<List<Promotion>> _fetchPromotions({
+    required String path,
+    String? token,
+    String? status,
+    bool? isActive,
+    String? search,
+    required String logLabel,
+  }) async {
     try {
       final queryParams = <String, String>{};
       if (status != null && status.isNotEmpty && status != 'Tất cả') {
@@ -17,7 +46,7 @@ mixin PromotionApiService on BaseApiService {
         queryParams['search'] = search;
       }
 
-      final uri = Uri.parse('$baseUrl/promotions').replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final uri = Uri.parse(path).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final response = await httpGet(uri, token: token);
 
       if (response.statusCode == 401 || response.statusCode == 403) {
@@ -30,7 +59,7 @@ mixin PromotionApiService on BaseApiService {
         return data.map((json) => Promotion.fromJson(json as Map<String, dynamic>)).toList();
       }
     } catch (e) {
-      if (kDebugMode) print('API Error getPromotions: $e');
+      if (kDebugMode) print('API Error $logLabel: $e');
     }
     return <Promotion>[];
   }

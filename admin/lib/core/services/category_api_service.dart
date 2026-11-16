@@ -4,10 +4,22 @@ import '../models/category.dart';
 import 'base_api_service.dart';
 
 mixin CategoryApiService on BaseApiService {
-  Future<List<Category>> getCategories({String? token}) async {
+  Future<List<Category>> getCategories({String? token}) {
+    return _fetchCategories(endpoint: '$baseUrl/categories', token: token, logLabel: 'getCategories');
+  }
+
+  Future<List<Category>> getAdminCategories({String? token}) {
+    return _fetchCategories(endpoint: '$baseUrl/categories/admin', token: token, logLabel: 'getAdminCategories');
+  }
+
+  Future<List<Category>> _fetchCategories({
+    required String endpoint,
+    String? token,
+    required String logLabel,
+  }) async {
     try {
       final response = await httpGet(
-        Uri.parse('$baseUrl/categories'),
+        Uri.parse(endpoint),
         token: token,
       );
 
@@ -21,7 +33,7 @@ mixin CategoryApiService on BaseApiService {
         return data.map((json) => Category.fromJson(json)).toList();
       }
     } catch (e) {
-      debugPrint('[CategoryApiService] Lỗi getCategories: $e');
+      debugPrint('[CategoryApiService] Lỗi $logLabel: $e');
     }
     // Hoàn toàn không dùng mock fallback - trả về danh sách rỗng nếu lỗi kết nối
     return <Category>[];

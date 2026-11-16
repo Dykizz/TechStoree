@@ -215,4 +215,21 @@ mixin ReviewApiService on BaseApiService {
       return ApiResult(success: false, message: 'Lỗi kết nối: $e');
     }
   }
+
+  Future<ApiResult> deleteReview(int reviewId, {String? token}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/Reviews/$reviewId');
+      final response = await httpDelete(uri, token: token);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        notifyListeners();
+        return ApiResult(success: true, message: 'Xóa đánh giá thành công!');
+      }
+      final errorMsg = extractErrorMessage(response);
+      return ApiResult(success: false, message: errorMsg);
+    } catch (e) {
+      if (kDebugMode) print('API Error deleteReview: $e');
+      return ApiResult(success: false, message: 'Lỗi kết nối: $e');
+    }
+  }
 }

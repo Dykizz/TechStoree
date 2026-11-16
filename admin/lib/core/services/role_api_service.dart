@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import '../models/app_user.dart';
 import '../models/role.dart';
 import 'base_api_service.dart';
 
@@ -61,6 +62,27 @@ mixin RoleApiService on BaseApiService {
       debugPrint('[RoleApiService] Lỗi getRoleById: $e');
     }
     return null;
+  }
+
+  /// 3.1 Lấy danh sách nhân sự thuộc một vai trò (chỉ đòi Roles.View)
+  Future<List<AppUser>> getRoleUsers(String roleId, {String? token}) async {
+    try {
+      final response = await httpGet(
+        Uri.parse('$baseUrl/roles/$roleId/users'),
+        token: token,
+      );
+
+      final data = parseApiResponse(response);
+      if (data != null && data is List) {
+        return data
+            .whereType<Map<String, dynamic>>()
+            .map(AppUser.fromJson)
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[RoleApiService] Lỗi getRoleUsers: $e');
+    }
+    return [];
   }
 
   /// 4. Tạo vai trò mới
