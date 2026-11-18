@@ -165,7 +165,9 @@ export default function SearchBar({
         <input
           ref={inputRef}
           type="text"
-          className="flex-1 border-none outline-none bg-transparent text-[0.95rem] text-slate-900 font-inherit placeholder:text-slate-400 placeholder:text-[0.9rem]"
+          enterKeyHint="search"
+          autoComplete="off"
+          className="min-w-0 w-full flex-1 border-none outline-none bg-transparent text-[0.95rem] text-slate-900 font-inherit placeholder:text-slate-400 placeholder:text-[0.9rem]"
           aria-label="Tìm kiếm sản phẩm"
           placeholder={placeholder}
           value={value}

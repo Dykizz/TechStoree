@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import HomeHero from "@/components/home/HomeHero";
+import HomeSearch from "@/components/search/HomeSearch";
 import ProductCard from "@/components/products/ProductCard";
 import { useCategories } from "@/hooks/queries/useCategories";
 import { useProducts } from "@/hooks/queries/useProducts";
@@ -41,21 +42,22 @@ export default function HomePage() {
 
   return (
     <main className="text-ink bg-white">
+      <HomeSearch />
       <HomeHero />
-      <section className="border-b border-border py-6.5" aria-label="Trải nghiệm mua sắm">
+      <section className="border-b border-border py-8 md:py-10" aria-label="Trải nghiệm mua sắm">
         <div className="max-w-7xl mx-auto px-8 max-md:px-5">
-          <div className="grid grid-cols-3 max-md:grid-cols-1 gap-7 max-md:gap-5">
-            <Link href="#explore" className="group relative block px-3.5 py-3 pr-10 -mx-3.5 -my-3 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
+          <div className="grid grid-cols-3 max-md:grid-cols-1 gap-7 max-md:gap-3">
+            <Link href="#explore" className="group relative block px-3.5 py-4 pr-10 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
               <span className="text-neutral-400 text-xs tracking-widest font-bold block transition-colors group-hover:text-brand">01 / KHÁM PHÁ</span>
               <p className="mt-1.5 text-sm text-neutral-600">Chọn phiên bản phù hợp</p>
               <i className="absolute right-3.5 top-1/2 -translate-y-1/2 text-lg not-italic text-muted transition-colors group-hover:text-brand" aria-hidden="true">↗</i>
             </Link>
-            <Link href="/products" className="group relative block px-3.5 py-3 pr-10 -mx-3.5 -my-3 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
+            <Link href="/products" className="group relative block px-3.5 py-4 pr-10 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
               <span className="text-neutral-400 text-xs tracking-widest font-bold block transition-colors group-hover:text-brand">02 / MINH BẠCH</span>
               <p className="mt-1.5 text-sm text-neutral-600">Giá & tồn kho từ hệ thống</p>
               <i className="absolute right-3.5 top-1/2 -translate-y-1/2 text-lg not-italic text-muted transition-colors group-hover:text-brand" aria-hidden="true">↗</i>
             </Link>
-            <Link href="/profile" className="group relative block px-3.5 py-3 pr-10 -mx-3.5 -my-3 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
+            <Link href="/profile" className="group relative block px-3.5 py-4 pr-10 rounded-xl no-underline transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-brand focus-visible:outline-offset-4">
               <span className="text-neutral-400 text-xs tracking-widest font-bold block transition-colors group-hover:text-brand">03 / CÁ NHÂN</span>
               <p className="mt-1.5 text-sm text-neutral-600">Hồ sơ và đơn hàng của bạn</p>
               <i className="absolute right-3.5 top-1/2 -translate-y-1/2 text-lg not-italic text-muted transition-colors group-hover:text-brand" aria-hidden="true">↗</i>
