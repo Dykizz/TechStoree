@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import PriceFilterDropdown from "@/components/products/PriceFilterDropdown";
 import ProductCard from "@/components/products/ProductCard";
@@ -25,6 +25,7 @@ interface SearchTypoInfo {
 
 function ProductsContent() {
   const query = useSearchParams();
+  const localUrlQuery = useRef<string | null>(null);
   const initialCategory = Number(query.get("category"));
   const initialSearch = query.get("search") || "";
   const rawPage = Number(query.get("page"));
@@ -80,6 +81,7 @@ function ProductsContent() {
 
       const qs = params.toString();
       const newUrl = qs ? `/products?${qs}` : "/products";
+      localUrlQuery.current = qs;
       window.history.replaceState(null, "", newUrl);
     },
     []
@@ -87,6 +89,12 @@ function ProductsContent() {
 
   // Đồng bộ khi URL thay đổi (Next.js navigation hoặc Browser back/forward)
   useEffect(() => {
+    // Local edits already updated state; preserve the draft (including spaces).
+    // External navigation and back/forward still restore the URL filters.
+    const isLocalEdit = localUrlQuery.current === query.toString();
+    localUrlQuery.current = null;
+    if (isLocalEdit) return;
+
     const rawCat = query.get("category");
     const catId = Number(rawCat);
     if (rawCat && Number.isSafeInteger(catId) && catId > 0) {
@@ -310,7 +318,7 @@ function ProductsContent() {
                 if (val && sortBy !== "price-asc" && sortBy !== "price-desc") {
                   setSortBy("relevance");
                 }
-                syncUrl(selectedCategory, onSaleOnly, val);
+                syncUrl(selectedCategory, onSaleOnly, val, 1, minPrice, maxPrice);
               }}
               onSearch={(val) => {
                 setSearch(val);
@@ -318,7 +326,7 @@ function ProductsContent() {
                 if (val && sortBy !== "price-asc" && sortBy !== "price-desc") {
                   setSortBy("relevance");
                 }
-                syncUrl(selectedCategory, onSaleOnly, val);
+                syncUrl(selectedCategory, onSaleOnly, val, 1, minPrice, maxPrice);
               }}
               allProducts={catalogProducts}
             />
@@ -563,15 +571,10 @@ function ProductsContent() {
   );
 }
 
-function CatalogBoundary() {
-  const query = useSearchParams();
-  return <ProductsContent key={query.toString()} />;
-}
-
 export default function ProductsPage() {
   return (
     <Suspense fallback={<p role="status">Đang tải sản phẩm…</p>}>
-      <CatalogBoundary />
+      <ProductsContent />
     </Suspense>
   );
 }
